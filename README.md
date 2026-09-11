@@ -1,4 +1,10 @@
-# AsyncEventBridge
+<p align="center">
+  <img src="assets/AsyncEventBridge.png" alt="AsyncEventBridge icon" width="128" height="128">
+</p>
+
+<h1 align="center">AsyncEventBridge</h1>
+
+<p align="center"><strong>Bridge event-driven and async .NET code in both directions.</strong></p>
 
 AsyncEventBridge provides two-way interoperability between traditional .NET events and modern async code.
 
