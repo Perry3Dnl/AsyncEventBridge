@@ -6,6 +6,33 @@ namespace AsyncEventBridge;
 public static class EventAwaiter
 {
     /// <summary>
+    /// Waits until an <see cref="EventHandler"/> event satisfies the optional predicate.
+    /// </summary>
+    public static Task<EventArgs> WaitAsync(
+        Action<EventHandler> subscribe,
+        Action<EventHandler> unsubscribe,
+        Predicate<EventArgs>? predicate = null,
+        CancellationToken cancellationToken = default,
+        TimeSpan? timeout = null)
+    {
+        ArgumentNullException.ThrowIfNull(subscribe);
+        ArgumentNullException.ThrowIfNull(unsubscribe);
+
+        EventHandler? adaptedHandler = null;
+
+        return WaitAsync<EventArgs>(
+            handler =>
+            {
+                adaptedHandler = (sender, eventArgs) => handler(sender, eventArgs);
+                subscribe(adaptedHandler);
+            },
+            _ => unsubscribe(adaptedHandler!),
+            predicate,
+            cancellationToken,
+            timeout);
+    }
+
+    /// <summary>
     /// Waits until an <see cref="EventHandler{TEventArgs}"/> event satisfies the optional predicate.
     /// </summary>
     public static Task<TEventArgs> WaitAsync<TEventArgs>(

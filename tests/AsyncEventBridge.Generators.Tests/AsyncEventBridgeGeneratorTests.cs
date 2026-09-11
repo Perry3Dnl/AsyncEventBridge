@@ -24,6 +24,13 @@ public sealed class AsyncEventBridgeGeneratorTests
 
                 public static class EventAwaiter
                 {
+                    public static Task<EventArgs> WaitAsync(
+                        Action<EventHandler> subscribe,
+                        Action<EventHandler> unsubscribe,
+                        Predicate<EventArgs>? predicate = null,
+                        CancellationToken cancellationToken = default,
+                        TimeSpan? timeout = null) => throw new NotImplementedException();
+
                     public static Task<TEventArgs> WaitAsync<TEventArgs>(
                         Action<EventHandler<TEventArgs>> subscribe,
                         Action<EventHandler<TEventArgs>> unsubscribe,
@@ -57,6 +64,7 @@ public sealed class AsyncEventBridgeGeneratorTests
         Assert.Contains("Task<global::Demo.SensorEventArgs>", generatedSource, StringComparison.Ordinal);
         Assert.Contains("Task<global::System.EventArgs>", generatedSource, StringComparison.Ordinal);
         Assert.Contains("global::System.TimeSpan timeout", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("(global::System.EventHandler handler) => source.Tick += handler", generatedSource, StringComparison.Ordinal);
         Assert.Empty(result.Diagnostics.Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
     }
 

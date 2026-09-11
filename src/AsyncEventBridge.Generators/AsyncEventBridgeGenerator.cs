@@ -53,7 +53,7 @@ public sealed class AsyncEventBridgeGenerator : IIncrementalGenerator
 
         foreach (var eventSymbol in events)
         {
-            if (!TryGetEventArgsType(eventSymbol, out var eventArgsType))
+            if (!TryGetEventArgsType(eventSymbol, out var eventArgsType, out var isGenericEventHandler))
             {
                 continue;
             }
@@ -64,7 +64,7 @@ public sealed class AsyncEventBridgeGenerator : IIncrementalGenerator
             }
 
             hasSupportedEvent = true;
-            AppendWaitMethods(source, typeSymbol, eventSymbol, eventArgsType);
+            AppendWaitMethods(source, typeSymbol, eventSymbol, eventArgsType, isGenericEventHandler);
         }
 
         source.AppendLine("}");
@@ -82,19 +82,45 @@ public sealed class AsyncEventBridgeGenerator : IIncrementalGenerator
         StringBuilder source,
         INamedTypeSymbol typeSymbol,
         IEventSymbol eventSymbol,
-        string eventArgsType)
+        string eventArgsType,
+        bool isGenericEventHandler)
     {
         var sourceType = typeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
         var eventName = EscapeIdentifier(eventSymbol.Name);
         var methodName = eventSymbol.Name + "Async";
+        var handlerType = isGenericEventHandler
+            ? $"global::System.EventHandler<{eventArgsType}>"
+            : "global::System.EventHandler";
+        var waitTypeArgument = isGenericEventHandler ? $"<{eventArgsType}>" : string.Empty;
 
+        AppendMethod(source, sourceType, eventName, methodName, eventArgsType, handlerType, waitTypeArgument, includeTimeout: false);
+        AppendMethod(source, sourceType, eventName, methodName, eventArgsType, handlerType, waitTypeArgument, includeTimeout: true);
+    }
+
+    private static void AppendMethod(
+        StringBuilder source,
+        string sourceType,
+        string eventName,
+        string methodName,
+        string eventArgsType,
+        string handlerType,
+        string waitTypeArgument,
+        bool includeTimeout)
+    {
         source.Append("    public static global::System.Threading.Tasks.Task<")
             .Append(eventArgsType)
             .Append("> ")
             .Append(methodName)
             .Append("(this ")
             .Append(sourceType)
-            .Append(" source, global::System.Predicate<")
+            .Append(" source, ");
+
+        if (includeTimeout)
+        {
+            source.Append("global::System.TimeSpan timeout, ");
+        }
+
+        source.Append("global::System.Predicate<")
             .Append(eventArgsType)
             .AppendLine(">? predicate = null, global::System.Threading.CancellationToken cancellationToken = default)")
             .AppendLine("    {")
@@ -103,54 +129,43 @@ public sealed class AsyncEventBridgeGenerator : IIncrementalGenerator
             .AppendLine("            throw new global::System.ArgumentNullException(nameof(source));")
             .AppendLine("        }")
             .AppendLine()
-            .Append("        return global::AsyncEventBridge.EventAwaiter.WaitAsync<")
-            .Append(eventArgsType)
-            .AppendLine(">(")
-            .Append("            handler => source.")
+            .Append("        return global::AsyncEventBridge.EventAwaiter.WaitAsync")
+            .Append(waitTypeArgument)
+            .AppendLine("(")
+            .Append("            (")
+            .Append(handlerType)
+            .Append(" handler) => source.")
             .Append(eventName)
             .AppendLine(" += handler,")
-            .Append("            handler => source.")
+            .Append("            (")
+            .Append(handlerType)
+            .Append(" handler) => source.")
             .Append(eventName)
             .AppendLine(" -= handler,")
             .AppendLine("            predicate,")
-            .AppendLine("            cancellationToken);")
-            .AppendLine("    }")
-            .AppendLine();
+            .Append("            cancellationToken");
 
-        source.Append("    public static global::System.Threading.Tasks.Task<")
-            .Append(eventArgsType)
-            .Append("> ")
-            .Append(methodName)
-            .Append("(this ")
-            .Append(sourceType)
-            .Append(" source, global::System.TimeSpan timeout, global::System.Predicate<")
-            .Append(eventArgsType)
-            .AppendLine(">? predicate = null, global::System.Threading.CancellationToken cancellationToken = default)")
-            .AppendLine("    {")
-            .AppendLine("        if (source is null)")
-            .AppendLine("        {")
-            .AppendLine("            throw new global::System.ArgumentNullException(nameof(source));")
-            .AppendLine("        }")
-            .AppendLine()
-            .Append("        return global::AsyncEventBridge.EventAwaiter.WaitAsync<")
-            .Append(eventArgsType)
-            .AppendLine(">(")
-            .Append("            handler => source.")
-            .Append(eventName)
-            .AppendLine(" += handler,")
-            .Append("            handler => source.")
-            .Append(eventName)
-            .AppendLine(" -= handler,")
-            .AppendLine("            predicate,")
-            .AppendLine("            cancellationToken,")
-            .AppendLine("            timeout);")
-            .AppendLine("    }")
+        if (includeTimeout)
+        {
+            source.AppendLine(",")
+                .AppendLine("            timeout);");
+        }
+        else
+        {
+            source.AppendLine(");");
+        }
+
+        source.AppendLine("    }")
             .AppendLine();
     }
 
-    private static bool TryGetEventArgsType(IEventSymbol eventSymbol, out string eventArgsType)
+    private static bool TryGetEventArgsType(
+        IEventSymbol eventSymbol,
+        out string eventArgsType,
+        out bool isGenericEventHandler)
     {
         eventArgsType = string.Empty;
+        isGenericEventHandler = false;
 
         if (eventSymbol.Type is not INamedTypeSymbol delegateType ||
             delegateType.Name != "EventHandler" ||
@@ -168,6 +183,7 @@ public sealed class AsyncEventBridgeGenerator : IIncrementalGenerator
         if (delegateType.TypeArguments.Length == 1)
         {
             eventArgsType = delegateType.TypeArguments[0].ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+            isGenericEventHandler = true;
             return true;
         }
 

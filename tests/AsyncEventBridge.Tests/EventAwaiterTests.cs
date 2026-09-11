@@ -19,6 +19,23 @@ public sealed class EventAwaiterTests
     }
 
     [Fact]
+    public async Task NonGenericEventHandlerCompletesAndUnsubscribes()
+    {
+        var source = new NonGenericEventSource();
+        var expected = new EventArgs();
+        var wait = EventAwaiter.WaitAsync(
+            handler => source.Tick += handler,
+            handler => source.Tick -= handler);
+
+        source.Raise(expected);
+
+        var result = await wait;
+
+        Assert.Same(expected, result);
+        Assert.Equal(0, source.HandlerCount);
+    }
+
+    [Fact]
     public async Task PredicateFiltersUntilMatch()
     {
         var source = new TestEventSource<TestEventArgs>();

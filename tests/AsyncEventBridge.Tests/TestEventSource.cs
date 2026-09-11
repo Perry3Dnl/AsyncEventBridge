@@ -56,6 +56,21 @@ internal sealed class TestEventSource<TEventArgs>
     }
 }
 
+internal sealed class NonGenericEventSource
+{
+    private EventHandler? _tick;
+
+    internal event EventHandler Tick
+    {
+        add => _tick += value;
+        remove => _tick -= value;
+    }
+
+    internal int HandlerCount => _tick?.GetInvocationList().Length ?? 0;
+
+    internal void Raise(EventArgs eventArgs) => _tick?.Invoke(this, eventArgs);
+}
+
 internal sealed class TestEventArgs(int value) : EventArgs
 {
     internal int Value { get; } = value;
