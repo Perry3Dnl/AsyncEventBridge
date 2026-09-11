@@ -66,6 +66,25 @@ public sealed class EventAwaiterTests
     }
 
     [Fact]
+    public async Task SubscriptionFailureAfterPartialSubscribeFaultsAndCleansUp()
+    {
+        var source = new TestEventSource<TestEventArgs>();
+        var wait = EventAwaiter.WaitAsync<TestEventArgs>(
+            handler =>
+            {
+                source.Changed += handler;
+                throw new InvalidOperationException("subscribe failed");
+            },
+            handler => source.Changed -= handler);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => wait);
+
+        Assert.Equal("subscribe failed", exception.Message);
+        Assert.Equal(0, source.HandlerCount);
+        Assert.Equal(1, source.RemoveCount);
+    }
+
+    [Fact]
     public async Task CancellationCancelsAndUnsubscribes()
     {
         var source = new TestEventSource<TestEventArgs>();
@@ -77,6 +96,27 @@ public sealed class EventAwaiterTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => wait);
         Assert.True(wait.IsCanceled);
         Assert.Equal(0, source.HandlerCount);
+    }
+
+    [Fact]
+    public async Task CancellationDuringSubscriptionCancelsAndCleansUp()
+    {
+        var source = new TestEventSource<TestEventArgs>();
+        using var cancellation = new CancellationTokenSource();
+        var wait = EventAwaiter.WaitAsync<TestEventArgs>(
+            handler =>
+            {
+                source.Changed += handler;
+                cancellation.Cancel();
+            },
+            handler => source.Changed -= handler,
+            cancellationToken: cancellation.Token);
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => wait);
+
+        Assert.True(wait.IsCanceled);
+        Assert.Equal(0, source.HandlerCount);
+        Assert.Equal(1, source.RemoveCount);
     }
 
     [Fact]
@@ -110,6 +150,24 @@ public sealed class EventAwaiterTests
 
         await Assert.ThrowsAsync<TimeoutException>(() => wait);
         Assert.Equal(0, source.HandlerCount);
+    }
+
+    [Fact]
+    public async Task TimeoutDuringSchedulingFaultsAndCleansUp()
+    {
+        var source = new TestEventSource<TestEventArgs>();
+        var wait = EventAwaiter.WaitAsync<TestEventArgs>(
+            handler => source.Changed += handler,
+            handler => source.Changed -= handler,
+            predicate: null,
+            cancellationToken: default,
+            timeout: TimeSpan.FromMinutes(1),
+            timeoutScheduler: new ImmediateTimeoutScheduler());
+
+        await Assert.ThrowsAsync<TimeoutException>(() => wait);
+
+        Assert.Equal(0, source.HandlerCount);
+        Assert.Equal(1, source.RemoveCount);
     }
 
     [Fact]

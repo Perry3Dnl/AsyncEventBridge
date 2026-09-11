@@ -29,3 +29,21 @@ internal sealed class ManualTimeoutScheduler : ITimeoutScheduler
         public void Dispose() => Interlocked.Exchange(ref _callback, null);
     }
 }
+
+internal sealed class ImmediateTimeoutScheduler : ITimeoutScheduler
+{
+    public IDisposable Schedule(TimeSpan timeout, Action callback)
+    {
+        callback();
+        return NoopDisposable.Instance;
+    }
+
+    private sealed class NoopDisposable : IDisposable
+    {
+        internal static NoopDisposable Instance { get; } = new();
+
+        public void Dispose()
+        {
+        }
+    }
+}
