@@ -33,13 +33,13 @@ jobs:
       - name: Run sensor sample
         run: timeout 15s dotnet run --project samples/SensorMonitoring/SensorMonitoring.csproj --configuration Release --no-build
 
-      - name: Pack
-        run: dotnet pack src/AsyncEventBridge/AsyncEventBridge.csproj --configuration Release --no-build --no-restore -p:PackageVersion=0.0.0-ci -o artifacts/packages
+      - name: Pack 0.1.0
+        run: dotnet pack src/AsyncEventBridge/AsyncEventBridge.csproj --configuration Release --no-build --no-restore -o artifacts/packages
 
       - name: Verify package contents
         shell: bash
         run: |
-          PACKAGE="artifacts/packages/AsyncEventBridge.0.0.0-ci.nupkg"
+          PACKAGE="artifacts/packages/AsyncEventBridge.0.1.0.nupkg"
           test -f "$PACKAGE"
           unzip -l "$PACKAGE" | tee artifacts/package-contents.txt
           unzip -l "$PACKAGE" | grep -q "lib/netstandard2.0/AsyncEventBridge.dll"
@@ -49,20 +49,20 @@ jobs:
           unzip -l "$PACKAGE" | grep -q "README.md"
 
       - name: Restore packaged .NET Standard consumer
-        run: dotnet restore tests/AsyncEventBridge.PackageSmoke/AsyncEventBridge.PackageSmoke.csproj --source "$PWD/artifacts/packages" --source https://api.nuget.org/v3/index.json -p:AsyncEventBridgePackageVersion=0.0.0-ci
+        run: dotnet restore tests/AsyncEventBridge.PackageSmoke/AsyncEventBridge.PackageSmoke.csproj --source "$PWD/artifacts/packages" --source https://api.nuget.org/v3/index.json -p:AsyncEventBridgePackageVersion=0.1.0
 
       - name: Build packaged .NET Standard consumer
-        run: dotnet build tests/AsyncEventBridge.PackageSmoke/AsyncEventBridge.PackageSmoke.csproj --configuration Release --no-restore -p:AsyncEventBridgePackageVersion=0.0.0-ci
+        run: dotnet build tests/AsyncEventBridge.PackageSmoke/AsyncEventBridge.PackageSmoke.csproj --configuration Release --no-restore -p:AsyncEventBridgePackageVersion=0.1.0
 
       - name: Restore packaged runtime consumer
-        run: dotnet restore tests/AsyncEventBridge.PackageRuntimeSmoke/AsyncEventBridge.PackageRuntimeSmoke.csproj --source "$PWD/artifacts/packages" --source https://api.nuget.org/v3/index.json -p:AsyncEventBridgePackageVersion=0.0.0-ci
+        run: dotnet restore tests/AsyncEventBridge.PackageRuntimeSmoke/AsyncEventBridge.PackageRuntimeSmoke.csproj --source "$PWD/artifacts/packages" --source https://api.nuget.org/v3/index.json -p:AsyncEventBridgePackageVersion=0.1.0
 
       - name: Run packaged runtime consumer
-        run: timeout 15s dotnet run --project tests/AsyncEventBridge.PackageRuntimeSmoke/AsyncEventBridge.PackageRuntimeSmoke.csproj --configuration Release --no-restore -p:AsyncEventBridgePackageVersion=0.0.0-ci
+        run: timeout 15s dotnet run --project tests/AsyncEventBridge.PackageRuntimeSmoke/AsyncEventBridge.PackageRuntimeSmoke.csproj --configuration Release --no-restore -p:AsyncEventBridgePackageVersion=0.1.0
 
       - name: Upload package artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AsyncEventBridge-package
-          path: artifacts/packages/*.nupkg
+          name: AsyncEventBridge-0.1.0
+          path: artifacts/packages/AsyncEventBridge.0.1.0.nupkg
           if-no-files-found: error
