@@ -65,6 +65,7 @@ public sealed class AsyncEventBridgeGenerator : IIncrementalGenerator
 
             hasSupportedEvent = true;
             AppendWaitMethods(source, typeSymbol, eventSymbol, eventArgsType, isGenericEventHandler);
+            AppendStreamMethods(source, typeSymbol, eventSymbol, eventArgsType, isGenericEventHandler);
         }
 
         source.AppendLine("}");
@@ -145,6 +146,44 @@ public sealed class AsyncEventBridgeGenerator : IIncrementalGenerator
                 isGenericEventHandler,
                 includePredicate: true,
                 includeTimeout: true);
+        }
+    }
+
+    private static void AppendStreamMethods(
+        StringBuilder source,
+        INamedTypeSymbol typeSymbol,
+        IEventSymbol eventSymbol,
+        string eventArgsType,
+        bool isGenericEventHandler)
+    {
+        var sourceType = typeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        var eventName = EscapeIdentifier(eventSymbol.Name);
+        var methodName = eventSymbol.Name + "Stream";
+        var handlerType = isGenericEventHandler
+            ? $"global::System.EventHandler<{eventArgsType}>"
+            : "global::System.EventHandler";
+
+        AppendStreamMethod(
+            source,
+            sourceType,
+            eventName,
+            methodName,
+            eventArgsType,
+            handlerType,
+            isGenericEventHandler,
+            includePredicate: false);
+
+        if (isGenericEventHandler)
+        {
+            AppendStreamMethod(
+                source,
+                sourceType,
+                eventName,
+                methodName,
+                eventArgsType,
+                handlerType,
+                isGenericEventHandler,
+                includePredicate: true);
         }
     }
 
@@ -232,6 +271,68 @@ public sealed class AsyncEventBridgeGenerator : IIncrementalGenerator
         }
 
         source.AppendLine("    }")
+            .AppendLine();
+    }
+
+    private static void AppendStreamMethod(
+        StringBuilder source,
+        string sourceType,
+        string eventName,
+        string methodName,
+        string eventArgsType,
+        string handlerType,
+        bool isGenericEventHandler,
+        bool includePredicate)
+    {
+        source.Append("    public static global::System.Collections.Generic.IAsyncEnumerable<")
+            .Append(eventArgsType)
+            .Append("> ")
+            .Append(methodName)
+            .Append("(this ")
+            .Append(sourceType)
+            .Append(" source, ");
+
+        if (includePredicate)
+        {
+            source.Append("global::System.Predicate<")
+                .Append(eventArgsType)
+                .Append("> predicate, ");
+        }
+
+        source.AppendLine("global::System.Threading.CancellationToken cancellationToken = default)")
+            .AppendLine("    {")
+            .AppendLine("        if (source is null)")
+            .AppendLine("        {")
+            .AppendLine("            throw new global::System.ArgumentNullException(nameof(source));")
+            .AppendLine("        }")
+            .AppendLine();
+
+        if (includePredicate)
+        {
+            source.AppendLine("        if (predicate is null)")
+                .AppendLine("        {")
+                .AppendLine("            throw new global::System.ArgumentNullException(nameof(predicate));")
+                .AppendLine("        }")
+                .AppendLine();
+        }
+
+        source.Append("        return global::AsyncEventBridge.EventStream.Create")
+            .Append(isGenericEventHandler ? $"<{eventArgsType}>" : string.Empty)
+            .AppendLine("(")
+            .Append("            (")
+            .Append(handlerType)
+            .Append(" handler) => source.")
+            .Append(eventName)
+            .AppendLine(" += handler,")
+            .Append("            (")
+            .Append(handlerType)
+            .Append(" handler) => source.")
+            .Append(eventName)
+            .AppendLine(" -= handler,")
+            .Append("            ")
+            .AppendLine(includePredicate ? "predicate," : "null,")
+            .AppendLine("            cancellationToken);")
+            .AppendLine("    }")
             .AppendLine();
     }
 
