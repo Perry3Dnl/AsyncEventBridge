@@ -135,19 +135,36 @@ For example, a newer part of the system can load sensor configuration asynchrono
 Task<SensorConfiguration> loadTask = LoadSensorConfigurationAsync();
 ```
 
-An event-driven consumer can expose that same task as an event source:
+An event-driven consumer creates an event bridge for that same task:
 
 ```csharp
-using var source = loadTask.ToEventSource();
+using EventBridge<SensorConfiguration> bridge =
+    loadTask.ToEventBridge();
 
-source.Completed += OnConfigurationLoaded;
-source.Faulted += OnConfigurationFailed;
-source.Cancelled += OnConfigurationCancelled;
+bridge.Completed += OnConfigurationLoaded;
+bridge.Faulted += OnConfigurationFailed;
+bridge.Cancelled += OnConfigurationCancelled;
 
-source.Connect();
+bridge.Connect();
 ```
 
-`Connect()` is the moment the configured event-facing bridge is connected to the async source and allowed to publish its outcome.
+`ToEventBridge()` creates the event-facing bridge. `Connect()` is the moment that configured bridge is connected to the async source and allowed to publish its outcome.
+
+For an async stream, the same vocabulary is used with a stream-specific bridge:
+
+```csharp
+await using EventStreamBridge<SensorValue> bridge =
+    ReadSensorValuesAsync().ToEventBridge();
+
+bridge.Value += OnSensorValue;
+bridge.Completed += OnSensorStreamCompleted;
+bridge.Faulted += OnSensorStreamFailed;
+bridge.Cancelled += OnSensorStreamCancelled;
+
+bridge.Connect(cancellationToken);
+```
+
+The async-stream runtime is still the next implementation slice.
 
 ## Design goals
 
@@ -174,7 +191,7 @@ var e = await sensor.ValueChangedAsync();
 
 and progressively adds optional filtering, timeout and cancellation behavior.
 
-`Task` and `Task<T>` can also be exposed through `ToEventSource()` with `Completed`, `Faulted` and `Cancelled` events. Async-stream event bridging remains the next API/runtime slice.
+`Task` and `Task<T>` can also be bridged through `ToEventBridge()` with `Completed`, `Faulted` and `Cancelled` events. Async-stream event bridging remains the next runtime slice.
 
 ## Correctness targets
 
