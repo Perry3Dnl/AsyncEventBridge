@@ -3,7 +3,7 @@ namespace AsyncEventBridge;
 /// <summary>
 /// Event-driven facade for an <see cref="IAsyncEnumerable{T}"/>.
 /// </summary>
-/// <typeparam name="T">The stream item type.</typeparam>
+/// <typeparam name="T">The stream value type.</typeparam>
 public sealed class AsyncEnumerableEventSource<T> : IDisposable, IAsyncDisposable
 {
     internal AsyncEnumerableEventSource()
@@ -11,12 +11,9 @@ public sealed class AsyncEnumerableEventSource<T> : IDisposable, IAsyncDisposabl
     }
 
     /// <summary>
-    /// Raised for each item produced by the async sequence.
+    /// Raised for each value produced by the async sequence.
     /// </summary>
-    /// <remarks>
-    /// The event name is still part of the public API review and may change before the stream runtime is finalized.
-    /// </remarks>
-    public event EventHandler<AsyncValueEventArgs<T>>? Next
+    public event EventHandler<AsyncValueEventArgs<T>>? Value
     {
         add => throw DraftOnly();
         remove => throw DraftOnly();
@@ -50,7 +47,7 @@ public sealed class AsyncEnumerableEventSource<T> : IDisposable, IAsyncDisposabl
     }
 
     /// <summary>
-    /// Starts enumerating and publishing items to subscribers.
+    /// Starts enumerating and publishing values to subscribers.
     /// </summary>
     /// <param name="cancellationToken">Optional token used to stop stream consumption.</param>
     public void Start(CancellationToken cancellationToken = default) => throw DraftOnly();
