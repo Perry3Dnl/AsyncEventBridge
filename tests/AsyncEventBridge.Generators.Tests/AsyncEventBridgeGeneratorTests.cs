@@ -59,10 +59,9 @@ public sealed class AsyncEventBridgeGeneratorTests
         var result = RunGenerator(source);
         var generatedSource = Assert.Single(Assert.Single(result.Results).GeneratedSources).SourceText.ToString();
 
-        Assert.Contains("ValueChangedAsync", generatedSource, StringComparison.Ordinal);
-        Assert.Contains("TickAsync", generatedSource, StringComparison.Ordinal);
-        Assert.Contains("Task<global::Demo.SensorEventArgs>", generatedSource, StringComparison.Ordinal);
-        Assert.Contains("Task<global::System.EventArgs>", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("Task<global::Demo.SensorEventArgs> ValueChangedAsync", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("Task TickAsync", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("global::System.Predicate<global::Demo.SensorEventArgs> predicate", generatedSource, StringComparison.Ordinal);
         Assert.Contains("global::System.TimeSpan timeout", generatedSource, StringComparison.Ordinal);
         Assert.Contains("(global::System.EventHandler handler) => source.Tick += handler", generatedSource, StringComparison.Ordinal);
         Assert.Empty(result.Diagnostics.Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
