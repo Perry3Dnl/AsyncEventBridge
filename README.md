@@ -247,6 +247,16 @@ Values are published in enumeration order. The stream then publishes one termina
 
 The bridge does not buffer or replay values in this direction. A handler attached after publication has started can miss earlier values, which matches normal .NET event behavior.
 
+## Subscriber exception policy
+
+The async-to-events bridges intentionally isolate event subscribers from one another.
+
+If a `Completed`, `Faulted`, `Cancelled`, or `Value` handler throws, AsyncEventBridge catches that exception, writes it through `System.Diagnostics.Trace.TraceError`, and continues dispatching the remaining subscribers. The exception is not propagated back through the bridge.
+
+This differs from ordinary synchronous .NET event invocation, where a handler exception normally interrupts invocation and propagates to the caller. The isolation policy exists because bridge publication is driven by asynchronous observation rather than a synchronous caller that can naturally receive the exception.
+
+This policy is fixed in v0.1.0. A configurable subscriber-exception policy may be considered in a later release.
+
 ## Lifecycle rules
 
 The public lifecycle is intentionally explicit:
@@ -284,6 +294,20 @@ Generated methods are designed to stay predictable:
 - normal C# instance-method precedence is respected.
 
 If a source type already contains an instance method named `ValueChangedAsync()`, that instance method wins during normal method resolution. The generated AsyncEventBridge method remains explicitly callable through its generated extension class.
+
+### Generator scope in v0.1.0
+
+The v0.1.0 source generator is intentionally narrower than the low-level runtime:
+
+- `[GenerateAsyncEvents]` is applied to source classes that you can annotate;
+- generated methods currently support `System.EventHandler` and `System.EventHandler<TEventArgs>`;
+- `TEventArgs` must derive from `EventArgs`;
+- custom event delegate types are not generated in v0.1.0;
+- third-party types that cannot be annotated can still be adapted through the low-level runtime APIs.
+
+Examples of event delegates that are valid .NET events but are not yet generated include `PropertyChangedEventHandler`, `NotifyCollectionChangedEventHandler`, and framework-specific custom delegates.
+
+Future generator work can broaden this without changing the runtime bridge model. Unsupported-event diagnostics are also a planned improvement so unsupported delegates are reported explicitly instead of being silently skipped.
 
 ## Low-level APIs
 
@@ -355,3 +379,7 @@ IAsyncEnumerable<T>  -> EventStreamBridge<T>
 ```
 
 Future versions can add targets, host validation, and other compatibility work without changing that core boundary model.
+
+## License
+
+AsyncEventBridge is licensed under the **Mozilla Public License 2.0 (MPL-2.0)**. See [`LICENSE`](LICENSE) for the full license text.
