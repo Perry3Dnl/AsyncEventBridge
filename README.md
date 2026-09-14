@@ -51,6 +51,22 @@ Newer framework targets may be added later when they provide a concrete benefit,
 
 Async-stream interfaces needed by the .NET Standard 2.0 runtime are supplied through `Microsoft.Bcl.AsyncInterfaces`. The runtime avoids newer convenience APIs when equivalent behavior can be implemented without changing the consumer-facing contract.
 
+A dedicated .NET Standard 2.0 / C# 8 compatibility project is built in CI so the baseline is verified by an actual consumer compile rather than only by the runtime project's target framework declaration.
+
+## Package shape
+
+AsyncEventBridge is prepared as **one NuGet package**. Consumers should not need a separate generator package.
+
+The package contains the .NET Standard 2.0 runtime under `lib/netstandard2.0`, XML API documentation, the source generator under `analyzers/dotnet/cs`, the README, and the package icon.
+
+The repository currently uses the pre-release package version `0.1.0-preview.1`. A local package can be built with:
+
+```text
+dotnet pack src/AsyncEventBridge/AsyncEventBridge.csproj -c Release
+```
+
+CI additionally restores a separate consumer from the generated `.nupkg` and compiles generated `...Async()` / `...Stream()` calls through that package. This catches packaging mistakes that ordinary project-reference tests cannot detect.
+
 ## One example environment throughout the documentation
 
 The documentation deliberately uses one fictional **sensor monitoring system** from beginning to end.
@@ -60,6 +76,8 @@ You will keep seeing the same concepts, such as `Sensor`, `sensor`, `ValueChange
 This is intentional. A reader should only need to learn one example system. Each following example can then focus on the one new AsyncEventBridge concept being introduced.
 
 Before/after migration examples follow an additional rule: both sides use the same classes, objects and scenario. Only the code that AsyncEventBridge replaces should change.
+
+A runnable version of this environment lives in `samples/SensorMonitoring` and is compiled as part of the solution build.
 
 ## Example: migrating an event consumer
 
@@ -276,6 +294,8 @@ The test suites cover the event-to-async runtime with:
 - event success and predicate filtering;
 - predicate exceptions;
 - cancellation and timeout cleanup;
+- invalid arguments and timeout validation;
+- subscription failure after a partial subscribe and cleanup;
 - event during subscription (reentrancy);
 - event vs cancellation;
 - event vs timeout;
@@ -288,9 +308,11 @@ The test suites cover the event-to-async runtime with:
 - async-stream filtering, cancellation, disposal, and reentrant subscription cleanup;
 - lossless growing buffers and bounded `DropOldest` / `DropNewest` behavior.
 
-The async-to-events tests also cover task outcome publication, async-stream value ordering, completion, faults, cancellation, disposal, single-connect behavior, subscriber exception isolation, handler removal, no-replay behavior, in-flight disposal behavior, and completion/cancellation races.
+The async-to-events tests also cover task outcome publication, async-stream value ordering, completion, faults, cancellation, disposal, single-connect behavior, subscriber exception isolation, handler removal, no-replay behavior, in-flight disposal behavior, completion/cancellation races, and suppression of task publication after owner disposal.
 
-Generator tests cover method collisions, inherited events, accessibility, generic and nested source types, generic constraints, and generated class-name collisions. A public API lock test also verifies that the runtime does not accidentally expose additional public types or methods.
+Generator tests cover method collisions, inherited events, accessibility, generic and nested source types, generic constraints, hidden members, generated class-name collisions, and C# 8-compatible generated syntax. A public API lock test also verifies that the runtime does not accidentally expose additional public types or methods.
+
+The compatibility consumer compiles every generated one-shot and stream overload against .NET Standard 2.0 / C# 8. The package smoke consumer separately verifies that the same APIs are available when consuming the built NuGet package rather than project references.
 
 Race tests use controlled synchronization rather than timing-based `Task.Delay` assertions.
 
@@ -300,15 +322,31 @@ Race tests use controlled synchronization rather than timing-based `Task.Delay` 
 src/
   AsyncEventBridge/
   AsyncEventBridge.Generators/
+samples/
+  SensorMonitoring/
 tests/
   AsyncEventBridge.Tests/
   AsyncEventBridge.Generators.Tests/
   AsyncEventBridge.StressTests/
+  AsyncEventBridge.Compatibility/
+  AsyncEventBridge.PackageSmoke/
+docs/
+  public-api-draft.md
+  release-readiness.md
 ```
+
+## Release boundary
+
+The codebase can verify runtime behavior, generator behavior, package contents, package consumption, the compatibility floor, and the sample automatically.
+
+A few release decisions deliberately remain outside implementation because they belong to the package owner: licensing or commercial terms, the final stable version number, optional package signing, NuGet.org publishing credentials, and which external hosts are advertised as explicitly certified.
+
+Host-specific certification is separate from .NET Standard compatibility. For example, a Unity version should only be advertised as certified after the actual packaged artifact has been tested in that Unity version.
 
 ## Roadmap
 
-1. Finish and harden the complete .NET Standard 2.0 public API and runtime baseline.
-2. Finish packaging, examples, and beginner-friendly documentation for the first release.
-3. Add newer runtime targets only where they provide a concrete compatibility or performance benefit.
-4. Validate additional host environments such as Unity without changing the baseline contract.
+1. Keep the .NET Standard 2.0 API and behavior frozen behind tests.
+2. Finalize the release-owner choices: licensing/commercial terms, first stable version, signing if wanted, and NuGet publishing.
+3. Publish and verify the first package from a clean external consumer.
+4. Add newer runtime targets only where they provide a concrete compatibility or performance benefit.
+5. Certify additional host environments such as Unity without changing the baseline contract.
