@@ -28,6 +28,29 @@ public sealed class EventStreamBridgeTests
     }
 
     [Fact]
+    public async Task EmptyStreamPublishesCompleted()
+    {
+        await using EventStreamBridge<int> bridge = EmptyValues().ToEventBridge();
+        var completed = NewCompletionSource();
+        var values = 0;
+        var faulted = 0;
+        var cancelled = 0;
+
+        bridge.Value += (_, _) => Interlocked.Increment(ref values);
+        bridge.Completed += (_, _) => completed.TrySetResult(true);
+        bridge.Faulted += (_, _) => Interlocked.Increment(ref faulted);
+        bridge.Cancelled += (_, _) => Interlocked.Increment(ref cancelled);
+
+        bridge.Connect();
+
+        await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Equal(0, values);
+        Assert.Equal(0, faulted);
+        Assert.Equal(0, cancelled);
+    }
+
+    [Fact]
     public async Task PublishesFaultAndStopsWithSingleTerminalOutcome()
     {
         var expected = new InvalidOperationException("sensor stream failed");
@@ -165,6 +188,62 @@ public sealed class EventStreamBridgeTests
     }
 
     [Fact]
+    public async Task RemovedValueSubscriberIsNotInvoked()
+    {
+        var channel = Channel.CreateUnbounded<int>();
+        await using EventStreamBridge<int> bridge = channel.Reader.ReadAllAsync().ToEventBridge();
+        var completed = NewCompletionSource();
+        var calls = 0;
+        EventHandler<AsyncValueEventArgs<int>> handler = (_, _) => Interlocked.Increment(ref calls);
+
+        bridge.Value += handler;
+        bridge.Value -= handler;
+        bridge.Completed += (_, _) => completed.TrySetResult(true);
+
+        bridge.Connect();
+        Assert.True(channel.Writer.TryWrite(1));
+        channel.Writer.TryComplete();
+
+        await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal(0, calls);
+    }
+
+    [Fact]
+    public async Task LateValueSubscriberReceivesNoReplay()
+    {
+        var channel = Channel.CreateUnbounded<int>();
+        await using EventStreamBridge<int> bridge = channel.Reader.ReadAllAsync().ToEventBridge();
+        var firstValuePublished = NewCompletionSource();
+        var completed = NewCompletionSource();
+        var earlyValues = new List<int>();
+        var lateValues = new List<int>();
+
+        bridge.Value += (_, e) =>
+        {
+            earlyValues.Add(e.Value);
+
+            if (e.Value == 1)
+            {
+                firstValuePublished.TrySetResult(true);
+            }
+        };
+        bridge.Completed += (_, _) => completed.TrySetResult(true);
+
+        bridge.Connect();
+        Assert.True(channel.Writer.TryWrite(1));
+        await firstValuePublished.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        bridge.Value += (_, e) => lateValues.Add(e.Value);
+        Assert.True(channel.Writer.TryWrite(2));
+        channel.Writer.TryComplete();
+
+        await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Equal([1, 2], earlyValues);
+        Assert.Equal([2], lateValues);
+    }
+
+    [Fact]
     public async Task ThrowingValueSubscriberDoesNotBlockOtherSubscribersOrCompletion()
     {
         await using EventStreamBridge<int> bridge = Values(7, 8).ToEventBridge();
@@ -194,6 +273,27 @@ public sealed class EventStreamBridgeTests
         Assert.Equal("The event bridge has already been connected.", exception.Message);
     }
 
+    [Fact]
+    public void ConnectAfterDisposeThrows()
+    {
+        var channel = Channel.CreateUnbounded<int>();
+        EventStreamBridge<int> bridge = channel.Reader.ReadAllAsync().ToEventBridge();
+        bridge.Dispose();
+
+        Assert.Throws<ObjectDisposedException>(() => bridge.Connect());
+    }
+
+    [Fact]
+    public void AddingHandlerAfterDisposeThrows()
+    {
+        var channel = Channel.CreateUnbounded<int>();
+        EventStreamBridge<int> bridge = channel.Reader.ReadAllAsync().ToEventBridge();
+        bridge.Dispose();
+
+        Assert.Throws<ObjectDisposedException>(() => bridge.Value += (_, _) => { });
+        Assert.Throws<ObjectDisposedException>(() => bridge.Completed += (_, _) => { });
+    }
+
     private static TaskCompletionSource<bool> NewCompletionSource() =>
         new(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -204,6 +304,12 @@ public sealed class EventStreamBridgeTests
             await Task.Yield();
             yield return value;
         }
+    }
+
+    private static async IAsyncEnumerable<int> EmptyValues()
+    {
+        await Task.Yield();
+        yield break;
     }
 
     private static async IAsyncEnumerable<int> FaultingValues(Exception exception)
