@@ -30,15 +30,15 @@ public enum EventStreamFullMode
     /// Preserves every event value by allowing the buffer to grow beyond its initial capacity.
     /// WARNING: sustained producer throughput above consumer throughput can grow memory usage without a fixed upper bound.
     /// </summary>
-    Grow,
+    Grow = 0,
 
     /// <summary>
     /// Keeps the buffer bounded by removing the oldest buffered value when a new value arrives at capacity.
     /// </summary>
-    DropOldest,
+    DropOldest = 1,
 
     /// <summary>
     /// Keeps the buffer bounded by dropping the newly arriving value when the buffer is already at capacity.
     /// </summary>
-    DropNewest,
+    DropNewest = 2,
 }
