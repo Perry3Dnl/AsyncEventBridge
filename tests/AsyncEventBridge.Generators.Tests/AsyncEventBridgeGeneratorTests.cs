@@ -23,6 +23,10 @@ public sealed class AsyncEventBridgeGeneratorTests
                 {
                 }
 
+                public sealed class EventStreamOptions
+                {
+                }
+
                 public static class EventAwaiter
                 {
                     public static Task<EventArgs> WaitAsync(
@@ -47,12 +51,14 @@ public sealed class AsyncEventBridgeGeneratorTests
                         Action<EventHandler> subscribe,
                         Action<EventHandler> unsubscribe,
                         Predicate<EventArgs>? predicate = null,
+                        EventStreamOptions? options = null,
                         CancellationToken cancellationToken = default) => throw new NotImplementedException();
 
                     public static IAsyncEnumerable<TEventArgs> Create<TEventArgs>(
                         Action<EventHandler<TEventArgs>> subscribe,
                         Action<EventHandler<TEventArgs>> unsubscribe,
                         Predicate<TEventArgs>? predicate = null,
+                        EventStreamOptions? options = null,
                         CancellationToken cancellationToken = default)
                         where TEventArgs : EventArgs => throw new NotImplementedException();
                 }
@@ -81,6 +87,7 @@ public sealed class AsyncEventBridgeGeneratorTests
         Assert.Contains("IAsyncEnumerable<global::Demo.SensorEventArgs> ValueChangedStream", generatedSource, StringComparison.Ordinal);
         Assert.Contains("IAsyncEnumerable<global::System.EventArgs> TickStream", generatedSource, StringComparison.Ordinal);
         Assert.Contains("global::System.Predicate<global::Demo.SensorEventArgs> predicate", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("global::AsyncEventBridge.EventStreamOptions options", generatedSource, StringComparison.Ordinal);
         Assert.Contains("global::System.TimeSpan timeout", generatedSource, StringComparison.Ordinal);
         Assert.Contains("global::AsyncEventBridge.EventStream.Create<global::Demo.SensorEventArgs>", generatedSource, StringComparison.Ordinal);
         Assert.Contains("(global::System.EventHandler handler) => source.Tick += handler", generatedSource, StringComparison.Ordinal);
