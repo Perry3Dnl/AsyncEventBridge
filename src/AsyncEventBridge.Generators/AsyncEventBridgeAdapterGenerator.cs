@@ -379,7 +379,7 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
             .Append(item.EventArgsType)
             .AppendLine("> _) =>")
             .AppendLine("            {")
-            .AppendLine("                if (adaptedHandler is not null)")
+            .AppendLine("                if (adaptedHandler != null)")
             .AppendLine("                {")
             .Append("                    source.")
             .Append(eventName)
