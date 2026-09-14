@@ -152,4 +152,138 @@ public sealed class EventStreamTests
 
         Assert.Equal(0, source.HandlerCount);
     }
+
+    [Fact]
+    public async Task GrowPreservesValuesBeyondInitialCapacity()
+    {
+        var source = new TestEventSource<TestEventArgs>();
+        var options = new EventStreamOptions
+        {
+            Capacity = 2,
+            FullMode = EventStreamFullMode.Grow,
+        };
+        var stream = EventStream.Create<TestEventArgs>(
+            handler => source.Changed += handler,
+            handler => source.Changed -= handler,
+            options: options);
+        var enumerator = stream.GetAsyncEnumerator();
+
+        try
+        {
+            var initialMove = enumerator.MoveNextAsync().AsTask();
+            source.Raise(new TestEventArgs(0));
+            Assert.True(await initialMove);
+
+            source.Raise(new TestEventArgs(1));
+            source.Raise(new TestEventArgs(2));
+            source.Raise(new TestEventArgs(3));
+
+            Assert.True(await enumerator.MoveNextAsync());
+            Assert.Equal(1, enumerator.Current.Value);
+            Assert.True(await enumerator.MoveNextAsync());
+            Assert.Equal(2, enumerator.Current.Value);
+            Assert.True(await enumerator.MoveNextAsync());
+            Assert.Equal(3, enumerator.Current.Value);
+        }
+        finally
+        {
+            await enumerator.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task DropOldestKeepsNewestBufferedValues()
+    {
+        var source = new TestEventSource<TestEventArgs>();
+        var options = new EventStreamOptions
+        {
+            Capacity = 2,
+            FullMode = EventStreamFullMode.DropOldest,
+        };
+        var stream = EventStream.Create<TestEventArgs>(
+            handler => source.Changed += handler,
+            handler => source.Changed -= handler,
+            options: options);
+        var enumerator = stream.GetAsyncEnumerator();
+
+        try
+        {
+            var initialMove = enumerator.MoveNextAsync().AsTask();
+            source.Raise(new TestEventArgs(0));
+            Assert.True(await initialMove);
+
+            source.Raise(new TestEventArgs(1));
+            source.Raise(new TestEventArgs(2));
+            source.Raise(new TestEventArgs(3));
+
+            Assert.True(await enumerator.MoveNextAsync());
+            Assert.Equal(2, enumerator.Current.Value);
+            Assert.True(await enumerator.MoveNextAsync());
+            Assert.Equal(3, enumerator.Current.Value);
+        }
+        finally
+        {
+            await enumerator.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task DropNewestKeepsExistingBufferedValues()
+    {
+        var source = new TestEventSource<TestEventArgs>();
+        var options = new EventStreamOptions
+        {
+            Capacity = 2,
+            FullMode = EventStreamFullMode.DropNewest,
+        };
+        var stream = EventStream.Create<TestEventArgs>(
+            handler => source.Changed += handler,
+            handler => source.Changed -= handler,
+            options: options);
+        var enumerator = stream.GetAsyncEnumerator();
+
+        try
+        {
+            var initialMove = enumerator.MoveNextAsync().AsTask();
+            source.Raise(new TestEventArgs(0));
+            Assert.True(await initialMove);
+
+            source.Raise(new TestEventArgs(1));
+            source.Raise(new TestEventArgs(2));
+            source.Raise(new TestEventArgs(3));
+
+            Assert.True(await enumerator.MoveNextAsync());
+            Assert.Equal(1, enumerator.Current.Value);
+            Assert.True(await enumerator.MoveNextAsync());
+            Assert.Equal(2, enumerator.Current.Value);
+        }
+        finally
+        {
+            await enumerator.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public void RejectsNonPositiveCapacity()
+    {
+        var source = new TestEventSource<TestEventArgs>();
+        var options = new EventStreamOptions { Capacity = 0 };
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => EventStream.Create<TestEventArgs>(
+            handler => source.Changed += handler,
+            handler => source.Changed -= handler,
+            options: options));
+    }
+
+    [Fact]
+    public void RejectsUnknownFullMode()
+    {
+        var source = new TestEventSource<TestEventArgs>();
+        var options = new EventStreamOptions { FullMode = (EventStreamFullMode)999 };
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => EventStream.Create<TestEventArgs>(
+            handler => source.Changed += handler,
+            handler => source.Changed -= handler,
+            options: options));
+    }
 }
