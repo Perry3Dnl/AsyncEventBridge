@@ -1,8 +1,43 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>netstandard2.0</TargetFramework>
     <AssemblyName>AsyncEventBridge</AssemblyName>
     <RootNamespace>AsyncEventBridge</RootNamespace>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <PackageId>AsyncEventBridge</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>Perry3Dnl</Authors>
+    <Description>Bridge event-driven and async .NET code in both directions. First release built on the complete .NET Standard 2.0 baseline.</Description>
+    <PackageTags>async;events;task;iasyncenumerable;source-generator;netstandard;netstandard2.0</PackageTags>
+    <PackageProjectUrl>https://github.com/Perry3Dnl/AsyncEventBridge</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Perry3Dnl/AsyncEventBridge.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>assets/AsyncEventBridge.png</PackageIcon>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../AsyncEventBridge.Generators/AsyncEventBridge.Generators.csproj"
+                      ReferenceOutputAssembly="false"
+                      PrivateAssets="all" />
+
+    <None Include="../../README.md"
+          Pack="true"
+          PackagePath="/"
+          Visible="false" />
+    <None Include="../../assets/AsyncEventBridge.png"
+          Pack="true"
+          PackagePath="assets/"
+          Visible="false" />
+    <None Include="../AsyncEventBridge.Generators/bin/$(Configuration)/netstandard2.0/AsyncEventBridge.Generators.dll"
+          Pack="true"
+          PackagePath="analyzers/dotnet/cs/"
+          Visible="false" />
+  </ItemGroup>
 </Project>
