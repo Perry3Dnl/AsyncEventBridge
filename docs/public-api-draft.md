@@ -103,7 +103,7 @@ source.Completed += OnConfigurationSaved;
 source.Faulted += OnConfigurationSaveFailed;
 source.Cancelled += OnConfigurationSaveCancelled;
 
-source.Start();
+source.Connect();
 ```
 
 ### `Task<T>`
@@ -115,12 +115,12 @@ source.Completed += OnConfigurationLoaded;
 source.Faulted += OnConfigurationLoadFailed;
 source.Cancelled += OnConfigurationLoadCancelled;
 
-source.Start();
+source.Connect();
 ```
 
 `Completed` receives `AsyncValueEventArgs<T>` and exposes the result through `Value`.
 
-`Task` and `Task<T>` event sources are now implemented on the API-design branch. They observe the existing task; they do not start or cancel it.
+`Task` and `Task<T>` event sources are now implemented on the API-design branch. They observe the existing task and publish its terminal outcome once the bridge is connected.
 
 ### `IAsyncEnumerable<T>`
 
@@ -134,22 +134,30 @@ source.Completed += OnSensorStreamCompleted;
 source.Faulted += OnSensorStreamFailed;
 source.Cancelled += OnSensorStreamCancelled;
 
-source.Start(cancellationToken);
+source.Connect(cancellationToken);
 ```
 
-The cancellation token belongs to stream consumption, so it is passed to `Start(...)` rather than `ToEventSource(...)`.
+The cancellation token belongs to stream consumption, so it is passed to `Connect(...)` rather than `ToEventSource(...)`.
 
 `Value` is the event raised for every value produced by the `IAsyncEnumerable<T>`. The event uses `AsyncValueEventArgs<T>`, so the produced value is available as `e.Value`.
 
 The name is intentionally simple and domain-neutral: the bridge exposes values without implying that they were received, generated, or produced by any specific kind of source.
 
-## Why `Start()` exists
+## Why `Connect()` exists
 
-`Start()` is deliberate. It allows legacy/event-driven consumers to attach every handler before the bridge starts publishing anything.
+`Connect()` is the explicit boundary between configuring the event-facing side and allowing the bridge to carry values or terminal outcomes across it.
 
-Without an explicit start boundary, an already-completed `Task` or a very fast `IAsyncEnumerable<T>` can finish while handlers are still being attached. Avoiding that would require hidden delays, buffering, or replay semantics. An explicit `Start()` is deterministic and keeps the event model understandable.
+This lets a consumer attach all event handlers first and then connect both programming models in one clear step:
 
-The underlying `Task` may already be running. `Start()` starts observation/publication by the bridge; it does not start the task itself.
+```csharp
+source.Completed += OnCompleted;
+source.Faulted += OnFaulted;
+source.Cancelled += OnCancelled;
+
+source.Connect();
+```
+
+The verb describes the bridge itself rather than claiming to start the underlying async operation.
 
 ## Documentation rule
 
