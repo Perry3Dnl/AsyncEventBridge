@@ -144,10 +144,10 @@ source.Completed += OnConfigurationLoaded;
 source.Faulted += OnConfigurationFailed;
 source.Cancelled += OnConfigurationCancelled;
 
-source.Start();
+source.Connect();
 ```
 
-`Start()` starts observation and publication by the bridge. It does not start the underlying `Task`; the task may already be running or completed.
+`Connect()` is the moment the configured event-facing bridge is connected to the async source and allowed to publish its outcome.
 
 ## Design goals
 
