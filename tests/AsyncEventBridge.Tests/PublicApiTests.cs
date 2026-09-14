@@ -58,6 +58,18 @@ public sealed class PublicApiTests
             Enum.GetNames<EventStreamFullMode>().OrderBy(name => name, StringComparer.Ordinal));
     }
 
+    [Fact]
+    public void EventStreamConfigurationDefaultsAndNumericValuesStayStable()
+    {
+        var options = new EventStreamOptions();
+
+        Assert.Equal(100, options.Capacity);
+        Assert.Equal(EventStreamFullMode.Grow, options.FullMode);
+        Assert.Equal(0, (int)EventStreamFullMode.Grow);
+        Assert.Equal(1, (int)EventStreamFullMode.DropOldest);
+        Assert.Equal(2, (int)EventStreamFullMode.DropNewest);
+    }
+
     private static void AssertMethodNames(Type type, params string[] expected)
     {
         var methods = type
