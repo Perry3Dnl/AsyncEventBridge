@@ -129,7 +129,7 @@ The async-stream event source is still a public API draft. The intended shape is
 ```csharp
 await using var source = ReadSensorValuesAsync().ToEventSource();
 
-source.Next += OnSensorValue;
+source.Value += OnSensorValue;
 source.Completed += OnSensorStreamCompleted;
 source.Faulted += OnSensorStreamFailed;
 source.Cancelled += OnSensorStreamCancelled;
@@ -137,9 +137,11 @@ source.Cancelled += OnSensorStreamCancelled;
 source.Start(cancellationToken);
 ```
 
-The cancellation token belongs to stream consumption, so the current direction is to pass it to `Start(...)` rather than `ToEventSource(...)`.
+The cancellation token belongs to stream consumption, so it is passed to `Start(...)` rather than `ToEventSource(...)`.
 
-The name `Next` is not considered final yet; a more event-oriented name will be reviewed before the stream runtime is implemented.
+`Value` is the event raised for every value produced by the `IAsyncEnumerable<T>`. The event uses `AsyncValueEventArgs<T>`, so the produced value is available as `e.Value`.
+
+The name is intentionally simple and domain-neutral: the bridge exposes values without implying that they were received, generated, or produced by any specific kind of source.
 
 ## Why `Start()` exists
 
