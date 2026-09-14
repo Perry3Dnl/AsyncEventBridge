@@ -77,7 +77,7 @@ public sealed class EventStreamBridge<T> : IDisposable, IAsyncDisposable
 
         lock (_gate)
         {
-            ObjectDisposedException.ThrowIf(_disposed, this);
+            ThrowIfDisposed();
 
             if (_connected)
             {
@@ -298,7 +298,7 @@ public sealed class EventStreamBridge<T> : IDisposable, IAsyncDisposable
 
         lock (_gate)
         {
-            ObjectDisposedException.ThrowIf(_disposed, this);
+            ThrowIfDisposed();
 
             if (!_terminalPublished)
             {
@@ -333,7 +333,7 @@ public sealed class EventStreamBridge<T> : IDisposable, IAsyncDisposable
 
         lock (_gate)
         {
-            ObjectDisposedException.ThrowIf(_disposed, this);
+            ThrowIfDisposed();
 
             if (!_terminalPublished)
             {
@@ -356,6 +356,14 @@ public sealed class EventStreamBridge<T> : IDisposable, IAsyncDisposable
             {
                 field -= handler;
             }
+        }
+    }
+
+    private void ThrowIfDisposed()
+    {
+        if (_disposed)
+        {
+            throw new ObjectDisposedException(nameof(EventStreamBridge<T>));
         }
     }
 
