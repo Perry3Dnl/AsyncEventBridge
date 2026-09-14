@@ -79,7 +79,7 @@ The low-level `EventAwaiter` remains available for advanced/manual bridging. The
 
 ### Event streams
 
-Planned facade:
+Generated facade for consuming repeated event occurrences:
 
 ```csharp
 await foreach (var value in sensor.ValueChangedStream(cancellationToken))
@@ -88,7 +88,33 @@ await foreach (var value in sensor.ValueChangedStream(cancellationToken))
 }
 ```
 
-For generic events, a predicate overload is planned as well.
+Generic events also support filtering:
+
+```csharp
+await foreach (var value in sensor.ValueChangedStream(
+    e => e.Value >= 100,
+    cancellationToken))
+{
+    Console.WriteLine(value.Value);
+}
+```
+
+Generated signatures:
+
+```csharp
+IAsyncEnumerable<SensorEventArgs> ValueChangedStream(
+    CancellationToken cancellationToken = default);
+
+IAsyncEnumerable<SensorEventArgs> ValueChangedStream(
+    Predicate<SensorEventArgs> predicate,
+    CancellationToken cancellationToken = default);
+```
+
+A non-generic `EventHandler` is exposed as `IAsyncEnumerable<EventArgs>`.
+
+The runtime subscribes when enumeration begins and unsubscribes when the enumeration is cancelled, disposed, or leaves the `await foreach`. Events are delivered in publication order. Because a normal .NET event cannot be asynchronously backpressured, values are buffered while the async consumer is behind.
+
+The low-level `EventStream` runtime remains available for advanced/manual bridging, while generated `...Stream()` methods are the normal entry point.
 
 ## Async -> events
 
@@ -111,7 +137,7 @@ Connect(cancellationToken)
 
 This naming is intentional. `Connect()` describes the bridge operation and does not imply that it starts the underlying `Task`.
 
-A possible future `AsyncBridge` name may be useful for an explicit event -> async bridge type, but that is not currently a committed public type. The normal event -> async experience remains the generated `...Async()` methods.
+A possible future `AsyncBridge` name may be useful for an explicit event -> async bridge type, but that is not currently a committed public type. The normal event -> async experience remains the generated `...Async()` and `...Stream()` methods.
 
 ### `Task`
 
@@ -198,6 +224,7 @@ The sensor monitoring environment remains the common example throughout the READ
 ```text
 GenerateAsyncEventsAttribute
 EventAwaiter
+EventStream
 AsyncEventBridgeExtensions
 EventBridge
 EventBridge<T>
