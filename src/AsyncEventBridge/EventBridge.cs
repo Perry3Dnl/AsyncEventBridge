@@ -57,7 +57,7 @@ public sealed class EventBridge : IDisposable
     {
         lock (_gate)
         {
-            ObjectDisposedException.ThrowIf(_disposed, this);
+            ThrowIfDisposed();
 
             if (_connected)
             {
@@ -187,7 +187,7 @@ public sealed class EventBridge : IDisposable
 
         lock (_gate)
         {
-            ObjectDisposedException.ThrowIf(_disposed, this);
+            ThrowIfDisposed();
 
             if (!_published)
             {
@@ -222,7 +222,7 @@ public sealed class EventBridge : IDisposable
 
         lock (_gate)
         {
-            ObjectDisposedException.ThrowIf(_disposed, this);
+            ThrowIfDisposed();
 
             if (!_published)
             {
@@ -245,6 +245,14 @@ public sealed class EventBridge : IDisposable
             {
                 field -= handler;
             }
+        }
+    }
+
+    private void ThrowIfDisposed()
+    {
+        if (_disposed)
+        {
+            throw new ObjectDisposedException(nameof(EventBridge));
         }
     }
 }
@@ -307,7 +315,7 @@ public sealed class EventBridge<T> : IDisposable
     {
         lock (_gate)
         {
-            ObjectDisposedException.ThrowIf(_disposed, this);
+            ThrowIfDisposed();
 
             if (_connected)
             {
@@ -438,7 +446,7 @@ public sealed class EventBridge<T> : IDisposable
 
         lock (_gate)
         {
-            ObjectDisposedException.ThrowIf(_disposed, this);
+            ThrowIfDisposed();
 
             if (!_published)
             {
@@ -473,7 +481,7 @@ public sealed class EventBridge<T> : IDisposable
 
         lock (_gate)
         {
-            ObjectDisposedException.ThrowIf(_disposed, this);
+            ThrowIfDisposed();
 
             if (!_published)
             {
@@ -495,6 +503,14 @@ public sealed class EventBridge<T> : IDisposable
             {
                 field -= handler;
             }
+        }
+    }
+
+    private void ThrowIfDisposed()
+    {
+        if (_disposed)
+        {
+            throw new ObjectDisposedException(nameof(EventBridge<T>));
         }
     }
 }
