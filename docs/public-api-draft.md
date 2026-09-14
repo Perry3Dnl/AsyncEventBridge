@@ -229,6 +229,19 @@ The cancellation token belongs to stream consumption, so it is passed to `Connec
 
 The bridge does not buffer or replay values. A handler attached after `Connect()` may miss values that were already published, which matches normal .NET event behavior.
 
+### Stream bridge lifecycle and races
+
+The stream bridge has an explicit race contract so disposal and terminal outcomes remain predictable under concurrency:
+
+- `Dispose()` is non-blocking with respect to event dispatch. It suppresses new publication, but an event publication that already started is allowed to finish after `Dispose()` returns.
+- `DisposeAsync()` suppresses new publication and waits for an in-flight event publication plus asynchronous enumerator cleanup. After it completes, the bridge will not invoke another event handler.
+- Owner disposal does not publish `Cancelled`.
+- `Completed`, `Faulted`, and `Cancelled` are mutually exclusive terminal outcomes. At most one is published.
+- If cancellation races with natural completion or a fault, no outcome gets artificial priority. Whichever outcome reaches terminal publication first wins.
+- A `Value` publication that already started may finish during disposal. A value that has not yet entered publication is suppressed once disposal wins the race.
+
+These guarantees are covered with controlled synchronization tests rather than timing-based `Task.Delay` assertions.
+
 ## Why `Connect()` exists
 
 `Connect()` is the explicit boundary between configuring the event-facing side and allowing the bridge to carry values or terminal outcomes across it.
