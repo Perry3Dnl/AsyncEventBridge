@@ -3,6 +3,11 @@ namespace AsyncEventBridge;
 /// <summary>
 /// Event-facing bridge for an <see cref="IAsyncEnumerable{T}"/>.
 /// </summary>
+/// <remarks>
+/// While connected and not owner-disposed, the bridge publishes values sequentially and publishes at most one
+/// terminal outcome. If cancellation races with natural completion or a fault, no outcome is given artificial
+/// priority; the outcome that reaches terminal publication first wins.
+/// </remarks>
 /// <typeparam name="T">The stream value type.</typeparam>
 public sealed class EventStreamBridge<T> : IDisposable, IAsyncDisposable
 {
@@ -90,11 +95,12 @@ public sealed class EventStreamBridge<T> : IDisposable, IAsyncDisposable
     }
 
     /// <summary>
-    /// Stops stream consumption and suppresses future event publication.
+    /// Stops stream consumption and suppresses future event publication without waiting for asynchronous cleanup.
     /// </summary>
     /// <remarks>
-    /// Synchronous disposal requests cancellation but does not wait for asynchronous enumerator cleanup.
-    /// Use <see cref="DisposeAsync"/> when that cleanup must be awaited.
+    /// An event publication that was already in progress is allowed to finish after this method returns.
+    /// Use <see cref="DisposeAsync"/> when the caller needs a completion boundary after which no further bridge
+    /// event handler can still be running.
     /// </remarks>
     public void Dispose()
     {
@@ -115,8 +121,13 @@ public sealed class EventStreamBridge<T> : IDisposable, IAsyncDisposable
     }
 
     /// <summary>
-    /// Stops stream consumption, suppresses future event publication, and waits for asynchronous enumerator cleanup.
+    /// Stops stream consumption, suppresses future event publication, and waits for in-flight publication and
+    /// asynchronous enumerator cleanup to finish.
     /// </summary>
+    /// <remarks>
+    /// After the returned operation completes, the bridge will not invoke any further event handlers.
+    /// Owner disposal does not publish <see cref="Cancelled"/>.
+    /// </remarks>
     public async ValueTask DisposeAsync()
     {
         CancellationTokenSource? lifetimeCts;
