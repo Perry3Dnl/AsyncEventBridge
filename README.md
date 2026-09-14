@@ -43,6 +43,14 @@ A useful design rule for this project is:
 
 AsyncEventBridge also does not aim to be an Rx replacement, event bus or messaging framework.
 
+## Compatibility baseline
+
+The complete runtime targets **.NET Standard 2.0**. That is the compatibility floor for the public API, not a reduced feature variant.
+
+Newer framework targets may be added later when they provide a concrete benefit, but normal feature development should not raise the minimum runtime requirement. The intended public behavior remains the same across future targets.
+
+Async-stream interfaces needed by the .NET Standard 2.0 runtime are supplied through `Microsoft.Bcl.AsyncInterfaces`. The runtime avoids newer convenience APIs when equivalent behavior can be implemented without changing the consumer-facing contract.
+
 ## One example environment throughout the documentation
 
 The documentation deliberately uses one fictional **sensor monitoring system** from beginning to end.
@@ -211,6 +219,20 @@ bridge.Connect(cancellationToken);
 
 If cancellation races with successful completion or a fault, the bridge gives no outcome artificial priority. At most one terminal event is published, and the outcome that reaches terminal publication first wins.
 
+## Generated API behavior
+
+Generated extensions live in the `AsyncEventBridge` namespace. The normal call remains the short extension syntax:
+
+```csharp
+await sensor.ValueChangedAsync();
+```
+
+If `Sensor` already declares an instance method with the same signature, normal C# resolution lets that instance method win. The generated bridge method remains explicitly callable through its generated extension class.
+
+The generator also supports generic and accessible nested source types and preserves their generic constraints on generated methods. Public inherited events are included when an annotated base type does not already provide the bridge. If an annotated base type already generates that event API, the derived type does not generate a duplicate.
+
+Generated methods never make an existing event more visible. Public source types and public event signatures can produce public extensions; internal source members produce internal extensions; protected and private events are not exposed through a top-level extension API.
+
 ## Design goals
 
 The public API is designed from the consumer's point of view first. A developer migrating an existing application should be able to see clearly:
@@ -224,7 +246,7 @@ Internally, the project is correctness-first. Subscription lifecycle, cancellati
 
 Generated APIs are intended to remain a thin facade over central runtime components so lifecycle and concurrency behavior stay consistent.
 
-## Current vertical slice
+## Current implementation
 
 The current implementation supports converting `EventHandler<TEventArgs>` and `EventHandler` events into both one-shot awaitable operations and repeated async streams.
 
@@ -266,7 +288,9 @@ The test suites cover the event-to-async runtime with:
 - async-stream filtering, cancellation, disposal, and reentrant subscription cleanup;
 - lossless growing buffers and bounded `DropOldest` / `DropNewest` behavior.
 
-The async-to-events tests also cover task outcome publication, async-stream value ordering, completion, faults, cancellation, disposal, single-connect behavior, subscriber exception isolation, in-flight disposal behavior, and completion/cancellation races.
+The async-to-events tests also cover task outcome publication, async-stream value ordering, completion, faults, cancellation, disposal, single-connect behavior, subscriber exception isolation, handler removal, no-replay behavior, in-flight disposal behavior, and completion/cancellation races.
+
+Generator tests cover method collisions, inherited events, accessibility, generic and nested source types, generic constraints, and generated class-name collisions. A public API lock test also verifies that the runtime does not accidentally expose additional public types or methods.
 
 Race tests use controlled synchronization rather than timing-based `Task.Delay` assertions.
 
@@ -284,7 +308,7 @@ tests/
 
 ## Roadmap
 
-1. Finalize and harden the Event -> Async public API and runtime.
-2. Harden `Task -> Events` and `Task<T> -> Events` interoperability.
-3. Harden async-stream bridging in both directions.
-4. Turn the sensor monitoring examples into a complete beginner-friendly guide for GitHub and the NuGet package documentation.
+1. Finish and harden the complete .NET Standard 2.0 public API and runtime baseline.
+2. Finish packaging, examples, and beginner-friendly documentation for the first release.
+3. Add newer runtime targets only where they provide a concrete compatibility or performance benefit.
+4. Validate additional host environments such as Unity without changing the baseline contract.
