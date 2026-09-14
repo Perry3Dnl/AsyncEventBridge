@@ -24,6 +24,8 @@ Package ID:
 AsyncEventBridge
 ```
 
+Version `0.1.0` is the first release package version. Once the package is published to a configured NuGet feed, install it with either of the following forms.
+
 .NET CLI:
 
 ```text
