@@ -13,6 +13,9 @@ public sealed class AsyncEnumerableEventSource<T> : IDisposable, IAsyncDisposabl
     /// <summary>
     /// Raised for each item produced by the async sequence.
     /// </summary>
+    /// <remarks>
+    /// The event name is still part of the public API review and may change before the stream runtime is finalized.
+    /// </remarks>
     public event EventHandler<AsyncValueEventArgs<T>>? Next
     {
         add => throw DraftOnly();
@@ -49,7 +52,8 @@ public sealed class AsyncEnumerableEventSource<T> : IDisposable, IAsyncDisposabl
     /// <summary>
     /// Starts enumerating and publishing items to subscribers.
     /// </summary>
-    public void Start() => throw DraftOnly();
+    /// <param name="cancellationToken">Optional token used to stop stream consumption.</param>
+    public void Start(CancellationToken cancellationToken = default) => throw DraftOnly();
 
     /// <inheritdoc />
     public void Dispose() => throw DraftOnly();
@@ -58,5 +62,5 @@ public sealed class AsyncEnumerableEventSource<T> : IDisposable, IAsyncDisposabl
     public ValueTask DisposeAsync() => throw DraftOnly();
 
     private static NotImplementedException DraftOnly() =>
-        new("Public API draft only. Runtime behavior is not implemented yet.");
+        new("The async-stream event bridge is still a public API draft.");
 }
