@@ -32,7 +32,7 @@ AsyncEventBridge is **not a replacement for normal async programming**.
 If both sides of your code already use `Task`, `Task<T>` or `IAsyncEnumerable<T>`, use normal `async`/`await` directly:
 
 ```csharp
-var user = await LoadUserAsync();
+var configuration = await LoadSensorConfigurationAsync();
 ```
 
 Do not introduce an event bridge when there is no event/async boundary to bridge.
@@ -43,11 +43,19 @@ A useful design rule for this project is:
 
 AsyncEventBridge also does not aim to be an Rx replacement, event bus or messaging framework.
 
+## One example environment throughout the documentation
+
+The documentation deliberately uses one fictional **sensor monitoring system** from beginning to end.
+
+You will keep seeing the same concepts, such as `Sensor`, `sensor`, `ValueChanged`, `Connected`, `Disconnected`, `AlarmRaised`, and sensor configuration. Later examples extend that same environment instead of switching to unrelated examples such as users, orders, chat messages, or completely different applications.
+
+This is intentional. A reader should only need to learn one example system. Each following example can then focus on the one new AsyncEventBridge concept being introduced.
+
+Before/after migration examples follow an additional rule: both sides use the same classes, objects and scenario. Only the code that AsyncEventBridge replaces should change.
+
 ## Example: migrating an event consumer
 
-The important part of a migration example is that the application stays the same. Only the way the event is consumed changes.
-
-Suppose the existing system already contains this type:
+Suppose the existing monitoring system already contains this type:
 
 ```csharp
 [GenerateAsyncEvents]
@@ -99,7 +107,7 @@ The simplest API should stay simple:
 var e = await sensor.ValueChangedAsync();
 ```
 
-When needed, a caller can wait for a specific event value:
+When needed, a caller can wait for a specific sensor value:
 
 ```csharp
 var e = await sensor.ValueChangedAsync(
@@ -117,6 +125,30 @@ Cancellation is optional. You do not need a `CancellationToken` for the basic ca
 
 More advanced overloads can combine filtering, timeouts and cancellation without changing the simple entry point.
 
+## Bridging async code back to events
+
+The same sensor monitoring environment can contain newer async APIs while older consumers still expect events.
+
+For example, a newer part of the system can load sensor configuration asynchronously:
+
+```csharp
+Task<SensorConfiguration> loadTask = LoadSensorConfigurationAsync();
+```
+
+An event-driven consumer can expose that same task as an event source:
+
+```csharp
+using var source = loadTask.ToEventSource();
+
+source.Completed += OnConfigurationLoaded;
+source.Faulted += OnConfigurationFailed;
+source.Cancelled += OnConfigurationCancelled;
+
+source.Start();
+```
+
+`Start()` starts observation and publication by the bridge. It does not start the underlying `Task`; the task may already be running or completed.
+
 ## Design goals
 
 The public API is designed from the consumer's point of view first. A developer migrating an existing application should be able to see clearly:
@@ -132,7 +164,7 @@ Generated APIs are intended to remain a thin facade over central runtime compone
 
 ## Current vertical slice
 
-The current implementation focuses on converting `EventHandler<TEventArgs>` and `EventHandler` events into awaitable operations.
+The current implementation supports converting `EventHandler<TEventArgs>` and `EventHandler` events into awaitable operations.
 
 The generated API supports the simple form:
 
@@ -142,11 +174,11 @@ var e = await sensor.ValueChangedAsync();
 
 and progressively adds optional filtering, timeout and cancellation behavior.
 
-The runtime owns subscription, unsubscription, predicates, cancellation, timeout handling, single-winner completion and cleanup.
+`Task` and `Task<T>` can also be exposed through `ToEventSource()` with `Completed`, `Faulted` and `Cancelled` events. Async-stream event bridging remains the next API/runtime slice.
 
 ## Correctness targets
 
-The test suites cover:
+The test suites cover the event-to-async runtime with:
 
 - event success and predicate filtering;
 - predicate exceptions;
@@ -177,6 +209,6 @@ tests/
 ## Roadmap
 
 1. Finalize and harden the Event -> Async public API and runtime.
-2. Add `Task -> Events` and `Task<T> -> Events` interoperability.
+2. Harden `Task -> Events` and `Task<T> -> Events` interoperability.
 3. Add `IAsyncEnumerable<T>` bridging in both directions.
-4. Turn the migration examples into a complete beginner-friendly guide for GitHub and the NuGet package documentation.
+4. Turn the sensor monitoring examples into a complete beginner-friendly guide for GitHub and the NuGet package documentation.
