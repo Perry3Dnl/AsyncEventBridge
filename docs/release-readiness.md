@@ -38,9 +38,11 @@ Before a stable `1.0.0` release:
 
 - public type names are locked by tests;
 - public method, event, and property names are locked by tests;
+- stream option defaults and `EventStreamFullMode` numeric values are locked by tests;
 - the complete generated one-shot and stream overload sets compile against .NET Standard 2.0 / C# 8;
 - `Event -> Task`, `Event -> IAsyncEnumerable<T>`, `Task -> Events`, `Task<T> -> Events`, and `IAsyncEnumerable<T> -> Events` behavior is covered;
 - cancellation, timeout, reentrancy, cleanup, disposal, race, validation, and subscriber-exception behavior is covered;
+- concurrent event producers are stress-tested against lossless event-stream buffering;
 - generated accessibility never widens the source API;
 - generic, nested, inherited, hidden-member, and collision cases compile correctly;
 - README examples match the actual API;
