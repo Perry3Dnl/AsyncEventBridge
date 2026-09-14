@@ -111,8 +111,6 @@ Connect(cancellationToken)
 
 This naming is intentional. `Connect()` describes the bridge operation and does not imply that it starts the underlying `Task`.
 
-The previous `ToEventSource`, `TaskEventSource`, and `AsyncEnumerableEventSource` vocabulary has been removed. New code and documentation use the bridge vocabulary only.
-
 A possible future `AsyncBridge` name may be useful for an explicit event -> async bridge type, but that is not currently a committed public type. The normal event -> async experience remains the generated `...Async()` methods.
 
 ### `Task`
