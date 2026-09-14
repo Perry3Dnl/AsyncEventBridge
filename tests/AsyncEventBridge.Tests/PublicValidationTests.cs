@@ -5,22 +5,31 @@ public sealed class PublicValidationTests
     [Fact]
     public void EventAwaiterRejectsNullSubscriptionCallbacks()
     {
-        Assert.Throws<ArgumentNullException>(() => EventAwaiter.WaitAsync<TestEventArgs>(
-            null!,
-            _ => { }));
+        Assert.Throws<ArgumentNullException>(() =>
+        {
+            _ = EventAwaiter.WaitAsync<TestEventArgs>(
+                null!,
+                _ => { });
+        });
 
-        Assert.Throws<ArgumentNullException>(() => EventAwaiter.WaitAsync<TestEventArgs>(
-            _ => { },
-            null!));
+        Assert.Throws<ArgumentNullException>(() =>
+        {
+            _ = EventAwaiter.WaitAsync<TestEventArgs>(
+                _ => { },
+                null!);
+        });
     }
 
     [Fact]
     public void EventAwaiterRejectsInvalidTimeout()
     {
-        Assert.Throws<ArgumentOutOfRangeException>(() => EventAwaiter.WaitAsync<TestEventArgs>(
-            _ => { },
-            _ => { },
-            timeout: TimeSpan.FromMilliseconds(-2)));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+        {
+            _ = EventAwaiter.WaitAsync<TestEventArgs>(
+                _ => { },
+                _ => { },
+                timeout: TimeSpan.FromMilliseconds(-2));
+        });
     }
 
     [Fact]
