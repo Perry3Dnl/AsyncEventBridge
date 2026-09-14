@@ -93,8 +93,59 @@ public sealed class AsyncEventBridgeGenerator : IIncrementalGenerator
             : "global::System.EventHandler";
         var waitTypeArgument = isGenericEventHandler ? $"<{eventArgsType}>" : string.Empty;
 
-        AppendMethod(source, sourceType, eventName, methodName, eventArgsType, handlerType, waitTypeArgument, includeTimeout: false);
-        AppendMethod(source, sourceType, eventName, methodName, eventArgsType, handlerType, waitTypeArgument, includeTimeout: true);
+        AppendMethod(
+            source,
+            sourceType,
+            eventName,
+            methodName,
+            eventArgsType,
+            handlerType,
+            waitTypeArgument,
+            isGenericEventHandler,
+            includePredicate: false,
+            includeTimeout: false);
+
+        if (isGenericEventHandler)
+        {
+            AppendMethod(
+                source,
+                sourceType,
+                eventName,
+                methodName,
+                eventArgsType,
+                handlerType,
+                waitTypeArgument,
+                isGenericEventHandler,
+                includePredicate: true,
+                includeTimeout: false);
+        }
+
+        AppendMethod(
+            source,
+            sourceType,
+            eventName,
+            methodName,
+            eventArgsType,
+            handlerType,
+            waitTypeArgument,
+            isGenericEventHandler,
+            includePredicate: false,
+            includeTimeout: true);
+
+        if (isGenericEventHandler)
+        {
+            AppendMethod(
+                source,
+                sourceType,
+                eventName,
+                methodName,
+                eventArgsType,
+                handlerType,
+                waitTypeArgument,
+                isGenericEventHandler,
+                includePredicate: true,
+                includeTimeout: true);
+        }
     }
 
     private static void AppendMethod(
@@ -105,31 +156,55 @@ public sealed class AsyncEventBridgeGenerator : IIncrementalGenerator
         string eventArgsType,
         string handlerType,
         string waitTypeArgument,
+        bool isGenericEventHandler,
+        bool includePredicate,
         bool includeTimeout)
     {
-        source.Append("    public static global::System.Threading.Tasks.Task<")
-            .Append(eventArgsType)
-            .Append("> ")
+        source.Append("    public static global::System.Threading.Tasks.Task");
+
+        if (isGenericEventHandler)
+        {
+            source.Append('<')
+                .Append(eventArgsType)
+                .Append('>');
+        }
+
+        source.Append(' ')
             .Append(methodName)
             .Append("(this ")
             .Append(sourceType)
             .Append(" source, ");
+
+        if (includePredicate)
+        {
+            source.Append("global::System.Predicate<")
+                .Append(eventArgsType)
+                .Append("> predicate, ");
+        }
 
         if (includeTimeout)
         {
             source.Append("global::System.TimeSpan timeout, ");
         }
 
-        source.Append("global::System.Predicate<")
-            .Append(eventArgsType)
-            .AppendLine(">? predicate = null, global::System.Threading.CancellationToken cancellationToken = default)")
+        source.AppendLine("global::System.Threading.CancellationToken cancellationToken = default)")
             .AppendLine("    {")
             .AppendLine("        if (source is null)")
             .AppendLine("        {")
             .AppendLine("            throw new global::System.ArgumentNullException(nameof(source));")
             .AppendLine("        }")
-            .AppendLine()
-            .Append("        return global::AsyncEventBridge.EventAwaiter.WaitAsync")
+            .AppendLine();
+
+        if (includePredicate)
+        {
+            source.AppendLine("        if (predicate is null)")
+                .AppendLine("        {")
+                .AppendLine("            throw new global::System.ArgumentNullException(nameof(predicate));")
+                .AppendLine("        }")
+                .AppendLine();
+        }
+
+        source.Append("        return global::AsyncEventBridge.EventAwaiter.WaitAsync")
             .Append(waitTypeArgument)
             .AppendLine("(")
             .Append("            (")
@@ -142,7 +217,8 @@ public sealed class AsyncEventBridgeGenerator : IIncrementalGenerator
             .Append(" handler) => source.")
             .Append(eventName)
             .AppendLine(" -= handler,")
-            .AppendLine("            predicate,")
+            .Append("            ")
+            .AppendLine(includePredicate ? "predicate," : "null,")
             .Append("            cancellationToken");
 
         if (includeTimeout)
