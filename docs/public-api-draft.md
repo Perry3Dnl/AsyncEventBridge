@@ -112,7 +112,7 @@ IAsyncEnumerable<SensorEventArgs> ValueChangedStream(
 
 A non-generic `EventHandler` is exposed as `IAsyncEnumerable<EventArgs>`.
 
-The runtime subscribes when enumeration begins and unsubscribes when the enumeration is cancelled, disposed, or leaves the `await foreach`. Events are delivered in publication order. Because a normal .NET event cannot be asynchronously backpressured, values are buffered while the async consumer is behind.
+The runtime subscribes when enumeration begins and unsubscribes when the enumeration is cancelled, disposed, or leaves the `await foreach`. Events are yielded in the order they reach the bridge. Because a normal .NET event cannot be asynchronously backpressured, values are buffered while the async consumer is behind. The current runtime uses an unbounded buffer so values are not silently dropped; a producer that permanently outruns its consumer can therefore grow memory usage.
 
 The low-level `EventStream` runtime remains available for advanced/manual bridging, while generated `...Stream()` methods are the normal entry point.
 
