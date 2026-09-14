@@ -1,10 +1,18 @@
 # Public API draft
 
-This document defines the intended consumer-facing shape before every runtime detail is finalized.
+This document defines the intended consumer-facing shape while the first public release is being hardened.
 
 The goal is to keep the common path obvious, discoverable, and small while leaving concurrency and lifecycle complexity behind the facade.
 
 All examples use the same fictional sensor monitoring system. Later examples extend that environment instead of introducing unrelated domains.
+
+## Compatibility baseline
+
+The complete runtime targets **.NET Standard 2.0**. This is the minimum full runtime contract, not a reduced compatibility build.
+
+Future framework targets are additive. They should only be introduced when they provide a concrete compatibility or performance benefit, and normal feature work must not require raising the baseline.
+
+The public API and semantics described below are therefore designed against .NET Standard 2.0 first. Async-stream interfaces required by that target are supplied through `Microsoft.Bcl.AsyncInterfaces`.
 
 ## Events -> async
 
@@ -24,7 +32,7 @@ await sensor.ConnectedAsync(
     cancellationToken);
 ```
 
-Proposed generated signatures:
+Generated signatures:
 
 ```csharp
 Task ConnectedAsync(
@@ -55,7 +63,7 @@ var value = await sensor.ValueChangedAsync(
     cancellationToken);
 ```
 
-Proposed generated signatures:
+Generated signatures:
 
 ```csharp
 Task<SensorEventArgs> ValueChangedAsync(
@@ -144,9 +152,35 @@ The runtime subscribes when enumeration begins and unsubscribes when the enumera
 - `DropOldest` treats `Capacity` as a hard limit and removes the oldest buffered value when a new value arrives at capacity.
 - `DropNewest` treats `Capacity` as a hard limit and drops the newly arriving value when the buffer is already at capacity.
 
+`Capacity` and `FullMode` use ordinary setters so the options object remains friendly to the .NET Standard 2.0 compatibility baseline and older C# hosts. `EventStream.Create` snapshots the values before enumeration starts, so later changes to that options instance do not mutate an active stream configuration.
+
 The bridge never blocks the synchronous event producer. A `Wait`/blocking full mode is intentionally not part of the API.
 
 The low-level `EventStream` runtime remains available for advanced/manual bridging, while generated `...Stream()` methods are the normal entry point.
+
+### Generated method accessibility and type support
+
+The generator follows the accessibility of the source API instead of widening it:
+
+```text
+public source type + public event     -> public generated methods
+internal source type                  -> internal generated methods
+internal / protected internal event   -> internal generated methods when accessible
+protected / private event             -> no top-level extension methods
+```
+
+Generic source classes are supported, including their generic constraints. Accessible nested source classes are supported as well; generated extension methods carry the containing and nested generic parameters and constraints required to address the source type correctly.
+
+Public inherited events are included when the annotated base type does not already generate the bridge API. If an annotated base class already generates an inherited event API, a derived annotated type reuses that extension rather than generating a duplicate. Normal C# member hiding is respected, so a derived member with the same name prevents an inaccessible or hidden base event from being bridged accidentally.
+
+Generated extension classes live in the `AsyncEventBridge` namespace and encode the source namespace, nesting, and generic arity in their generated class name. The class name is normally invisible to consumers because extension syntax is the normal entry point. It also provides an explicit fallback when the source type already declares an instance method with the same name:
+
+```csharp
+await sensor.ValueChangedAsync(); // source instance method wins if one exists
+
+await AsyncEventBridge.Demo_DOT_SensorAsyncEventExtensions
+    .ValueChangedAsync(sensor);   // explicit generated bridge method
+```
 
 ## Async -> events
 
@@ -217,7 +251,7 @@ bridge.Cancelled += OnSensorStreamCancelled;
 bridge.Connect(cancellationToken);
 ```
 
-`EventStreamBridge<T>` is now implemented. `Connect(...)` starts consuming the async sequence and publishes each item through `Value` in enumeration order. The stream then publishes exactly one terminal outcome: `Completed`, `Faulted`, or `Cancelled`.
+`EventStreamBridge<T>` consumes the async sequence and publishes each item through `Value` in enumeration order. The stream then publishes exactly one terminal outcome: `Completed`, `Faulted`, or `Cancelled`.
 
 The stream uses `EventStreamBridge<T>` instead of forcing stream-specific `Value` behavior onto the task-oriented `EventBridge<T>` type.
 
@@ -279,5 +313,7 @@ EventStreamBridge<T>
 AsyncValueEventArgs<T>
 AsyncFaultedEventArgs
 ```
+
+The runtime test suite locks this exported type set and the intentional public methods, events, and properties so accidental API expansion is caught during CI.
 
 No Rx-style operators, event bus concepts, or messaging abstractions are part of the public surface.
