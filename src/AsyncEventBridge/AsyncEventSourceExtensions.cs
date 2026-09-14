@@ -29,6 +29,6 @@ public static class AsyncEventSourceExtensions
     public static AsyncEnumerableEventSource<T> ToEventSource<T>(this IAsyncEnumerable<T> source)
     {
         ArgumentNullException.ThrowIfNull(source);
-        return new AsyncEnumerableEventSource<T>(source);
+        throw new NotImplementedException("The async-stream event bridge is still a public API draft.");
     }
 }
