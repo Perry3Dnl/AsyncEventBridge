@@ -99,6 +99,21 @@ await foreach (var value in sensor.ValueChangedStream(
 }
 ```
 
+Buffering can be configured explicitly when a bounded stream is required:
+
+```csharp
+await foreach (var value in sensor.ValueChangedStream(
+    new EventStreamOptions
+    {
+        Capacity = 100,
+        FullMode = EventStreamFullMode.DropOldest
+    },
+    cancellationToken))
+{
+    Console.WriteLine(value.Value);
+}
+```
+
 Generated signatures:
 
 ```csharp
@@ -106,13 +121,30 @@ IAsyncEnumerable<SensorEventArgs> ValueChangedStream(
     CancellationToken cancellationToken = default);
 
 IAsyncEnumerable<SensorEventArgs> ValueChangedStream(
+    EventStreamOptions options,
+    CancellationToken cancellationToken = default);
+
+IAsyncEnumerable<SensorEventArgs> ValueChangedStream(
     Predicate<SensorEventArgs> predicate,
+    CancellationToken cancellationToken = default);
+
+IAsyncEnumerable<SensorEventArgs> ValueChangedStream(
+    Predicate<SensorEventArgs> predicate,
+    EventStreamOptions options,
     CancellationToken cancellationToken = default);
 ```
 
 A non-generic `EventHandler` is exposed as `IAsyncEnumerable<EventArgs>`.
 
-The runtime subscribes when enumeration begins and unsubscribes when the enumeration is cancelled, disposed, or leaves the `await foreach`. Events are yielded in the order they reach the bridge. Because a normal .NET event cannot be asynchronously backpressured, values are buffered while the async consumer is behind. The current runtime uses an unbounded buffer so values are not silently dropped; a producer that permanently outruns its consumer can therefore grow memory usage.
+The runtime subscribes when enumeration begins and unsubscribes when the enumeration is cancelled, disposed, or leaves the `await foreach`. Events are yielded in the order they reach the bridge. Because a normal .NET event cannot be asynchronously backpressured, values must either be buffered or explicitly dropped when the async consumer is behind.
+
+`EventStreamOptions` makes that behavior explicit:
+
+- `Grow` is the default. It preserves every event value. `Capacity` is the initial buffer capacity, and the buffer can grow beyond it. This is lossless, but sustained producer throughput above consumer throughput can grow memory usage without a fixed upper bound.
+- `DropOldest` treats `Capacity` as a hard limit and removes the oldest buffered value when a new value arrives at capacity.
+- `DropNewest` treats `Capacity` as a hard limit and drops the newly arriving value when the buffer is already at capacity.
+
+The bridge never blocks the synchronous event producer. A `Wait`/blocking full mode is intentionally not part of the API.
 
 The low-level `EventStream` runtime remains available for advanced/manual bridging, while generated `...Stream()` methods are the normal entry point.
 
@@ -225,6 +257,8 @@ The sensor monitoring environment remains the common example throughout the READ
 GenerateAsyncEventsAttribute
 EventAwaiter
 EventStream
+EventStreamOptions
+EventStreamFullMode
 AsyncEventBridgeExtensions
 EventBridge
 EventBridge<T>
