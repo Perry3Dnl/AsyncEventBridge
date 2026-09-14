@@ -65,7 +65,7 @@ The repository currently uses the pre-release package version `0.1.0-preview.1`.
 dotnet pack src/AsyncEventBridge/AsyncEventBridge.csproj -c Release
 ```
 
-CI additionally restores a separate consumer from the generated `.nupkg` and compiles generated `...Async()` / `...Stream()` calls through that package. This catches packaging mistakes that ordinary project-reference tests cannot detect.
+CI additionally restores a separate .NET Standard 2.0 consumer from the generated `.nupkg`, compiles the generated APIs from that package, executes a second packaged runtime consumer, and retains the `.nupkg` as a workflow artifact. This catches packaging mistakes that ordinary project-reference tests cannot detect.
 
 ## One example environment throughout the documentation
 
@@ -77,7 +77,7 @@ This is intentional. A reader should only need to learn one example system. Each
 
 Before/after migration examples follow an additional rule: both sides use the same classes, objects and scenario. Only the code that AsyncEventBridge replaces should change.
 
-A runnable version of this environment lives in `samples/SensorMonitoring` and is compiled as part of the solution build.
+A runnable version of this environment lives in `samples/SensorMonitoring` and is built and executed as part of CI.
 
 ## Example: migrating an event consumer
 
@@ -235,7 +235,9 @@ bridge.Connect(cancellationToken);
 
 `EventStreamBridge<T>` publishes values in enumeration order and then one terminal event: `Completed`, `Faulted`, or `Cancelled`. `Dispose()` suppresses new publication without waiting for an event dispatch that is already in progress. `DisposeAsync()` waits for an in-flight dispatch and asynchronous enumerator cleanup; after it completes, the bridge will not invoke another event handler. Owner disposal itself does not publish `Cancelled`.
 
-If cancellation races with successful completion or a fault, the bridge gives no outcome artificial priority. At most one terminal event is published, and the outcome that reaches terminal publication first wins.
+For task bridges, `Dispose()` suppresses an outcome that has not started publication yet. A terminal event publication that already began may finish after `Dispose()` returns, matching the stream bridge's non-blocking synchronous disposal rule.
+
+If cancellation races with successful completion or a fault, the stream bridge gives no outcome artificial priority. At most one terminal event is published, and the outcome that reaches terminal publication first wins.
 
 ## Generated API behavior
 
@@ -305,14 +307,15 @@ The test suites cover the event-to-async runtime with:
 - repeated race stress;
 - zero handlers remaining after completion;
 - repeated event ordering through async streams;
+- concurrent event-stream producers in lossless `Grow` mode;
 - async-stream filtering, cancellation, disposal, and reentrant subscription cleanup;
 - lossless growing buffers and bounded `DropOldest` / `DropNewest` behavior.
 
 The async-to-events tests also cover task outcome publication, async-stream value ordering, completion, faults, cancellation, disposal, single-connect behavior, subscriber exception isolation, handler removal, no-replay behavior, in-flight disposal behavior, completion/cancellation races, and suppression of task publication after owner disposal.
 
-Generator tests cover method collisions, inherited events, accessibility, generic and nested source types, generic constraints, hidden members, generated class-name collisions, and C# 8-compatible generated syntax. A public API lock test also verifies that the runtime does not accidentally expose additional public types or methods.
+Generator tests cover method collisions, inherited events, accessibility, generic and nested source types, generic constraints, hidden members, generated class-name collisions, and C# 8-compatible generated syntax. A public API lock test also verifies that the runtime does not accidentally expose additional public types or methods and locks stream option defaults plus enum numeric values.
 
-The compatibility consumer compiles every generated one-shot and stream overload against .NET Standard 2.0 / C# 8. The package smoke consumer separately verifies that the same APIs are available when consuming the built NuGet package rather than project references.
+The compatibility consumer compiles every generated one-shot and stream overload against .NET Standard 2.0 / C# 8. Package smoke consumers separately verify that the same APIs compile and execute when consuming the built NuGet package rather than project references.
 
 Race tests use controlled synchronization rather than timing-based `Task.Delay` assertions.
 
@@ -330,6 +333,7 @@ tests/
   AsyncEventBridge.StressTests/
   AsyncEventBridge.Compatibility/
   AsyncEventBridge.PackageSmoke/
+  AsyncEventBridge.PackageRuntimeSmoke/
 docs/
   public-api-draft.md
   release-readiness.md
@@ -337,7 +341,7 @@ docs/
 
 ## Release boundary
 
-The codebase can verify runtime behavior, generator behavior, package contents, package consumption, the compatibility floor, and the sample automatically.
+The codebase can verify runtime behavior, generator behavior, package contents, package consumption, packaged runtime execution, the compatibility floor, and the sample automatically.
 
 A few release decisions deliberately remain outside implementation because they belong to the package owner: licensing or commercial terms, the final stable version number, optional package signing, NuGet.org publishing credentials, and which external hosts are advertised as explicitly certified.
 
