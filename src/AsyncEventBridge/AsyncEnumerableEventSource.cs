@@ -47,10 +47,10 @@ public sealed class AsyncEnumerableEventSource<T> : IDisposable, IAsyncDisposabl
     }
 
     /// <summary>
-    /// Starts enumerating and publishing values to subscribers.
+    /// Connects the async sequence to the event-facing bridge and begins publishing values.
     /// </summary>
     /// <param name="cancellationToken">Optional token used to stop stream consumption.</param>
-    public void Start(CancellationToken cancellationToken = default) => throw DraftOnly();
+    public void Connect(CancellationToken cancellationToken = default) => throw DraftOnly();
 
     /// <inheritdoc />
     public void Dispose() => throw DraftOnly();
