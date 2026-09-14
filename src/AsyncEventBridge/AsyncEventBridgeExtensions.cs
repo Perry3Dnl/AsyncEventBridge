@@ -10,7 +10,11 @@ public static class AsyncEventBridgeExtensions
     /// </summary>
     public static EventBridge ToEventBridge(this Task task)
     {
-        ArgumentNullException.ThrowIfNull(task);
+        if (task is null)
+        {
+            throw new ArgumentNullException(nameof(task));
+        }
+
         return new EventBridge(task);
     }
 
@@ -19,7 +23,11 @@ public static class AsyncEventBridgeExtensions
     /// </summary>
     public static EventBridge<T> ToEventBridge<T>(this Task<T> task)
     {
-        ArgumentNullException.ThrowIfNull(task);
+        if (task is null)
+        {
+            throw new ArgumentNullException(nameof(task));
+        }
+
         return new EventBridge<T>(task);
     }
 
@@ -28,7 +36,11 @@ public static class AsyncEventBridgeExtensions
     /// </summary>
     public static EventStreamBridge<T> ToEventBridge<T>(this IAsyncEnumerable<T> source)
     {
-        ArgumentNullException.ThrowIfNull(source);
+        if (source is null)
+        {
+            throw new ArgumentNullException(nameof(source));
+        }
+
         return new EventStreamBridge<T>(source);
     }
 }
