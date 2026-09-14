@@ -25,30 +25,24 @@ public sealed class AsyncEventBridgeGenerator : IIncrementalGenerator
 
     private static void GenerateForType(SourceProductionContext context, INamedTypeSymbol typeSymbol)
     {
-        if (typeSymbol.TypeParameters.Length != 0 || typeSymbol.ContainingType is not null)
+        if (!CanGenerateForType(typeSymbol))
         {
             return;
         }
 
-        var events = typeSymbol.GetMembers().OfType<IEventSymbol>();
+        var events = GetEventsForGeneration(typeSymbol);
         var source = new StringBuilder();
         var hasSupportedEvent = false;
 
-        source.AppendLine("#nullable enable");
-
-        if (!typeSymbol.ContainingNamespace.IsGlobalNamespace)
-        {
-            source.Append("namespace ")
-                .Append(typeSymbol.ContainingNamespace.ToDisplayString())
-                .AppendLine(";")
-                .AppendLine();
-        }
+        source.AppendLine("#nullable enable")
+            .AppendLine("namespace AsyncEventBridge;")
+            .AppendLine();
 
         var extensionAccessibility = typeSymbol.DeclaredAccessibility == Accessibility.Public ? "public" : "internal";
         source.Append(extensionAccessibility)
             .Append(" static class ")
-            .Append(typeSymbol.Name)
-            .AppendLine("AsyncEventExtensions")
+            .Append(GetExtensionClassName(typeSymbol))
+            .AppendLine()
             .AppendLine("{");
 
         foreach (var eventSymbol in events)
@@ -77,6 +71,37 @@ public sealed class AsyncEventBridgeGenerator : IIncrementalGenerator
 
         var hintName = GetHintName(typeSymbol) + ".AsyncEvents.g.cs";
         context.AddSource(hintName, SourceText.From(source.ToString(), Encoding.UTF8));
+    }
+
+    private static IEnumerable<IEventSymbol> GetEventsForGeneration(INamedTypeSymbol typeSymbol)
+    {
+        var seenNames = new HashSet<string>(StringComparer.Ordinal);
+        INamedTypeSymbol? current = typeSymbol;
+        var isTargetType = true;
+
+        while (current is not null)
+        {
+            if (!isTargetType && HasGenerateAsyncEventsAttribute(current) && CanGenerateForType(current))
+            {
+                yield break;
+            }
+
+            foreach (var eventSymbol in current.GetMembers().OfType<IEventSymbol>())
+            {
+                if (!seenNames.Add(eventSymbol.Name))
+                {
+                    continue;
+                }
+
+                if (isTargetType || eventSymbol.DeclaredAccessibility == Accessibility.Public)
+                {
+                    yield return eventSymbol;
+                }
+            }
+
+            isTargetType = false;
+            current = current.BaseType;
+        }
     }
 
     private static void AppendWaitMethods(
@@ -410,6 +435,47 @@ public sealed class AsyncEventBridgeGenerator : IIncrementalGenerator
 
     private static bool IsAccessibleFromExtension(IEventSymbol eventSymbol) =>
         eventSymbol.DeclaredAccessibility is Accessibility.Public or Accessibility.Internal or Accessibility.ProtectedOrInternal;
+
+    private static bool CanGenerateForType(INamedTypeSymbol typeSymbol) =>
+        typeSymbol.TypeParameters.Length == 0 && typeSymbol.ContainingType is null;
+
+    private static bool HasGenerateAsyncEventsAttribute(INamedTypeSymbol typeSymbol) =>
+        typeSymbol.GetAttributes().Any(attribute =>
+            attribute.AttributeClass?.ToDisplayString() == AttributeMetadataName);
+
+    private static string GetExtensionClassName(INamedTypeSymbol typeSymbol)
+    {
+        var builder = new StringBuilder();
+
+        if (!typeSymbol.ContainingNamespace.IsGlobalNamespace)
+        {
+            AppendEncodedName(builder, typeSymbol.ContainingNamespace.ToDisplayString());
+            builder.Append("_DOT_");
+        }
+
+        AppendEncodedName(builder, typeSymbol.Name);
+        builder.Append("AsyncEventExtensions");
+        return builder.ToString();
+    }
+
+    private static void AppendEncodedName(StringBuilder builder, string value)
+    {
+        foreach (var character in value)
+        {
+            switch (character)
+            {
+                case '.':
+                    builder.Append("_DOT_");
+                    break;
+                case '_':
+                    builder.Append("__");
+                    break;
+                default:
+                    builder.Append(character);
+                    break;
+            }
+        }
+    }
 
     private static string EscapeIdentifier(string identifier) =>
         SyntaxFacts.GetKeywordKind(identifier) == SyntaxKind.None ? identifier : "@" + identifier;
