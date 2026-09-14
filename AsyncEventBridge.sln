@@ -12,6 +12,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AsyncEventBridge.Generators
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AsyncEventBridge.StressTests", "tests\AsyncEventBridge.StressTests\AsyncEventBridge.StressTests.csproj", "{3D8DC946-1167-4C15-A213-1331329C9C57}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AsyncEventBridge.Compatibility", "tests\AsyncEventBridge.Compatibility\AsyncEventBridge.Compatibility.csproj", "{F6A2B355-0C6B-4D65-A7B3-1744F985BC9C}"
+EndProject
 Global
     GlobalSection(SolutionConfigurationPlatforms) = preSolution
         Debug|Any CPU = Debug|Any CPU
@@ -38,5 +40,9 @@ Global
         {3D8DC946-1167-4C15-A213-1331329C9C57}.Debug|Any CPU.Build.0 = Debug|Any CPU
         {3D8DC946-1167-4C15-A213-1331329C9C57}.Release|Any CPU.ActiveCfg = Release|Any CPU
         {3D8DC946-1167-4C15-A213-1331329C9C57}.Release|Any CPU.Build.0 = Release|Any CPU
+        {F6A2B355-0C6B-4D65-A7B3-1744F985BC9C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {F6A2B355-0C6B-4D65-A7B3-1744F985BC9C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {F6A2B355-0C6B-4D65-A7B3-1744F985BC9C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {F6A2B355-0C6B-4D65-A7B3-1744F985BC9C}.Release|Any CPU.Build.0 = Release|Any CPU
     EndGlobalSection
 EndGlobal
