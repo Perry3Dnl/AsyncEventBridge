@@ -147,7 +147,7 @@ await foreach (var value in sensor.ValueChangedStream(
 }
 ```
 
-The bridge subscribes when enumeration begins and unsubscribes when the `await foreach` ends, is disposed, or is cancelled. Because normal .NET events cannot wait asynchronously for a slow consumer, event values are buffered while the consumer catches up.
+The bridge subscribes when enumeration begins and unsubscribes when the `await foreach` ends, is disposed, or is cancelled. Because normal .NET events cannot wait asynchronously for a slow consumer, event values are buffered while the consumer catches up. The current runtime uses an unbounded buffer so values are not silently dropped; a producer that permanently outruns its consumer can therefore grow memory usage.
 
 ## Bridging async code back to events
 
