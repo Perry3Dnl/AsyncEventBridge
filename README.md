@@ -207,7 +207,9 @@ bridge.Cancelled += OnSensorStreamCancelled;
 bridge.Connect(cancellationToken);
 ```
 
-`EventStreamBridge<T>` publishes values in enumeration order and then one terminal event: `Completed`, `Faulted`, or `Cancelled`. `DisposeAsync()` stops consumption, suppresses future publication, and waits for asynchronous enumerator cleanup. Disposal itself does not publish `Cancelled`.
+`EventStreamBridge<T>` publishes values in enumeration order and then one terminal event: `Completed`, `Faulted`, or `Cancelled`. `Dispose()` suppresses new publication without waiting for an event dispatch that is already in progress. `DisposeAsync()` waits for an in-flight dispatch and asynchronous enumerator cleanup; after it completes, the bridge will not invoke another event handler. Owner disposal itself does not publish `Cancelled`.
+
+If cancellation races with successful completion or a fault, the bridge gives no outcome artificial priority. At most one terminal event is published, and the outcome that reaches terminal publication first wins.
 
 ## Design goals
 
@@ -264,7 +266,7 @@ The test suites cover the event-to-async runtime with:
 - async-stream filtering, cancellation, disposal, and reentrant subscription cleanup;
 - lossless growing buffers and bounded `DropOldest` / `DropNewest` behavior.
 
-The async-to-events tests also cover task outcome publication and async-stream value ordering, completion, faults, cancellation, disposal, single-connect behavior, and subscriber exception isolation.
+The async-to-events tests also cover task outcome publication, async-stream value ordering, completion, faults, cancellation, disposal, single-connect behavior, subscriber exception isolation, in-flight disposal behavior, and completion/cancellation races.
 
 Race tests use controlled synchronization rather than timing-based `Task.Delay` assertions.
 
