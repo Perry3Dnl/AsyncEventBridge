@@ -28,7 +28,7 @@ First release.
 - Provide explicit `Connect()` lifecycle control.
 - Publish `Completed`, `Faulted`, and `Cancelled` terminal events.
 - Publish async-stream values through `Value` in enumeration order.
-- Isolate subscriber exceptions so one handler does not stop other subscribers or bridge processing.
+- Isolate subscriber exceptions so one handler does not stop other subscribers or bridge processing; exceptions are written through `Trace.TraceError` rather than propagated.
 
 ### Source generator
 
@@ -37,6 +37,14 @@ First release.
 - Preserves source accessibility and normal C# member-hiding behavior.
 - Keeps generated source compatible with C# 8 syntax.
 - Handles generated class-name collisions and source instance-method collisions.
+- v0.1.0 generation is limited to annotatable classes and `EventHandler` / `EventHandler<TEventArgs>` events where `TEventArgs : EventArgs`.
+- Custom event delegate generation and diagnostics for unsupported event delegate types are not part of v0.1.0.
+
+### Packaging and license
+
+- Ships the runtime and source generator in one NuGet package.
+- Licensed under the Mozilla Public License 2.0 (`MPL-2.0`).
+- Declares `MPL-2.0` in NuGet package metadata and verifies that expression in CI.
 
 ### Verification
 
