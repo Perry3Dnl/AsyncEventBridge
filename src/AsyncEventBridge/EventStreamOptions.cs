@@ -9,16 +9,16 @@ public sealed class EventStreamOptions
     internal const int DefaultCapacity = 100;
 
     /// <summary>
-    /// Gets the initial buffer capacity for <see cref="EventStreamFullMode.Grow"/>, or the hard buffer limit
+    /// Gets or sets the initial buffer capacity for <see cref="EventStreamFullMode.Grow"/>, or the hard buffer limit
     /// for <see cref="EventStreamFullMode.DropOldest"/> and <see cref="EventStreamFullMode.DropNewest"/>.
     /// </summary>
-    public int Capacity { get; init; } = DefaultCapacity;
+    public int Capacity { get; set; } = DefaultCapacity;
 
     /// <summary>
-    /// Gets the behavior used when event production outpaces async consumption.
+    /// Gets or sets the behavior used when event production outpaces async consumption.
     /// WARNING: <see cref="EventStreamFullMode.Grow"/> can increase memory usage without a fixed upper bound.
     /// </summary>
-    public EventStreamFullMode FullMode { get; init; } = EventStreamFullMode.Grow;
+    public EventStreamFullMode FullMode { get; set; } = EventStreamFullMode.Grow;
 }
 
 /// <summary>
