@@ -97,6 +97,74 @@ public sealed class EventStreamBridgeTests
     }
 
     [Fact]
+    public async Task DisposeReturnsWhileInFlightValueHandlerIsStillRunning()
+    {
+        var channel = Channel.CreateUnbounded<int>();
+        var bridge = channel.Reader.ReadAllAsync().ToEventBridge();
+        var handlerEntered = NewCompletionSource();
+        var handlerFinished = NewCompletionSource();
+        using var releaseHandler = new ManualResetEventSlim(false);
+
+        bridge.Value += (_, _) =>
+        {
+            handlerEntered.TrySetResult(true);
+            releaseHandler.Wait();
+            handlerFinished.TrySetResult(true);
+        };
+
+        bridge.Connect();
+        Assert.True(channel.Writer.TryWrite(1));
+        await handlerEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        var disposeTask = Task.Run(bridge.Dispose);
+        await disposeTask.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.False(handlerFinished.Task.IsCompleted);
+
+        releaseHandler.Set();
+        await handlerFinished.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await bridge.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task DisposeAsyncWaitsForInFlightValueHandlerAndStopsFuturePublication()
+    {
+        var channel = Channel.CreateUnbounded<int>();
+        var bridge = channel.Reader.ReadAllAsync().ToEventBridge();
+        var handlerEntered = NewCompletionSource();
+        using var releaseHandler = new ManualResetEventSlim(false);
+        var publishedValues = 0;
+
+        bridge.Value += (_, _) =>
+        {
+            handlerEntered.TrySetResult(true);
+            releaseHandler.Wait();
+            Interlocked.Increment(ref publishedValues);
+        };
+
+        bridge.Connect();
+        Assert.True(channel.Writer.TryWrite(1));
+        await handlerEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        var disposeTask = bridge.DisposeAsync().AsTask();
+
+        try
+        {
+            Assert.False(disposeTask.IsCompleted);
+        }
+        finally
+        {
+            releaseHandler.Set();
+        }
+
+        await disposeTask.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal(1, Volatile.Read(ref publishedValues));
+
+        Assert.True(channel.Writer.TryWrite(2));
+        Assert.Equal(1, Volatile.Read(ref publishedValues));
+    }
+
+    [Fact]
     public async Task ThrowingValueSubscriberDoesNotBlockOtherSubscribersOrCompletion()
     {
         await using EventStreamBridge<int> bridge = Values(7, 8).ToEventBridge();
