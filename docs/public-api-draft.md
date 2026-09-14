@@ -96,19 +96,22 @@ The same monitoring system may also contain newer async APIs. These examples bri
 
 ### Naming decision
 
-The intended public vocabulary for the async -> events direction is:
+The public vocabulary for the async -> events direction is:
 
 ```text
 ToEventBridge()
 EventBridge
 EventBridge<T>
+EventStreamBridge<T>
 Connect()
 Connect(cancellationToken)
 ```
 
 `ToEventBridge()` creates the event-facing bridge object. Consumers attach their handlers first, then call `Connect()` to connect the bridge to the async source and allow publication.
 
-This naming is intentional. `Connect()` describes the bridge operation and does not imply that it starts the underlying `Task`. The current implementation may temporarily still contain older `*EventSource` type or method names while this refactor is being completed; those older names are not the intended final public API.
+This naming is intentional. `Connect()` describes the bridge operation and does not imply that it starts the underlying `Task`.
+
+The previous `ToEventSource`, `TaskEventSource`, and `AsyncEnumerableEventSource` vocabulary has been removed. New code and documentation use the bridge vocabulary only.
 
 A possible future `AsyncBridge` name may be useful for an explicit event -> async bridge type, but that is not currently a committed public type. The normal event -> async experience remains the generated `...Async()` methods.
 
@@ -144,10 +147,11 @@ The bridge observes the existing task and publishes its terminal outcome once co
 
 ### `IAsyncEnumerable<T>`
 
-The async-stream event bridge is still a public API draft. The intended consumer shape follows the same bridge vocabulary:
+The async-stream runtime is still being implemented, but its public bridge shape is:
 
 ```csharp
-await using var bridge = ReadSensorValuesAsync().ToEventBridge();
+await using EventStreamBridge<SensorValue> bridge =
+    ReadSensorValuesAsync().ToEventBridge();
 
 bridge.Value += OnSensorValue;
 bridge.Completed += OnSensorStreamCompleted;
@@ -157,11 +161,11 @@ bridge.Cancelled += OnSensorStreamCancelled;
 bridge.Connect(cancellationToken);
 ```
 
-The exact public bridge type used for async streams is still under review; it should not force irrelevant task-only or stream-only members onto consumers merely for naming symmetry.
+The stream uses `EventStreamBridge<T>` instead of forcing stream-specific `Value` behavior onto the task-oriented `EventBridge<T>` type.
 
 The cancellation token belongs to stream consumption, so it is passed to `Connect(...)` rather than `ToEventBridge(...)`.
 
-`Value` is the event raised for every value produced by the `IAsyncEnumerable<T>`. The event uses `AsyncValueEventArgs<T>`, so the produced value is available as `e.Value`.
+`Value` is raised for every value produced by the `IAsyncEnumerable<T>`. The event uses `AsyncValueEventArgs<T>`, so the produced value is available as `e.Value`.
 
 The name is intentionally simple and domain-neutral: the bridge exposes values without implying that they were received, generated, or produced by any specific kind of source.
 
@@ -192,13 +196,12 @@ The sensor monitoring environment remains the common example throughout the READ
 ```text
 GenerateAsyncEventsAttribute
 EventAwaiter
-AsyncEventSourceExtensions (name may be revisited with the bridge rename)
+AsyncEventBridgeExtensions
 EventBridge
 EventBridge<T>
+EventStreamBridge<T>
 AsyncValueEventArgs<T>
 AsyncFaultedEventArgs
 ```
-
-An async-stream-specific bridge type may remain separate if that keeps the public API clearer. The older `TaskEventSource`, `TaskEventSource<T>`, and `AsyncEnumerableEventSource<T>` names are implementation-stage names to be replaced or revisited as the public bridge vocabulary is finalized.
 
 No Rx-style operators, event bus concepts, or messaging abstractions are part of the public surface.
