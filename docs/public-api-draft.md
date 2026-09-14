@@ -14,6 +14,8 @@ Future framework targets are additive. They should only be introduced when they 
 
 The public API and semantics described below are therefore designed against .NET Standard 2.0 first. Async-stream interfaces required by that target are supplied through `Microsoft.Bcl.AsyncInterfaces`.
 
+The NuGet package is a single package: the runtime is placed under `lib/netstandard2.0` and the source generator under `analyzers/dotnet/cs`. CI compiles a .NET Standard 2.0 / C# 8 project directly against the source projects and also compiles a separate consumer from the built `.nupkg`.
+
 ## Events -> async
 
 Assume the existing system exposes a sensor with events such as `Connected`, `Disconnected`, `ValueChanged`, and `AlarmRaised`.
@@ -152,6 +154,8 @@ The runtime subscribes when enumeration begins and unsubscribes when the enumera
 - `DropOldest` treats `Capacity` as a hard limit and removes the oldest buffered value when a new value arrives at capacity.
 - `DropNewest` treats `Capacity` as a hard limit and drops the newly arriving value when the buffer is already at capacity.
 
+The default capacity is `100`. The enum values are fixed as `Grow = 0`, `DropOldest = 1`, and `DropNewest = 2` so the public contract cannot accidentally change through enum reordering.
+
 `Capacity` and `FullMode` use ordinary setters so the options object remains friendly to the .NET Standard 2.0 compatibility baseline and older C# hosts. `EventStream.Create` snapshots the values before enumeration starts, so later changes to that options instance do not mutate an active stream configuration.
 
 The bridge never blocks the synchronous event producer. A `Wait`/blocking full mode is intentionally not part of the API.
@@ -203,8 +207,6 @@ Connect(cancellationToken)
 
 This naming is intentional. `Connect()` describes the bridge operation and does not imply that it starts the underlying `Task`.
 
-A possible future `AsyncBridge` name may be useful for an explicit event -> async bridge type, but that is not currently a committed public type. The normal event -> async experience remains the generated `...Async()` and `...Stream()` methods.
-
 ### `Task`
 
 ```csharp
@@ -234,6 +236,8 @@ bridge.Connect();
 `Completed` receives `AsyncValueEventArgs<T>` and exposes the result through `Value`.
 
 The bridge observes the existing task and publishes its terminal outcome once connected. It does not claim ownership of how or when the task itself was started.
+
+Calling `Dispose()` before terminal publication suppresses that future outcome and clears the handlers. If a terminal publication already began before disposal won the race, that in-flight event dispatch is allowed to finish after `Dispose()` returns.
 
 ### `IAsyncEnumerable<T>`
 
@@ -292,11 +296,22 @@ bridge.Connect();
 
 The verb describes the bridge itself rather than claiming to start the underlying async operation.
 
+## Packaging contract
+
+The source generator and runtime ship together in one `AsyncEventBridge` package. CI verifies all of the following from the built package rather than only from project references:
+
+- the runtime assembly and XML documentation are present;
+- the generator is present in `analyzers/dotnet/cs`;
+- the README and icon are present;
+- a .NET Standard 2.0 consumer can restore and compile generated methods from the package;
+- a separate runtime consumer can execute Event -> Task, Task<T> -> Events, and IAsyncEnumerable<T> -> Events from the package;
+- the `.nupkg` is retained as a CI artifact for manual host testing.
+
 ## Documentation rule
 
 Before/after examples use the same classes, variables, and scenario. Only the code being replaced by AsyncEventBridge changes.
 
-The sensor monitoring environment remains the common example throughout the README, migration guide, API examples, and future NuGet documentation.
+The sensor monitoring environment remains the common example throughout the README, migration guide, API examples, NuGet documentation, and `samples/SensorMonitoring`.
 
 ## Intended public types
 
@@ -314,6 +329,6 @@ AsyncValueEventArgs<T>
 AsyncFaultedEventArgs
 ```
 
-The runtime test suite locks this exported type set and the intentional public methods, events, and properties so accidental API expansion is caught during CI.
+The runtime test suite locks this exported type set and the intentional public methods, events, and properties so accidental API expansion is caught during CI. Stream defaults and enum numeric values are locked as well.
 
 No Rx-style operators, event bus concepts, or messaging abstractions are part of the public surface.
