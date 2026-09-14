@@ -15,8 +15,15 @@ public static class EventAwaiter
         CancellationToken cancellationToken = default,
         TimeSpan? timeout = null)
     {
-        ArgumentNullException.ThrowIfNull(subscribe);
-        ArgumentNullException.ThrowIfNull(unsubscribe);
+        if (subscribe is null)
+        {
+            throw new ArgumentNullException(nameof(subscribe));
+        }
+
+        if (unsubscribe is null)
+        {
+            throw new ArgumentNullException(nameof(unsubscribe));
+        }
 
         EventHandler? adaptedHandler = null;
 
@@ -43,8 +50,16 @@ public static class EventAwaiter
         TimeSpan? timeout = null)
         where TEventArgs : EventArgs
     {
-        ArgumentNullException.ThrowIfNull(subscribe);
-        ArgumentNullException.ThrowIfNull(unsubscribe);
+        if (subscribe is null)
+        {
+            throw new ArgumentNullException(nameof(subscribe));
+        }
+
+        if (unsubscribe is null)
+        {
+            throw new ArgumentNullException(nameof(unsubscribe));
+        }
+
         ValidateTimeout(timeout);
 
         if (cancellationToken.IsCancellationRequested)
@@ -77,9 +92,21 @@ public static class EventAwaiter
         ITimeoutScheduler timeoutScheduler)
         where TEventArgs : EventArgs
     {
-        ArgumentNullException.ThrowIfNull(subscribe);
-        ArgumentNullException.ThrowIfNull(unsubscribe);
-        ArgumentNullException.ThrowIfNull(timeoutScheduler);
+        if (subscribe is null)
+        {
+            throw new ArgumentNullException(nameof(subscribe));
+        }
+
+        if (unsubscribe is null)
+        {
+            throw new ArgumentNullException(nameof(unsubscribe));
+        }
+
+        if (timeoutScheduler is null)
+        {
+            throw new ArgumentNullException(nameof(timeoutScheduler));
+        }
+
         ValidateTimeout(timeout);
 
         if (cancellationToken.IsCancellationRequested)
@@ -130,7 +157,10 @@ internal sealed class SystemTimeoutScheduler : ITimeoutScheduler
 
     public IDisposable Schedule(TimeSpan timeout, Action callback)
     {
-        ArgumentNullException.ThrowIfNull(callback);
+        if (callback is null)
+        {
+            throw new ArgumentNullException(nameof(callback));
+        }
 
         return new Timer(
             static state => ((Action)state!).Invoke(),
@@ -287,7 +317,7 @@ internal sealed class EventWaitState<TEventArgs>
 
         try
         {
-            _cancellationRegistration.Unregister();
+            _cancellationRegistration.Dispose();
         }
         catch (Exception exception)
         {
