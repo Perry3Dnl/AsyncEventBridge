@@ -164,7 +164,7 @@ bridge.Cancelled += OnSensorStreamCancelled;
 bridge.Connect(cancellationToken);
 ```
 
-The async-stream runtime is still the next implementation slice.
+`EventStreamBridge<T>` publishes values in enumeration order and then one terminal event: `Completed`, `Faulted`, or `Cancelled`. `DisposeAsync()` stops consumption, suppresses future publication, and waits for asynchronous enumerator cleanup. Disposal itself does not publish `Cancelled`.
 
 ## Design goals
 
@@ -191,7 +191,7 @@ var e = await sensor.ValueChangedAsync();
 
 and progressively adds optional filtering, timeout and cancellation behavior.
 
-`Task` and `Task<T>` can also be bridged through `ToEventBridge()` with `Completed`, `Faulted` and `Cancelled` events. Async-stream event bridging remains the next runtime slice.
+`Task`, `Task<T>`, and `IAsyncEnumerable<T>` can be bridged back to event-driven consumers through `ToEventBridge()`. Tasks expose terminal events through `EventBridge` / `EventBridge<T>`, while async streams use `EventStreamBridge<T>` with `Value` plus terminal events.
 
 ## Correctness targets
 
@@ -208,6 +208,8 @@ The test suites cover the event-to-async runtime with:
 - 100+ parallel waits;
 - repeated race stress;
 - zero handlers remaining after completion.
+
+The async-to-events tests also cover task outcome publication and async-stream value ordering, completion, faults, cancellation, disposal, single-connect behavior, and subscriber exception isolation.
 
 Race tests use controlled synchronization rather than timing-based `Task.Delay` assertions.
 
@@ -227,5 +229,5 @@ tests/
 
 1. Finalize and harden the Event -> Async public API and runtime.
 2. Harden `Task -> Events` and `Task<T> -> Events` interoperability.
-3. Add `IAsyncEnumerable<T>` bridging in both directions.
+3. Harden `IAsyncEnumerable<T> -> Events` and add the Event -> `IAsyncEnumerable<T>` direction.
 4. Turn the sensor monitoring examples into a complete beginner-friendly guide for GitHub and the NuGet package documentation.
