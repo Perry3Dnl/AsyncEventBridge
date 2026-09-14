@@ -94,50 +94,72 @@ For generic events, a predicate overload is planned as well.
 
 The same monitoring system may also contain newer async APIs. These examples bridge those APIs back to older event-driven consumers.
 
+### Naming decision
+
+The intended public vocabulary for the async -> events direction is:
+
+```text
+ToEventBridge()
+EventBridge
+EventBridge<T>
+Connect()
+Connect(cancellationToken)
+```
+
+`ToEventBridge()` creates the event-facing bridge object. Consumers attach their handlers first, then call `Connect()` to connect the bridge to the async source and allow publication.
+
+This naming is intentional. `Connect()` describes the bridge operation and does not imply that it starts the underlying `Task`. The current implementation may temporarily still contain older `*EventSource` type or method names while this refactor is being completed; those older names are not the intended final public API.
+
+A possible future `AsyncBridge` name may be useful for an explicit event -> async bridge type, but that is not currently a committed public type. The normal event -> async experience remains the generated `...Async()` methods.
+
 ### `Task`
 
 ```csharp
-using var source = SaveSensorConfigurationAsync().ToEventSource();
+using EventBridge bridge =
+    SaveSensorConfigurationAsync().ToEventBridge();
 
-source.Completed += OnConfigurationSaved;
-source.Faulted += OnConfigurationSaveFailed;
-source.Cancelled += OnConfigurationSaveCancelled;
+bridge.Completed += OnConfigurationSaved;
+bridge.Faulted += OnConfigurationSaveFailed;
+bridge.Cancelled += OnConfigurationSaveCancelled;
 
-source.Connect();
+bridge.Connect();
 ```
 
 ### `Task<T>`
 
 ```csharp
-using var source = LoadSensorConfigurationAsync().ToEventSource();
+using EventBridge<SensorConfiguration> bridge =
+    LoadSensorConfigurationAsync().ToEventBridge();
 
-source.Completed += OnConfigurationLoaded;
-source.Faulted += OnConfigurationLoadFailed;
-source.Cancelled += OnConfigurationLoadCancelled;
+bridge.Completed += OnConfigurationLoaded;
+bridge.Faulted += OnConfigurationLoadFailed;
+bridge.Cancelled += OnConfigurationLoadCancelled;
 
-source.Connect();
+bridge.Connect();
 ```
 
 `Completed` receives `AsyncValueEventArgs<T>` and exposes the result through `Value`.
 
-`Task` and `Task<T>` event sources are now implemented on the API-design branch. They observe the existing task and publish its terminal outcome once the bridge is connected.
+The bridge observes the existing task and publishes its terminal outcome once connected. It does not claim ownership of how or when the task itself was started.
 
 ### `IAsyncEnumerable<T>`
 
-The async-stream event source is still a public API draft. The intended shape is:
+The async-stream event bridge is still a public API draft. The intended consumer shape follows the same bridge vocabulary:
 
 ```csharp
-await using var source = ReadSensorValuesAsync().ToEventSource();
+await using var bridge = ReadSensorValuesAsync().ToEventBridge();
 
-source.Value += OnSensorValue;
-source.Completed += OnSensorStreamCompleted;
-source.Faulted += OnSensorStreamFailed;
-source.Cancelled += OnSensorStreamCancelled;
+bridge.Value += OnSensorValue;
+bridge.Completed += OnSensorStreamCompleted;
+bridge.Faulted += OnSensorStreamFailed;
+bridge.Cancelled += OnSensorStreamCancelled;
 
-source.Connect(cancellationToken);
+bridge.Connect(cancellationToken);
 ```
 
-The cancellation token belongs to stream consumption, so it is passed to `Connect(...)` rather than `ToEventSource(...)`.
+The exact public bridge type used for async streams is still under review; it should not force irrelevant task-only or stream-only members onto consumers merely for naming symmetry.
+
+The cancellation token belongs to stream consumption, so it is passed to `Connect(...)` rather than `ToEventBridge(...)`.
 
 `Value` is the event raised for every value produced by the `IAsyncEnumerable<T>`. The event uses `AsyncValueEventArgs<T>`, so the produced value is available as `e.Value`.
 
@@ -150,11 +172,11 @@ The name is intentionally simple and domain-neutral: the bridge exposes values w
 This lets a consumer attach all event handlers first and then connect both programming models in one clear step:
 
 ```csharp
-source.Completed += OnCompleted;
-source.Faulted += OnFaulted;
-source.Cancelled += OnCancelled;
+bridge.Completed += OnCompleted;
+bridge.Faulted += OnFaulted;
+bridge.Cancelled += OnCancelled;
 
-source.Connect();
+bridge.Connect();
 ```
 
 The verb describes the bridge itself rather than claiming to start the underlying async operation.
@@ -165,17 +187,18 @@ Before/after examples use the same classes, variables, and scenario. Only the co
 
 The sensor monitoring environment remains the common example throughout the README, migration guide, API examples, and future NuGet documentation.
 
-## Initial public types
+## Intended public types
 
 ```text
 GenerateAsyncEventsAttribute
 EventAwaiter
-AsyncEventSourceExtensions
-TaskEventSource
-TaskEventSource<T>
-AsyncEnumerableEventSource<T>
+AsyncEventSourceExtensions (name may be revisited with the bridge rename)
+EventBridge
+EventBridge<T>
 AsyncValueEventArgs<T>
 AsyncFaultedEventArgs
 ```
+
+An async-stream-specific bridge type may remain separate if that keeps the public API clearer. The older `TaskEventSource`, `TaskEventSource<T>`, and `AsyncEnumerableEventSource<T>` names are implementation-stage names to be replaced or revisited as the public bridge vocabulary is finalized.
 
 No Rx-style operators, event bus concepts, or messaging abstractions are part of the public surface.
