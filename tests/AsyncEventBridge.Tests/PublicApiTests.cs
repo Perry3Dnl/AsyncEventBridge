@@ -53,7 +53,7 @@ public sealed class PublicApiTests
         AssertPropertyNames(typeof(AsyncValueEventArgs<int>), "Value");
         AssertPropertyNames(typeof(AsyncFaultedEventArgs), "Exception");
         AssertPropertyNames(typeof(EventStreamOptions), "Capacity", "FullMode");
-        AssertPropertyNames(typeof(GenerateAsyncEventsForAttribute), "TargetType", "TypeId");
+        AssertPropertyNames(typeof(GenerateAsyncEventsForAttribute), "TargetType");
 
         Assert.Equal(
             new[] { "DropNewest", "DropOldest", "Grow" },
