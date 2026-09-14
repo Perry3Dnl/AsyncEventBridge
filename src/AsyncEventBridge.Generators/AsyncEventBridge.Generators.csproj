@@ -4,6 +4,7 @@
     <AssemblyName>AsyncEventBridge.Generators</AssemblyName>
     <RootNamespace>AsyncEventBridge.Generators</RootNamespace>
     <IsRoslynComponent>true</IsRoslynComponent>
+    <IsPackable>false</IsPackable>
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
   </PropertyGroup>
 
