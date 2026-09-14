@@ -1,0 +1,48 @@
+# Changelog
+
+All notable changes to AsyncEventBridge are documented here.
+
+## 0.1.0
+
+First release.
+
+### Runtime baseline
+
+- Targets .NET Standard 2.0 as the complete minimum runtime contract.
+- Uses `Microsoft.Bcl.AsyncInterfaces` for async-stream compatibility on the baseline target.
+- Keeps the public runtime behavior consistent with the baseline rather than shipping a reduced compatibility build.
+
+### Event -> async
+
+- Generate one-shot `<EventName>Async(...)` methods for `EventHandler` and `EventHandler<TEventArgs>` events.
+- Support filtering, cancellation, and timeout overloads.
+- Generate repeated `<EventName>Stream(...)` methods returning `IAsyncEnumerable<T>`.
+- Support `Grow`, `DropOldest`, and `DropNewest` event-stream buffering modes.
+- Handle cancellation, reentrancy, cleanup, subscription failures, and terminal races.
+
+### Async -> events
+
+- Bridge `Task` to `EventBridge`.
+- Bridge `Task<T>` to `EventBridge<T>`.
+- Bridge `IAsyncEnumerable<T>` to `EventStreamBridge<T>`.
+- Provide explicit `Connect()` lifecycle control.
+- Publish `Completed`, `Faulted`, and `Cancelled` terminal events.
+- Publish async-stream values through `Value` in enumeration order.
+- Isolate subscriber exceptions so one handler does not stop other subscribers or bridge processing.
+
+### Source generator
+
+- Included in the same `AsyncEventBridge` NuGet package as the runtime.
+- Supports public inherited events, generic source types, accessible nested types, and generic constraints.
+- Preserves source accessibility and normal C# member-hiding behavior.
+- Keeps generated source compatible with C# 8 syntax.
+- Handles generated class-name collisions and source instance-method collisions.
+
+### Verification
+
+- Public API lock tests protect the intended exported surface.
+- Runtime, generator, race, lifecycle, and stress tests are included.
+- A dedicated .NET Standard 2.0 / C# 8 compatibility consumer is built in CI.
+- CI creates the NuGet package and validates its contents.
+- Separate consumers restore from the generated `.nupkg`, compile generated APIs, and execute packaged runtime smoke tests.
+- The `samples/SensorMonitoring` example is built and executed in CI.
