@@ -2,6 +2,17 @@
 
 All notable changes to AsyncEventBridge are documented here.
 
+## Unreleased
+
+### Source generator
+
+- Add `[assembly: GenerateAsyncEventsFor(typeof(...))]` for generating async event facades around public types that cannot be annotated directly, including third-party and framework types.
+- Add generated support for custom event-handler-shaped delegates that return `void`, have two non-ref parameters, and use an `EventArgs`-derived second parameter.
+- Cover common delegates such as `PropertyChangedEventHandler`, `NotifyCollectionChangedEventHandler`, and `ElapsedEventHandler` through the custom delegate adapter path.
+- Add `AEB001` warnings for annotated or explicitly targeted events whose delegate shape cannot be generated safely instead of silently skipping them.
+- Keep the new generated adapter code compatible with C# 8 and the existing .NET Standard 2.0 runtime baseline.
+- Verify assembly-level generation and custom delegate adapters through generator tests, package-only compilation, and packaged runtime smoke tests.
+
 ## 0.1.0
 
 First release.
