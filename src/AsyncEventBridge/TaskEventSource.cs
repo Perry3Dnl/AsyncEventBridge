@@ -11,7 +11,7 @@ public sealed class TaskEventSource : IDisposable
     private EventHandler? _completed;
     private EventHandler<AsyncFaultedEventArgs>? _faulted;
     private EventHandler? _cancelled;
-    private bool _started;
+    private bool _connected;
     private bool _published;
     private bool _disposed;
 
@@ -48,24 +48,23 @@ public sealed class TaskEventSource : IDisposable
     }
 
     /// <summary>
-    /// Starts observing the task and publishes its terminal outcome to current subscribers.
+    /// Connects the async task to the event-facing bridge and begins publishing its terminal outcome.
     /// </summary>
     /// <remarks>
-    /// The underlying task may already be running or completed. This method starts bridge observation;
-    /// it does not start the task itself. A source can only be started once.
+    /// The underlying task may already be running or completed. A bridge can only be connected once.
     /// </remarks>
-    public void Start()
+    public void Connect()
     {
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
 
-            if (_started)
+            if (_connected)
             {
-                throw new InvalidOperationException("The event source has already been started.");
+                throw new InvalidOperationException("The event bridge has already been connected.");
             }
 
-            _started = true;
+            _connected = true;
         }
 
         _ = ObserveAsync();
@@ -262,7 +261,7 @@ public sealed class TaskEventSource<T> : IDisposable
     private EventHandler<AsyncValueEventArgs<T>>? _completed;
     private EventHandler<AsyncFaultedEventArgs>? _faulted;
     private EventHandler? _cancelled;
-    private bool _started;
+    private bool _connected;
     private bool _published;
     private bool _disposed;
 
@@ -299,24 +298,23 @@ public sealed class TaskEventSource<T> : IDisposable
     }
 
     /// <summary>
-    /// Starts observing the task and publishes its terminal outcome to current subscribers.
+    /// Connects the async task to the event-facing bridge and begins publishing its terminal outcome.
     /// </summary>
     /// <remarks>
-    /// The underlying task may already be running or completed. This method starts bridge observation;
-    /// it does not start the task itself. A source can only be started once.
+    /// The underlying task may already be running or completed. A bridge can only be connected once.
     /// </remarks>
-    public void Start()
+    public void Connect()
     {
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
 
-            if (_started)
+            if (_connected)
             {
-                throw new InvalidOperationException("The event source has already been started.");
+                throw new InvalidOperationException("The event bridge has already been connected.");
             }
 
-            _started = true;
+            _connected = true;
         }
 
         _ = ObserveAsync();
