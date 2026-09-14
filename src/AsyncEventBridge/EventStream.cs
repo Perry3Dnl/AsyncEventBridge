@@ -22,8 +22,15 @@ public static class EventStream
         EventStreamOptions? options = null,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(subscribe);
-        ArgumentNullException.ThrowIfNull(unsubscribe);
+        if (subscribe is null)
+        {
+            throw new ArgumentNullException(nameof(subscribe));
+        }
+
+        if (unsubscribe is null)
+        {
+            throw new ArgumentNullException(nameof(unsubscribe));
+        }
 
         var settings = GetSettings(options);
         return Enumerate(subscribe, unsubscribe, predicate, settings, cancellationToken);
@@ -45,8 +52,15 @@ public static class EventStream
         CancellationToken cancellationToken = default)
         where TEventArgs : EventArgs
     {
-        ArgumentNullException.ThrowIfNull(subscribe);
-        ArgumentNullException.ThrowIfNull(unsubscribe);
+        if (subscribe is null)
+        {
+            throw new ArgumentNullException(nameof(subscribe));
+        }
+
+        if (unsubscribe is null)
+        {
+            throw new ArgumentNullException(nameof(unsubscribe));
+        }
 
         var settings = GetSettings(options);
         return Enumerate(subscribe, unsubscribe, predicate, settings, cancellationToken);
@@ -196,7 +210,7 @@ public static class EventStream
                 "Event stream capacity must be greater than zero.");
         }
 
-        if (!Enum.IsDefined(fullMode))
+        if (!Enum.IsDefined(typeof(EventStreamFullMode), fullMode))
         {
             throw new ArgumentOutOfRangeException(
                 nameof(options),
@@ -219,10 +233,54 @@ public static class EventStream
         return CancellationTokenSource.CreateLinkedTokenSource(first, second);
     }
 
-    private readonly record struct EventStreamSettings(int Capacity, EventStreamFullMode FullMode);
-
-    private readonly record struct BufferReadResult<T>(bool HasValue, T? Value)
+    private static async Task WaitWithCancellationAsync(Task task, CancellationToken cancellationToken)
     {
+        if (!cancellationToken.CanBeCanceled || task.IsCompleted)
+        {
+            await task.ConfigureAwait(false);
+            return;
+        }
+
+        var cancellationSignal = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        using (cancellationToken.Register(() => cancellationSignal.TrySetResult(true)))
+        {
+            var completedTask = await Task.WhenAny(task, cancellationSignal.Task).ConfigureAwait(false);
+
+            if (!ReferenceEquals(completedTask, task))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+        }
+
+        await task.ConfigureAwait(false);
+    }
+
+    private readonly struct EventStreamSettings
+    {
+        internal EventStreamSettings(int capacity, EventStreamFullMode fullMode)
+        {
+            Capacity = capacity;
+            FullMode = fullMode;
+        }
+
+        internal int Capacity { get; }
+
+        internal EventStreamFullMode FullMode { get; }
+    }
+
+    private readonly struct BufferReadResult<T>
+    {
+        private BufferReadResult(bool hasValue, T? value)
+        {
+            HasValue = hasValue;
+            Value = value;
+        }
+
+        internal bool HasValue { get; }
+
+        internal T? Value { get; }
+
         internal static BufferReadResult<T> End { get; } = new(false, default);
 
         internal static BufferReadResult<T> FromValue(T value) => new(true, value);
@@ -328,7 +386,7 @@ public static class EventStream
                     waitTask = _signal.Task;
                 }
 
-                await waitTask.WaitAsync(cancellationToken).ConfigureAwait(false);
+                await WaitWithCancellationAsync(waitTask, cancellationToken).ConfigureAwait(false);
             }
         }
     }
