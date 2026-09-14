@@ -147,7 +147,26 @@ await foreach (var value in sensor.ValueChangedStream(
 }
 ```
 
-The bridge subscribes when enumeration begins and unsubscribes when the `await foreach` ends, is disposed, or is cancelled. Because normal .NET events cannot wait asynchronously for a slow consumer, event values are buffered while the consumer catches up. The current runtime uses an unbounded buffer so values are not silently dropped; a producer that permanently outruns its consumer can therefore grow memory usage.
+Because a normal synchronous .NET event cannot wait asynchronously for a slow consumer, the stream must either buffer values or explicitly drop them. The default is lossless: `EventStreamFullMode.Grow` preserves every event value and starts with a buffer capacity of 100. If the producer keeps outrunning the consumer, that buffer is allowed to grow beyond its initial capacity and memory usage can therefore grow without a fixed upper bound.
+
+When bounded memory is more important than preserving every value, configure the generated stream explicitly:
+
+```csharp
+await foreach (var value in sensor.ValueChangedStream(
+    new EventStreamOptions
+    {
+        Capacity = 100,
+        FullMode = EventStreamFullMode.DropOldest
+    },
+    cancellationToken))
+{
+    Console.WriteLine(value.Value);
+}
+```
+
+`DropOldest` removes the oldest buffered value when the hard capacity is reached. `DropNewest` keeps the existing buffer and drops the newly arriving value. The bridge intentionally does not provide a blocking `Wait` mode, because blocking a synchronous event producer can change event semantics and introduce deadlock risk.
+
+The bridge subscribes when enumeration begins and unsubscribes when the `await foreach` ends, is disposed, or is cancelled.
 
 ## Bridging async code back to events
 
@@ -222,7 +241,7 @@ await foreach (var e in sensor.ValueChangedStream(cancellationToken))
 }
 ```
 
-Filtering, timeout, and cancellation are added progressively without changing the simple entry points.
+Filtering, timeout, cancellation, and explicit stream-buffer policy are added progressively without changing the simple entry points.
 
 `Task`, `Task<T>`, and `IAsyncEnumerable<T>` can also be bridged back to event-driven consumers through `ToEventBridge()`. Tasks expose terminal events through `EventBridge` / `EventBridge<T>`, while async streams use `EventStreamBridge<T>` with `Value` plus terminal events.
 
@@ -242,7 +261,8 @@ The test suites cover the event-to-async runtime with:
 - repeated race stress;
 - zero handlers remaining after completion;
 - repeated event ordering through async streams;
-- async-stream filtering, cancellation, disposal, and reentrant subscription cleanup.
+- async-stream filtering, cancellation, disposal, and reentrant subscription cleanup;
+- lossless growing buffers and bounded `DropOldest` / `DropNewest` behavior.
 
 The async-to-events tests also cover task outcome publication and async-stream value ordering, completion, faults, cancellation, disposal, single-connect behavior, and subscriber exception isolation.
 
