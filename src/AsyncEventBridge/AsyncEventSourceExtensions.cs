@@ -11,7 +11,7 @@ public static class AsyncEventSourceExtensions
     public static TaskEventSource ToEventSource(this Task task)
     {
         ArgumentNullException.ThrowIfNull(task);
-        throw new NotImplementedException("Public API draft only. Runtime behavior is not implemented yet.");
+        return new TaskEventSource(task);
     }
 
     /// <summary>
@@ -20,17 +20,15 @@ public static class AsyncEventSourceExtensions
     public static TaskEventSource<T> ToEventSource<T>(this Task<T> task)
     {
         ArgumentNullException.ThrowIfNull(task);
-        throw new NotImplementedException("Public API draft only. Runtime behavior is not implemented yet.");
+        return new TaskEventSource<T>(task);
     }
 
     /// <summary>
     /// Exposes an <see cref="IAsyncEnumerable{T}"/> as an event source.
     /// </summary>
-    public static AsyncEnumerableEventSource<T> ToEventSource<T>(
-        this IAsyncEnumerable<T> source,
-        CancellationToken cancellationToken = default)
+    public static AsyncEnumerableEventSource<T> ToEventSource<T>(this IAsyncEnumerable<T> source)
     {
         ArgumentNullException.ThrowIfNull(source);
-        throw new NotImplementedException("Public API draft only. Runtime behavior is not implemented yet.");
+        return new AsyncEnumerableEventSource<T>(source);
     }
 }
