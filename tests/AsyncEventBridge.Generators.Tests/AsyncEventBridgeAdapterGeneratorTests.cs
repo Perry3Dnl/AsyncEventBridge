@@ -130,8 +130,8 @@ public sealed class AsyncEventBridgeAdapterGeneratorTests
     [Fact]
     public void AssemblyAttributeGeneratesForUnannotatedType()
     {
-        var source = RuntimeStubs + """
-            [assembly: AsyncEventBridge.GenerateAsyncEventsFor(typeof(Demo.Sensor))]
+        var source = RuntimeWithAssemblyAttribute(
+            "[assembly: AsyncEventBridge.GenerateAsyncEventsFor(typeof(Demo.Sensor))]") + """
 
             namespace Demo
             {
@@ -172,8 +172,8 @@ public sealed class AsyncEventBridgeAdapterGeneratorTests
             }
             """);
 
-        var source = RuntimeStubs + """
-            [assembly: AsyncEventBridge.GenerateAsyncEventsFor(typeof(ThirdParty.LegacySensor))]
+        var source = RuntimeWithAssemblyAttribute(
+            "[assembly: AsyncEventBridge.GenerateAsyncEventsFor(typeof(ThirdParty.LegacySensor))]") + """
 
             namespace Consumer
             {
@@ -211,9 +211,8 @@ public sealed class AsyncEventBridgeAdapterGeneratorTests
             }
             """);
 
-        var source = RuntimeStubs + """
-            [assembly: AsyncEventBridge.GenerateAsyncEventsFor(typeof(ThirdParty.LegacySensor))]
-            """;
+        var source = RuntimeWithAssemblyAttribute(
+            "[assembly: AsyncEventBridge.GenerateAsyncEventsFor(typeof(ThirdParty.LegacySensor))]");
 
         var result = RunGenerator(source, additionalReferences: [thirdPartyReference]);
         var generatedSource = Assert.Single(Assert.Single(result.Results).GeneratedSources).SourceText.ToString();
@@ -221,6 +220,12 @@ public sealed class AsyncEventBridgeAdapterGeneratorTests
         Assert.Contains("VisibleAsync", generatedSource, StringComparison.Ordinal);
         Assert.DoesNotContain("HiddenAsync", generatedSource, StringComparison.Ordinal);
     }
+
+    private static string RuntimeWithAssemblyAttribute(string attribute) =>
+        RuntimeStubs.Replace(
+            "namespace AsyncEventBridge",
+            attribute + Environment.NewLine + Environment.NewLine + "namespace AsyncEventBridge",
+            StringComparison.Ordinal);
 
     private static GeneratorDriverRunResult RunGenerator(
         string source,
