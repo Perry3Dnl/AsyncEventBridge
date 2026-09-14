@@ -226,6 +226,133 @@ public sealed class AsyncEventBridgeGeneratorTests
     }
 
     [Fact]
+    public void InternalEventProducesInternalGeneratedApi()
+    {
+        var source = RuntimeStubs + """
+            namespace Demo
+            {
+                [AsyncEventBridge.GenerateAsyncEvents]
+                public sealed class Sensor
+                {
+                    internal event EventHandler<SensorEventArgs>? ValueChanged;
+                }
+
+                public sealed class SensorEventArgs : EventArgs
+                {
+                }
+            }
+            """;
+
+        var result = RunGenerator(source);
+        var generatedSource = Assert.Single(Assert.Single(result.Results).GeneratedSources).SourceText.ToString();
+
+        Assert.Contains("internal static class Demo_DOT_SensorAsyncEventExtensions", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("internal static global::System.Threading.Tasks.Task<global::Demo.SensorEventArgs> ValueChangedAsync", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("internal static global::System.Collections.Generic.IAsyncEnumerable<global::Demo.SensorEventArgs> ValueChangedStream", generatedSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void MixedEventAccessibilityDoesNotExposeInternalEvent()
+    {
+        var source = RuntimeStubs + """
+            namespace Demo
+            {
+                [AsyncEventBridge.GenerateAsyncEvents]
+                public sealed class Sensor
+                {
+                    public event EventHandler? Connected;
+                    internal event EventHandler? InternalTick;
+                }
+            }
+            """;
+
+        var result = RunGenerator(source);
+        var generatedSource = Assert.Single(Assert.Single(result.Results).GeneratedSources).SourceText.ToString();
+
+        Assert.Contains("public static class Demo_DOT_SensorAsyncEventExtensions", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("public static global::System.Threading.Tasks.Task ConnectedAsync", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("internal static global::System.Threading.Tasks.Task InternalTickAsync", generatedSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GeneratesForGenericTypeAndCopiesConstraints()
+    {
+        var source = RuntimeStubs + """
+            namespace Demo
+            {
+                [AsyncEventBridge.GenerateAsyncEvents]
+                public sealed class Sensor<TEventArgs>
+                    where TEventArgs : EventArgs, new()
+                {
+                    public event EventHandler<TEventArgs>? ValueChanged;
+                }
+            }
+            """;
+
+        var result = RunGenerator(source);
+        var generatedSource = Assert.Single(Assert.Single(result.Results).GeneratedSources).SourceText.ToString();
+
+        Assert.Contains("public static class Demo_DOT_Sensor_A1AsyncEventExtensions", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("ValueChangedAsync<TSource0>(this global::Demo.Sensor<TSource0> source", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("where TSource0 : global::System.EventArgs, new()", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("Task<TSource0>", generatedSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GeneratesForNestedGenericTypeAndCopiesContainingConstraints()
+    {
+        var source = RuntimeStubs + """
+            namespace Demo
+            {
+                public class SensorHost<TCategory>
+                    where TCategory : class
+                {
+                    [AsyncEventBridge.GenerateAsyncEvents]
+                    public sealed class Sensor<TEventArgs>
+                        where TEventArgs : EventArgs
+                    {
+                        public event EventHandler<TEventArgs>? ValueChanged;
+                    }
+                }
+            }
+            """;
+
+        var result = RunGenerator(source);
+        var generatedSource = Assert.Single(Assert.Single(result.Results).GeneratedSources).SourceText.ToString();
+
+        Assert.Contains("public static class Demo_DOT_SensorHost_A1_NESTED_Sensor_A1AsyncEventExtensions", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("ValueChangedAsync<TSource0, TSource1>(this global::Demo.SensorHost<TSource0>.Sensor<TSource1> source", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("where TSource0 : class", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("where TSource1 : global::System.EventArgs", generatedSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DerivedMemberHidesInheritedEvent()
+    {
+        var source = RuntimeStubs + """
+            namespace Demo
+            {
+                public class SensorBase
+                {
+                    public event EventHandler? Changed;
+                }
+
+                [AsyncEventBridge.GenerateAsyncEvents]
+                public sealed class Sensor : SensorBase
+                {
+                    public new void Changed()
+                    {
+                    }
+                }
+            }
+            """;
+
+        var result = RunGenerator(source);
+
+        Assert.Empty(Assert.Single(result.Results).GeneratedSources);
+    }
+
+    [Fact]
     public void UsesDifferentGeneratedClassNamesForSameSimpleTypeName()
     {
         var source = RuntimeStubs + """
@@ -255,6 +382,58 @@ public sealed class AsyncEventBridgeGeneratorTests
         var allGenerated = string.Join("\n", generatedSources.Select(item => item.SourceText.ToString()));
         Assert.Contains("Sensors_DOT_Left_DOT_SensorAsyncEventExtensions", allGenerated, StringComparison.Ordinal);
         Assert.Contains("Sensors_DOT_Right_DOT_SensorAsyncEventExtensions", allGenerated, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void UsesDifferentGeneratedClassNamesForDifferentGenericArities()
+    {
+        var source = RuntimeStubs + """
+            namespace Demo
+            {
+                [AsyncEventBridge.GenerateAsyncEvents]
+                public sealed class Sensor
+                {
+                    public event EventHandler? Changed;
+                }
+
+                [AsyncEventBridge.GenerateAsyncEvents]
+                public sealed class Sensor<T>
+                    where T : EventArgs
+                {
+                    public event EventHandler<T>? Changed;
+                }
+            }
+            """;
+
+        var result = RunGenerator(source);
+        var allGenerated = string.Join(
+            "\n",
+            Assert.Single(result.Results).GeneratedSources.Select(item => item.SourceText.ToString()));
+
+        Assert.Contains("Demo_DOT_SensorAsyncEventExtensions", allGenerated, StringComparison.Ordinal);
+        Assert.Contains("Demo_DOT_Sensor_A1AsyncEventExtensions", allGenerated, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DoesNotGenerateForInaccessibleNestedType()
+    {
+        var source = RuntimeStubs + """
+            namespace Demo
+            {
+                public class SensorHost
+                {
+                    [AsyncEventBridge.GenerateAsyncEvents]
+                    private sealed class Sensor
+                    {
+                        public event EventHandler? Changed;
+                    }
+                }
+            }
+            """;
+
+        var result = RunGenerator(source);
+
+        Assert.Empty(Assert.Single(result.Results).GeneratedSources);
     }
 
     [Fact]
