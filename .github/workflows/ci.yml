@@ -48,8 +48,21 @@ jobs:
           unzip -l "$PACKAGE" | grep -q "assets/AsyncEventBridge.png"
           unzip -l "$PACKAGE" | grep -q "README.md"
 
-      - name: Restore packaged consumer
+      - name: Restore packaged .NET Standard consumer
         run: dotnet restore tests/AsyncEventBridge.PackageSmoke/AsyncEventBridge.PackageSmoke.csproj --source "$PWD/artifacts/packages" --source https://api.nuget.org/v3/index.json -p:AsyncEventBridgePackageVersion=0.0.0-ci
 
-      - name: Build packaged consumer
+      - name: Build packaged .NET Standard consumer
         run: dotnet build tests/AsyncEventBridge.PackageSmoke/AsyncEventBridge.PackageSmoke.csproj --configuration Release --no-restore -p:AsyncEventBridgePackageVersion=0.0.0-ci
+
+      - name: Restore packaged runtime consumer
+        run: dotnet restore tests/AsyncEventBridge.PackageRuntimeSmoke/AsyncEventBridge.PackageRuntimeSmoke.csproj --source "$PWD/artifacts/packages" --source https://api.nuget.org/v3/index.json -p:AsyncEventBridgePackageVersion=0.0.0-ci
+
+      - name: Run packaged runtime consumer
+        run: timeout 15s dotnet run --project tests/AsyncEventBridge.PackageRuntimeSmoke/AsyncEventBridge.PackageRuntimeSmoke.csproj --configuration Release --no-restore -p:AsyncEventBridgePackageVersion=0.0.0-ci
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AsyncEventBridge-package
+          path: artifacts/packages/*.nupkg
+          if-no-files-found: error
