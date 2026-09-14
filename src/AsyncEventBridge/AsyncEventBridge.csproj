@@ -6,10 +6,10 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
 
     <PackageId>AsyncEventBridge</PackageId>
-    <Version>0.1.0-preview.1</Version>
+    <Version>0.1.0</Version>
     <Authors>Perry3Dnl</Authors>
-    <Description>Bridge event-driven and async .NET code in both directions.</Description>
-    <PackageTags>async;events;task;iasyncenumerable;source-generator;netstandard</PackageTags>
+    <Description>Bridge event-driven and async .NET code in both directions. First release built on the complete .NET Standard 2.0 baseline.</Description>
+    <PackageTags>async;events;task;iasyncenumerable;source-generator;netstandard;netstandard2.0</PackageTags>
     <PackageProjectUrl>https://github.com/Perry3Dnl/AsyncEventBridge</PackageProjectUrl>
     <RepositoryUrl>https://github.com/Perry3Dnl/AsyncEventBridge.git</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
