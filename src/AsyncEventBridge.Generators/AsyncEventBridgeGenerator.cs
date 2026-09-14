@@ -171,7 +171,19 @@ public sealed class AsyncEventBridgeGenerator : IIncrementalGenerator
             eventArgsType,
             handlerType,
             isGenericEventHandler,
-            includePredicate: false);
+            includePredicate: false,
+            includeOptions: false);
+
+        AppendStreamMethod(
+            source,
+            sourceType,
+            eventName,
+            methodName,
+            eventArgsType,
+            handlerType,
+            isGenericEventHandler,
+            includePredicate: false,
+            includeOptions: true);
 
         if (isGenericEventHandler)
         {
@@ -183,7 +195,19 @@ public sealed class AsyncEventBridgeGenerator : IIncrementalGenerator
                 eventArgsType,
                 handlerType,
                 isGenericEventHandler,
-                includePredicate: true);
+                includePredicate: true,
+                includeOptions: false);
+
+            AppendStreamMethod(
+                source,
+                sourceType,
+                eventName,
+                methodName,
+                eventArgsType,
+                handlerType,
+                isGenericEventHandler,
+                includePredicate: true,
+                includeOptions: true);
         }
     }
 
@@ -282,7 +306,8 @@ public sealed class AsyncEventBridgeGenerator : IIncrementalGenerator
         string eventArgsType,
         string handlerType,
         bool isGenericEventHandler,
-        bool includePredicate)
+        bool includePredicate,
+        bool includeOptions)
     {
         source.Append("    public static global::System.Collections.Generic.IAsyncEnumerable<")
             .Append(eventArgsType)
@@ -297,6 +322,11 @@ public sealed class AsyncEventBridgeGenerator : IIncrementalGenerator
             source.Append("global::System.Predicate<")
                 .Append(eventArgsType)
                 .Append("> predicate, ");
+        }
+
+        if (includeOptions)
+        {
+            source.Append("global::AsyncEventBridge.EventStreamOptions options, ");
         }
 
         source.AppendLine("global::System.Threading.CancellationToken cancellationToken = default)")
@@ -316,6 +346,15 @@ public sealed class AsyncEventBridgeGenerator : IIncrementalGenerator
                 .AppendLine();
         }
 
+        if (includeOptions)
+        {
+            source.AppendLine("        if (options is null)")
+                .AppendLine("        {")
+                .AppendLine("            throw new global::System.ArgumentNullException(nameof(options));")
+                .AppendLine("        }")
+                .AppendLine();
+        }
+
         source.Append("        return global::AsyncEventBridge.EventStream.Create")
             .Append(isGenericEventHandler ? $"<{eventArgsType}>" : string.Empty)
             .AppendLine("(")
@@ -331,6 +370,8 @@ public sealed class AsyncEventBridgeGenerator : IIncrementalGenerator
             .AppendLine(" -= handler,")
             .Append("            ")
             .AppendLine(includePredicate ? "predicate," : "null,")
+            .Append("            ")
+            .AppendLine(includeOptions ? "options," : "null,")
             .AppendLine("            cancellationToken);")
             .AppendLine("    }")
             .AppendLine();
