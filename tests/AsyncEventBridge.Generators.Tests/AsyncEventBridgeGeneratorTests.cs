@@ -12,6 +12,7 @@ public sealed class AsyncEventBridgeGeneratorTests
         const string source = """
             #nullable enable
             using System;
+            using System.Collections.Generic;
             using System.Threading;
             using System.Threading.Tasks;
 
@@ -39,6 +40,22 @@ public sealed class AsyncEventBridgeGeneratorTests
                         TimeSpan? timeout = null)
                         where TEventArgs : EventArgs => throw new NotImplementedException();
                 }
+
+                public static class EventStream
+                {
+                    public static IAsyncEnumerable<EventArgs> Create(
+                        Action<EventHandler> subscribe,
+                        Action<EventHandler> unsubscribe,
+                        Predicate<EventArgs>? predicate = null,
+                        CancellationToken cancellationToken = default) => throw new NotImplementedException();
+
+                    public static IAsyncEnumerable<TEventArgs> Create<TEventArgs>(
+                        Action<EventHandler<TEventArgs>> subscribe,
+                        Action<EventHandler<TEventArgs>> unsubscribe,
+                        Predicate<TEventArgs>? predicate = null,
+                        CancellationToken cancellationToken = default)
+                        where TEventArgs : EventArgs => throw new NotImplementedException();
+                }
             }
 
             namespace Demo
@@ -61,8 +78,11 @@ public sealed class AsyncEventBridgeGeneratorTests
 
         Assert.Contains("Task<global::Demo.SensorEventArgs> ValueChangedAsync", generatedSource, StringComparison.Ordinal);
         Assert.Contains("Task TickAsync", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("IAsyncEnumerable<global::Demo.SensorEventArgs> ValueChangedStream", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("IAsyncEnumerable<global::System.EventArgs> TickStream", generatedSource, StringComparison.Ordinal);
         Assert.Contains("global::System.Predicate<global::Demo.SensorEventArgs> predicate", generatedSource, StringComparison.Ordinal);
         Assert.Contains("global::System.TimeSpan timeout", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("global::AsyncEventBridge.EventStream.Create<global::Demo.SensorEventArgs>", generatedSource, StringComparison.Ordinal);
         Assert.Contains("(global::System.EventHandler handler) => source.Tick += handler", generatedSource, StringComparison.Ordinal);
         Assert.Empty(result.Diagnostics.Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
     }
