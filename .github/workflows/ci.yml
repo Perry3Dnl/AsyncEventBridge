@@ -47,6 +47,7 @@ jobs:
           unzip -l "$PACKAGE" | grep -q "analyzers/dotnet/cs/AsyncEventBridge.Generators.dll"
           unzip -l "$PACKAGE" | grep -q "assets/AsyncEventBridge.png"
           unzip -l "$PACKAGE" | grep -q "README.md"
+          unzip -p "$PACKAGE" AsyncEventBridge.nuspec | grep -q '<license type="expression">MPL-2.0</license>'
 
       - name: Restore packaged .NET Standard consumer
         run: dotnet restore tests/AsyncEventBridge.PackageSmoke/AsyncEventBridge.PackageSmoke.csproj --source "$PWD/artifacts/packages" --source https://api.nuget.org/v3/index.json -p:AsyncEventBridgePackageVersion=0.1.0
