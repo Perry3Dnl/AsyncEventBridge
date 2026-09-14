@@ -125,6 +125,30 @@ Cancellation is optional. You do not need a `CancellationToken` for the basic ca
 
 More advanced overloads can combine filtering, timeouts and cancellation without changing the simple entry point.
 
+## Repeated events as an async stream
+
+When the async side needs more than one occurrence of the same event, the generator also exposes a stream-shaped API:
+
+```csharp
+await foreach (var value in sensor.ValueChangedStream(cancellationToken))
+{
+    Console.WriteLine(value.Value);
+}
+```
+
+The same event can be filtered before values reach the async consumer:
+
+```csharp
+await foreach (var value in sensor.ValueChangedStream(
+    e => e.Value >= 100,
+    cancellationToken))
+{
+    Console.WriteLine(value.Value);
+}
+```
+
+The bridge subscribes when enumeration begins and unsubscribes when the `await foreach` ends, is disposed, or is cancelled. Because normal .NET events cannot wait asynchronously for a slow consumer, event values are buffered while the consumer catches up.
+
 ## Bridging async code back to events
 
 The same sensor monitoring environment can contain newer async APIs while older consumers still expect events.
@@ -181,17 +205,26 @@ Generated APIs are intended to remain a thin facade over central runtime compone
 
 ## Current vertical slice
 
-The current implementation supports converting `EventHandler<TEventArgs>` and `EventHandler` events into awaitable operations.
+The current implementation supports converting `EventHandler<TEventArgs>` and `EventHandler` events into both one-shot awaitable operations and repeated async streams.
 
-The generated API supports the simple form:
+The generated API supports the simple one-shot form:
 
 ```csharp
 var e = await sensor.ValueChangedAsync();
 ```
 
-and progressively adds optional filtering, timeout and cancellation behavior.
+and the repeated stream form:
 
-`Task`, `Task<T>`, and `IAsyncEnumerable<T>` can be bridged back to event-driven consumers through `ToEventBridge()`. Tasks expose terminal events through `EventBridge` / `EventBridge<T>`, while async streams use `EventStreamBridge<T>` with `Value` plus terminal events.
+```csharp
+await foreach (var e in sensor.ValueChangedStream(cancellationToken))
+{
+    Console.WriteLine(e.Value);
+}
+```
+
+Filtering, timeout, and cancellation are added progressively without changing the simple entry points.
+
+`Task`, `Task<T>`, and `IAsyncEnumerable<T>` can also be bridged back to event-driven consumers through `ToEventBridge()`. Tasks expose terminal events through `EventBridge` / `EventBridge<T>`, while async streams use `EventStreamBridge<T>` with `Value` plus terminal events.
 
 ## Correctness targets
 
@@ -207,7 +240,9 @@ The test suites cover the event-to-async runtime with:
 - independent concurrent waits;
 - 100+ parallel waits;
 - repeated race stress;
-- zero handlers remaining after completion.
+- zero handlers remaining after completion;
+- repeated event ordering through async streams;
+- async-stream filtering, cancellation, disposal, and reentrant subscription cleanup.
 
 The async-to-events tests also cover task outcome publication and async-stream value ordering, completion, faults, cancellation, disposal, single-connect behavior, and subscriber exception isolation.
 
@@ -229,5 +264,5 @@ tests/
 
 1. Finalize and harden the Event -> Async public API and runtime.
 2. Harden `Task -> Events` and `Task<T> -> Events` interoperability.
-3. Harden `IAsyncEnumerable<T> -> Events` and add the Event -> `IAsyncEnumerable<T>` direction.
+3. Harden async-stream bridging in both directions.
 4. Turn the sensor monitoring examples into a complete beginner-friendly guide for GitHub and the NuGet package documentation.
