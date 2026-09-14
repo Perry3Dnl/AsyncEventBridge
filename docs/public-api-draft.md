@@ -145,7 +145,7 @@ The bridge observes the existing task and publishes its terminal outcome once co
 
 ### `IAsyncEnumerable<T>`
 
-The async-stream runtime is still being implemented, but its public bridge shape is:
+Async streams use a stream-specific bridge:
 
 ```csharp
 await using EventStreamBridge<SensorValue> bridge =
@@ -159,13 +159,17 @@ bridge.Cancelled += OnSensorStreamCancelled;
 bridge.Connect(cancellationToken);
 ```
 
+`EventStreamBridge<T>` is now implemented. `Connect(...)` starts consuming the async sequence and publishes each item through `Value` in enumeration order. The stream then publishes exactly one terminal outcome: `Completed`, `Faulted`, or `Cancelled`.
+
 The stream uses `EventStreamBridge<T>` instead of forcing stream-specific `Value` behavior onto the task-oriented `EventBridge<T>` type.
 
 The cancellation token belongs to stream consumption, so it is passed to `Connect(...)` rather than `ToEventBridge(...)`.
 
-`Value` is raised for every value produced by the `IAsyncEnumerable<T>`. The event uses `AsyncValueEventArgs<T>`, so the produced value is available as `e.Value`.
+`Value` uses `AsyncValueEventArgs<T>`, so the produced value is available as `e.Value`. Subscriber exceptions are isolated so one throwing handler does not stop other handlers or the stream bridge itself.
 
-The name is intentionally simple and domain-neutral: the bridge exposes values without implying that they were received, generated, or produced by any specific kind of source.
+`Dispose()` requests cancellation and suppresses future publication. `DisposeAsync()` does the same and also waits for asynchronous enumerator cleanup. Owner disposal does not publish `Cancelled`; `Cancelled` represents cancellation of the connected stream operation.
+
+The bridge does not buffer or replay values. A handler attached after `Connect()` may miss values that were already published, which matches normal .NET event behavior.
 
 ## Why `Connect()` exists
 
