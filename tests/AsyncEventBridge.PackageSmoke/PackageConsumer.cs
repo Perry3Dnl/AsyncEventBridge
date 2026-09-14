@@ -4,6 +4,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using AsyncEventBridge;
 
+[assembly: GenerateAsyncEventsFor(typeof(System.Timers.Timer))]
+
 namespace AsyncEventBridge.PackageSmoke
 {
     [GenerateAsyncEvents]
@@ -49,6 +51,20 @@ namespace AsyncEventBridge.PackageSmoke
                     FullMode = EventStreamFullMode.DropOldest,
                 },
                 cancellationToken);
+        }
+
+        public static Task<System.Timers.ElapsedEventArgs> WaitForElapsedAsync(
+            System.Timers.Timer timer,
+            CancellationToken cancellationToken = default)
+        {
+            return timer.ElapsedAsync(cancellationToken);
+        }
+
+        public static IAsyncEnumerable<System.Timers.ElapsedEventArgs> ReadElapsed(
+            System.Timers.Timer timer,
+            CancellationToken cancellationToken = default)
+        {
+            return timer.ElapsedStream(cancellationToken);
         }
 
         public static EventBridge<int> BridgeTask(Task<int> task)
