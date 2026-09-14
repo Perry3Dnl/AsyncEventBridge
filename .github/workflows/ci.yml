@@ -30,6 +30,9 @@ jobs:
       - name: Test
         run: dotnet test AsyncEventBridge.sln --configuration Release --no-build --logger "trx;LogFileName=test-results.trx"
 
+      - name: Run sensor sample
+        run: timeout 15s dotnet run --project samples/SensorMonitoring/SensorMonitoring.csproj --configuration Release --no-build
+
       - name: Pack
         run: dotnet pack src/AsyncEventBridge/AsyncEventBridge.csproj --configuration Release --no-build --no-restore -p:PackageVersion=0.0.0-ci -o artifacts/packages
 
