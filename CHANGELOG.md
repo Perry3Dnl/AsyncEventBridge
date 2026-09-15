@@ -17,7 +17,11 @@ All notable changes to the native modern-.NET line of AsyncEventBridge are docum
 ### Modern event waits
 
 - Add `EventOccurrence<TSender, TPayload>` plus low-level and generated sender-aware wait/stream facades for code where sender identity is part of the event semantics. Existing payload-only generated APIs remain unchanged.
-- Add `EventComposition.WaitAnyAsync` with heterogeneous result types and deterministic loser cancellation/observation so racing event waits do not leak losing subscriptions.
+- Add heterogeneous two-wait `EventComposition.WaitAnyAsync` with deterministic loser cancellation/observation so racing event waits do not leak losing subscriptions.
+- Add heterogeneous two-wait `EventComposition.WaitAllAsync`, returning `EventWaitAllResult<TFirst, TSecond>` while cancelling and observing the still-pending sibling if either wait faults or is cancelled.
+- Add indexed N-way homogeneous `WaitAnyAsync` returning `EventWaitAnyResult<T>` with a zero-based winner index and value; all losing waits are cancelled and observed before the method returns.
+- Add indexed N-way homogeneous `WaitAllAsync` returning results in input order, with fail-fast cancellation/observation of remaining waits after the first observed fault or cancellation.
+- Make composition startup transactional: if a later wait factory throws or returns `null`, already-started waits are cancelled and observed before the startup failure is rethrown.
 - Add an optional `TimeProvider` to `EventAwaiter.WaitAsync(...)` so timeout behavior can use virtual/test time.
 - Replace the runtime-specific timeout scheduler abstraction with `TimeProvider.CreateTimer(...)`.
 - Use `CancellationToken.UnsafeRegister(...)` for the internal cancellation callback to avoid unnecessary execution-context capture on the hot wait path.
@@ -56,6 +60,7 @@ All notable changes to the native modern-.NET line of AsyncEventBridge are docum
 - Require the generated NuGet package to contain native `net10.0` assets.
 - Restore, compile, and execute isolated `net10.0` consumers from the generated `.nupkg` in CI.
 - Exercise generated `EventHandler<int>` and `EventHandler<TSender, int>` APIs through the packaged runtime smoke test, including their generated `TimeProvider` timeout overloads.
+- Exercise sender-aware occurrence waits/streams and the heterogeneous/indexed event-composition APIs through both the packaged runtime consumer and the Native AOT package consumer, including post-composition handler-count checks for leaked subscriptions.
 - Exercise bounded generated streams from the packaged runtime consumer and verify both drop counts and observer callbacks without changing retained event ordering.
 - Pin the modern SDK baseline with `global.json` while allowing compatible .NET 10 feature-band roll-forward.
 - Produce and validate NuGet symbol packages and repository/source metadata in CI.
