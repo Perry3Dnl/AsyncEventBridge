@@ -126,28 +126,28 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
             var targetType = requestedType.IsUnboundGenericType
         ? requestedType.OriginalDefinition
         : requestedType;
-    var location = request.ApplicationSyntaxReference?.GetSyntax(context.CancellationToken).GetLocation()
-        ?? Location.None;
+            var location = request.ApplicationSyntaxReference?.GetSyntax(context.CancellationToken).GetLocation()
+                ?? Location.None;
 
-    if (!CanGenerateForType(targetType))
-    {
-        context.ReportDiagnostic(Diagnostic.Create(
-            InvalidGenerationTarget,
-            location,
-            targetType.ToDisplayString()));
-        continue;
-    }
+            if (!CanGenerateForType(targetType))
+            {
+                context.ReportDiagnostic(Diagnostic.Create(
+                    InvalidGenerationTarget,
+                    location,
+                    targetType.ToDisplayString()));
+                continue;
+            }
 
-    if (targets.ContainsKey(targetType))
-    {
-        context.ReportDiagnostic(Diagnostic.Create(
-            RedundantGenerationRequest,
-            location,
-            targetType.ToDisplayString()));
-        continue;
-    }
+            if (targets.ContainsKey(targetType))
+            {
+                context.ReportDiagnostic(Diagnostic.Create(
+                    RedundantGenerationRequest,
+                    location,
+                    targetType.ToDisplayString()));
+                continue;
+            }
 
-    targets.Add(targetType, location);
+            targets.Add(targetType, location);
 
         }
 
@@ -167,13 +167,13 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
                 compilation.Assembly);
 
             if (!isExternalTarget && HasGenerateAsyncEventsAttribute(typeSymbol))
-    {
-        context.ReportDiagnostic(Diagnostic.Create(
-            RedundantGenerationRequest,
-            requestLocation,
-            typeSymbol.ToDisplayString()));
-        continue;
-    }
+            {
+                context.ReportDiagnostic(Diagnostic.Create(
+                    RedundantGenerationRequest,
+                    requestLocation,
+                    typeSymbol.ToDisplayString()));
+                continue;
+            }
 
             var typeParameters = CreateTypeParameterContext(typeSymbol);
             var supportedEvents = new List<EventGenerationInfo>();
