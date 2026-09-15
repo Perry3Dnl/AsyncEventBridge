@@ -31,6 +31,7 @@ The modern line currently uses:
 - `net10.0` runtime assets;
 - `System.Threading.Channels` for event-stream buffering;
 - bounded-stream drop observability through the channel's real dropped-item callback;
+- built-in `System.Diagnostics.Metrics` counters for wait outcomes and bounded-stream drops;
 - `TimeProvider` for injectable/testable timeout scheduling;
 - `CancellationToken.UnsafeRegister` on the internal one-shot wait cancellation path;
 - native `IAsyncEnumerable<T>` / `IAsyncDisposable` support without `Microsoft.Bcl.AsyncInterfaces`;
@@ -208,6 +209,22 @@ Console.WriteLine($"Total dropped: {options.DroppedCount}");
 
 There is deliberately no blocking producer mode: blocking a synchronous event callback can change event semantics and introduce deadlocks.
 
+## Runtime metrics
+
+The modern runtime emits BCL-native production metrics from the `AsyncEventBridge` meter. No OpenTelemetry or logging package is required by the library itself.
+
+```text
+asynceventbridge.event_wait.outcomes
+  tag: asynceventbridge.wait.outcome = success | cancelled | timeout | faulted
+
+asynceventbridge.event_stream.dropped
+  tag: asynceventbridge.stream.full_mode = drop_oldest | drop_newest
+```
+
+The tags are intentionally bounded and low-cardinality. Event names, source types, capacities, exception messages, and user data are not attached automatically. Applications can collect the meter with `MeterListener`, `dotnet-counters`, OpenTelemetry, or another `System.Diagnostics.Metrics` consumer.
+
+See [`docs/metrics.md`](docs/metrics.md) for the stable metric contract and semantics.
+
 ## Async work back to events
 
 `Task`, `Task<T>`, `ValueTask`, `ValueTask<T>`, and `IAsyncEnumerable<T>` can be exposed through event bridges:
@@ -256,7 +273,8 @@ Current benchmark coverage includes:
 - one-shot event wait + completion;
 - unbounded buffered event-stream bursts;
 - bounded `DropNewest` bursts with drop counting only;
-- bounded `DropNewest` bursts with an active drop observer.
+- bounded `DropNewest` bursts with an active drop observer;
+- built-in metrics overhead with collection disabled and with an active `MeterListener`.
 
 As modern optimizations are introduced, they should be justified with these measurements rather than by assumption.
 
@@ -266,7 +284,7 @@ CI on `dotnet-latest`:
 
 - restores and builds the full .NET 10 solution;
 - builds the benchmark project;
-- runs runtime, generator, race, lifecycle, drop-observability, and stress tests;
+- runs runtime, generator, race, lifecycle, drop-observability, metrics, and stress tests;
 - runs the sensor sample;
 - produces the NuGet package;
 - verifies `lib/net10.0` runtime assets and analyzer contents;
