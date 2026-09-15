@@ -93,7 +93,16 @@ The generator creates the async facade:
 SensorEventArgs value = await sensor.ValueChangedAsync();
 ```
 
-Filtering, timeout, cancellation, and async-stream facades remain available.
+Filtering, timeout, cancellation, and async-stream facades remain available. Generated timeout overloads also expose the modern runtime's `TimeProvider`:
+
+```csharp
+SensorEventArgs value = await sensor.ValueChangedAsync(
+    TimeSpan.FromSeconds(30),
+    cancellationToken,
+    timeProvider);
+```
+
+This allows deterministic timeout testing without dropping down to the low-level `EventAwaiter` API.
 
 ### Modern event payloads
 
@@ -236,7 +245,7 @@ CI on `dotnet-latest`:
 - produces the NuGet package;
 - verifies `lib/net10.0` runtime assets and analyzer contents;
 - restores a clean consumer from the generated `.nupkg` and compiles generated APIs;
-- executes a separate packaged runtime smoke consumer, including modern event-payload and `ValueTask<T>` paths.
+- executes a separate packaged runtime smoke consumer, including modern event-payload, generated `TimeProvider`, and `ValueTask<T>` paths.
 
 ## Branch model
 
