@@ -2,13 +2,13 @@
   <img src="assets/AsyncEventBridge.png" alt="AsyncEventBridge icon" width="128" height="128">
 </p>
 
-<h1 align="center">AsyncEventBridge — Modern .NET</h1>
+<h1 align="center">AsyncEventBridge</h1>
 
 <p align="center"><strong>Bridge classic .NET events and modern async code in both directions.</strong></p>
 
-This branch is the native modern-.NET edition of AsyncEventBridge. It targets **.NET 10 (`net10.0`)** directly and is free to use current BCL/runtime features instead of carrying the constraints required by the `.NET Standard 2.0` compatibility line.
+`main` is the native modern-.NET edition of AsyncEventBridge and targets **.NET 10 (`net10.0`)**. The package contains both the runtime and source generator and is designed for applications that want event-to-async and async-to-event interoperability without taking a dependency on Rx or a logging/telemetry framework.
 
-> Need the broad compatibility build? Use `base/netstandard2.0`. Need the Unity package? Use `unity`.
+> Need the broad compatibility line? Use `base/netstandard2.0`. Need the Unity package? Use `unity`.
 
 ## What it bridges
 
@@ -22,63 +22,27 @@ ValueTask<T>         -> EventBridge<T>
 IAsyncEnumerable<T>  -> EventStreamBridge<T>
 ```
 
-The NuGet package contains both the runtime and the source generator.
+The modern line also includes sender-aware event occurrences, lifecycle-safe event composition, bounded-stream telemetry, `System.Diagnostics.Metrics`, `TimeProvider`, and Native AOT/trimming verification.
 
-## Native modern runtime
+## Package
 
-The modern line currently uses:
+Package ID:
 
-- `net10.0` runtime assets;
-- `System.Threading.Channels` for event-stream buffering;
-- bounded-stream drop observability through the channel's real dropped-item callback;
-- built-in `System.Diagnostics.Metrics` counters for wait outcomes and bounded-stream drops;
-- lifecycle-safe event-wait composition for heterogeneous pairs and indexed N-way wait sets;
-- `TimeProvider` for injectable/testable timeout scheduling;
-- `CancellationToken.UnsafeRegister` on the internal one-shot wait cancellation path;
-- native `IAsyncEnumerable<T>` / `IAsyncDisposable` support without `Microsoft.Bcl.AsyncInterfaces`;
-- modern event payloads that do not need to derive from `EventArgs`;
-- BenchmarkDotNet performance baselines maintained under `benchmarks/`.
+```text
+AsyncEventBridge
+```
 
-The source generator itself remains a `netstandard2.0` analyzer because compiler-host compatibility is a different concern from the runtime target.
+For a project consuming the `0.2.0` package:
+
+```xml
+<PackageReference Include="AsyncEventBridge" Version="0.2.0" />
+```
+
+The source generator ships in the same NuGet package; there is no separate analyzer package to install.
 
 ## Await a .NET event
 
-For low-level/manual adapters:
-
-```csharp
-SensorEventArgs value = await EventAwaiter.WaitAsync<SensorEventArgs>(
-    handler => sensor.ValueChanged += handler,
-    handler => sensor.ValueChanged -= handler,
-    eventArgs => eventArgs.Value >= 100,
-    cancellationToken,
-    TimeSpan.FromSeconds(5));
-```
-
-Modern code can inject a `TimeProvider` when timeout behavior needs deterministic or virtual time:
-
-```csharp
-SensorEventArgs value = await EventAwaiter.WaitAsync<SensorEventArgs>(
-    handler => sensor.ValueChanged += handler,
-    handler => sensor.ValueChanged -= handler,
-    predicate: null,
-    cancellationToken,
-    timeout: TimeSpan.FromSeconds(30),
-    timeProvider: timeProvider);
-```
-
-Normal callers can omit `timeProvider`; `TimeProvider.System` is used automatically.
-
-The modern runtime is not restricted to `EventArgs` payloads. Value types, records, structs, DTOs, and other ordinary payload types can be awaited directly:
-
-```csharp
-Task<int> nextValue = EventAwaiter.WaitAsync<int>(
-    handler => sensor.ValueChanged += handler,
-    handler => sensor.ValueChanged -= handler);
-```
-
-## Generated async APIs
-
-For a type you own, add `[GenerateAsyncEvents]`:
+For a type you own, annotate it:
 
 ```csharp
 using AsyncEventBridge;
@@ -86,47 +50,44 @@ using AsyncEventBridge;
 [GenerateAsyncEvents]
 public sealed class Sensor
 {
-    public event EventHandler<SensorEventArgs>? ValueChanged;
+    public event EventHandler<int>? ValueChanged;
+
+    public void Raise(int value) => ValueChanged?.Invoke(this, value);
 }
 ```
 
 The generator creates the async facade:
 
 ```csharp
-SensorEventArgs value = await sensor.ValueChangedAsync();
+int value = await sensor.ValueChangedAsync(cancellationToken);
 ```
 
-Filtering, timeout, cancellation, and async-stream facades remain available. Generated timeout overloads also expose the modern runtime's `TimeProvider`:
+Filtering and timeout overloads are generated as well. Timeout APIs expose `TimeProvider` for deterministic testing:
 
 ```csharp
-SensorEventArgs value = await sensor.ValueChangedAsync(
+int value = await sensor.ValueChangedAsync(
     TimeSpan.FromSeconds(30),
     cancellationToken,
     timeProvider);
 ```
 
-This allows deterministic timeout testing without dropping down to the low-level `EventAwaiter` API.
-
-### Modern event payloads
-
-On the modern .NET line, generated APIs also support payloads that do not derive from `EventArgs`:
+For low-level/manual integration, use `EventAwaiter`:
 
 ```csharp
-[GenerateAsyncEvents]
-public sealed class Counter
-{
-    public event EventHandler<int>? ValueChanged;
-}
-
-int value = await counter.ValueChangedAsync();
-
-await foreach (int item in counter.ValueChangedStream(cancellationToken))
-{
-    Console.WriteLine(item);
-}
+int value = await EventAwaiter.WaitAsync<int>(
+    handler => sensor.ValueChanged += handler,
+    handler => sensor.ValueChanged -= handler,
+    predicate: value => value >= 100,
+    cancellationToken,
+    timeout: TimeSpan.FromSeconds(5),
+    timeProvider: TimeProvider.System);
 ```
 
-.NET 10 strongly typed sender events are supported as well:
+## Modern event shapes
+
+The modern package is not limited to `EventArgs` payloads. Value types, records, DTOs, and other normal non-ref-like payloads are supported.
+
+.NET 10 strongly typed sender delegates work too:
 
 ```csharp
 [GenerateAsyncEvents]
@@ -138,71 +99,73 @@ public sealed class Sensor
 Reading reading = await sensor.ReadingChangedAsync();
 ```
 
-AsyncEventBridge remains payload-centric: the generated task/stream carries the second event parameter. A strongly typed sender is used for event subscription but is not added to the async result.
+The ordinary generated API remains payload-centric: it returns the second event parameter.
 
-When sender identity matters, the modern package also generates an opt-in occurrence facade without changing the existing payload-only API:
+Custom two-parameter `void` delegates are supported when their sender and payload shapes are compatible with an async lifetime. This covers common framework patterns such as `PropertyChangedEventHandler`, `NotifyCollectionChangedEventHandler`, `ElapsedEventHandler`, and similar legacy delegates.
+
+Ref-like async payloads such as `Span<T>` are deliberately rejected because they cannot safely escape the synchronous event callback.
+
+## Sender-aware occurrences
+
+When sender identity is part of the event semantics, use the opt-in occurrence facade:
 
 ```csharp
 EventOccurrence<Sensor, Reading> occurrence =
-    await sensor.ReadingChangedOccurrenceAsync();
+    await sensor.ReadingChangedOccurrenceAsync(cancellationToken);
 
-Sensor sender = occurrence.Sender;
-Reading reading = occurrence.Payload;
+Process(occurrence.Sender, occurrence.Payload);
+```
 
-await foreach (EventOccurrence<Sensor, Reading> item in sensor.ReadingChangedOccurrenceStream())
+Repeated sender-aware events are available as streams:
+
+```csharp
+await foreach (EventOccurrence<Sensor, Reading> item in
+    sensor.ReadingChangedOccurrenceStream(cancellationToken))
 {
     Process(item.Sender, item.Payload);
 }
 ```
 
-The sender-aware generator supports ordinary two-parameter `void` event delegates when both sender and payload are safe to carry across an async lifetime. Ref-like senders or payloads are deliberately excluded from occurrence APIs.
+The low-level equivalents are `EventOccurrenceAwaiter` and `EventOccurrenceStream`.
 
-Custom two-parameter `void` delegates receive the same treatment when the second parameter is a normal non-ref-like type:
+## Third-party event sources
 
-```csharp
-public delegate void ProgressChangedHandler(Worker sender, int percent);
-```
-
-Ref-like payloads such as `Span<T>` cannot safely cross the lifetime boundary into `Task<T>` or `IAsyncEnumerable<T>`. Those event shapes are rejected by the generator with `AEB001` instead of producing unsafe or unusable APIs.
-
-For a public type you do not own:
+For a public type you cannot annotate:
 
 ```csharp
 [assembly: GenerateAsyncEventsFor(typeof(System.Timers.Timer))]
 ```
 
-Common framework delegates such as `ElapsedEventHandler`, `PropertyChangedEventHandler`, and `NotifyCollectionChangedEventHandler` remain supported. Unsupported delegate shapes produce the `AEB001` diagnostic rather than disappearing silently.
+Generation happens in the consuming compilation without modifying the target type.
+
+Generator diagnostics make unsupported requests visible instead of silently omitting APIs:
+
+```text
+AEB001  unsupported event delegate/payload shape
+AEB002  invalid GenerateAsyncEventsFor target
+AEB003  duplicate or redundant generation request
+```
 
 ## Event streams
 
-Repeated events can be consumed as `IAsyncEnumerable<T>`:
+Repeated events can be consumed through `IAsyncEnumerable<T>`:
 
 ```csharp
-await foreach (SensorEventArgs value in sensor.ValueChangedStream(cancellationToken))
+await foreach (int value in sensor.ValueChangedStream(cancellationToken))
 {
-    Console.WriteLine(value.Value);
+    Console.WriteLine(value);
 }
 ```
 
-The modern runtime uses `System.Threading.Channels` internally while preserving AsyncEventBridge's buffering contract:
+The modern runtime uses `System.Threading.Channels` internally. `EventStreamOptions` exposes three buffering modes:
 
 ```text
-Grow        preserve all accepted values; memory can grow without a fixed bound
+Grow        keep accepted values in an unbounded channel
 DropOldest  discard the oldest buffered value at capacity
-DropNewest  keep existing buffered values and discard the incoming value at capacity
+DropNewest  keep the existing buffer and discard the incoming value
 ```
 
-Configure bounded behavior with `EventStreamOptions`:
-
-```csharp
-var options = new EventStreamOptions
-{
-    Capacity = 100,
-    FullMode = EventStreamFullMode.DropOldest,
-};
-```
-
-Bounded streams expose real drop telemetry rather than forcing callers to infer backpressure from timing or write behavior:
+Example bounded stream:
 
 ```csharp
 var options = new EventStreamOptions
@@ -221,33 +184,15 @@ await foreach (Reading reading in sensor.ReadingChangedStream(options, cancellat
 Console.WriteLine($"Total dropped: {options.DroppedCount}");
 ```
 
-`DroppedCount` is thread-safe and is the lifetime aggregate for that `EventStreamOptions` instance. Reusing one options object across stream enumerations intentionally aggregates their drop counts. `DropObserver` receives the updated aggregate count, runs synchronously on the event producer thread, and may be invoked concurrently if the event itself is raised concurrently. Keep observers fast. Observer exceptions are isolated and traced; they do not fault the stream.
+`DroppedCount` is thread-safe and aggregates across uses of the same options instance. The drop callback is backed by the channel's actual dropped-item notification rather than inferred from timing or write outcomes.
 
-`Grow` never reports drops. For bounded modes, AsyncEventBridge uses `System.Threading.Channels`' actual dropped-item callback, so the count tracks the channel's real backpressure decision rather than an approximation.
-
-There is deliberately no blocking producer mode: blocking a synchronous event callback can change event semantics and introduce deadlocks.
-
-## Runtime metrics
-
-The modern runtime emits BCL-native production metrics from the `AsyncEventBridge` meter. No OpenTelemetry or logging package is required by the library itself.
-
-```text
-asynceventbridge.event_wait.outcomes
-  tag: asynceventbridge.wait.outcome = success | cancelled | timeout | faulted
-
-asynceventbridge.event_stream.dropped
-  tag: asynceventbridge.stream.full_mode = drop_oldest | drop_newest
-```
-
-The tags are intentionally bounded and low-cardinality. Event names, source types, capacities, exception messages, and user data are not attached automatically. Applications can collect the meter with `MeterListener`, `dotnet-counters`, OpenTelemetry, or another `System.Diagnostics.Metrics` consumer.
-
-See [`docs/metrics.md`](docs/metrics.md) for the stable metric contract and semantics.
+There is intentionally no producer-blocking mode: blocking a synchronous event callback can change event semantics or introduce deadlocks.
 
 ## Compose event waits
 
-`EventComposition` provides event-aware any/all composition. Unlike plain `Task.WhenAny` / `Task.WhenAll`, the composition helpers own a linked coordination token and deterministically cancel and observe sibling event waits when a race ends, a member faults, or startup fails. That prevents hidden event subscriptions from surviving the composition operation.
+`EventComposition` coordinates event waits while ensuring pending/losing waits are cancelled and observed, so ignored tasks do not leave hidden event subscriptions behind.
 
-Two heterogeneous waits can race with `WaitAnyAsync`:
+### Wait for either of two different events
 
 ```csharp
 EventWaitAnyResult<ConnectedEventArgs, ErrorEventArgs> result =
@@ -266,42 +211,37 @@ else
 }
 ```
 
-Two heterogeneous waits can also both be required:
+### Wait for both different events
 
 ```csharp
-EventWaitAllResult<ConnectedEventArgs, ReadyEventArgs> result =
+EventWaitAllResult<ReadyEventArgs, AuthenticatedEventArgs> result =
     await EventComposition.WaitAllAsync(
-        token => client.ConnectedAsync(token),
         token => client.ReadyAsync(token),
+        token => client.AuthenticatedAsync(token),
         cancellationToken);
 
-UseConnection(result.First, result.Second);
+Use(result.First, result.Second);
 ```
 
-For three or more waits with the same result type, use the indexed overloads:
+### N-way homogeneous composition
 
 ```csharp
-Func<CancellationToken, Task<SensorReading>>[] waits =
-[
-    token => left.ReadingChangedAsync(token),
-    token => center.ReadingChangedAsync(token),
-    token => right.ReadingChangedAsync(token),
-];
-
-EventWaitAnyResult<SensorReading> first =
+EventWaitAnyResult<int> winner =
     await EventComposition.WaitAnyAsync(waits, cancellationToken);
 
-Console.WriteLine($"Sensor {first.Index} won with {first.Value}");
+Console.WriteLine($"Wait {winner.Index} produced {winner.Value}");
 
-SensorReading[] all =
+IReadOnlyList<int> all =
     await EventComposition.WaitAllAsync(waits, cancellationToken);
 ```
 
-Indexed `WaitAllAsync` preserves input ordering. All composition factories are started transactionally: if a later factory throws or returns `null`, already-started waits are cancelled and observed first. Wait factories are expected to honor the supplied cancellation token. Primary faults and cleanup faults remain observable; cancellation that exists only to clean up sibling waits is not reported as an additional error.
+N-way `WaitAllAsync` preserves input order and fails fast by cancelling and observing pending siblings when one member faults or startup fails.
+
+See [`docs/event-composition.md`](docs/event-composition.md) for detailed lifecycle semantics.
 
 ## Async work back to events
 
-`Task`, `Task<T>`, `ValueTask`, `ValueTask<T>`, and `IAsyncEnumerable<T>` can be exposed through event bridges:
+Tasks and value tasks can be exposed through ordinary .NET events:
 
 ```csharp
 using EventBridge<SensorConfiguration> bridge =
@@ -313,16 +253,9 @@ bridge.Cancelled += (_, _) => Console.WriteLine("Cancelled");
 bridge.Connect();
 ```
 
-A `ValueTask<T>` can be bridged directly:
+`ValueTask` and `ValueTask<T>` are supported directly. Once a value task is handed to a bridge, the bridge owns observing it; do not independently consume the same value task unless its producer explicitly supports that.
 
-```csharp
-using EventBridge<SensorConfiguration> bridge =
-    LoadSensorConfigurationValueAsync().ToEventBridge();
-```
-
-The bridge takes ownership of observing the supplied `ValueTask`. Do not independently await the same value task after handing it to the bridge unless its producer explicitly supports multiple consumption.
-
-For async streams:
+Async streams can be exposed through events too:
 
 ```csharp
 await using EventStreamBridge<SensorValue> bridge =
@@ -332,52 +265,67 @@ bridge.Value += (_, e) => Console.WriteLine(e.Value);
 bridge.Connect(cancellationToken);
 ```
 
-Subscriber exceptions are isolated so one event handler does not stop remaining handlers or bridge processing; failures are written through `Trace.TraceError`.
+Subscriber exceptions are isolated: one throwing event subscriber does not stop remaining subscribers or bridge processing. Failures are written through `Trace.TraceError`.
 
-## Benchmarks
+## Runtime metrics
 
-The modern branch includes BenchmarkDotNet benchmarks for the performance-sensitive paths. The project is compiled in CI but benchmarks are run explicitly so normal CI remains deterministic.
+The runtime emits BCL-native metrics from the `AsyncEventBridge` meter. No OpenTelemetry package is required by the library itself.
 
 ```text
-dotnet run -c Release --project benchmarks/AsyncEventBridge.Benchmarks -- --filter *
+asynceventbridge.event_wait.outcomes
+  asynceventbridge.wait.outcome = success | cancelled | timeout | faulted
+
+asynceventbridge.event_stream.dropped
+  asynceventbridge.stream.full_mode = drop_oldest | drop_newest
 ```
 
-Current benchmark coverage includes:
+Tags are intentionally bounded and low-cardinality. Applications can collect these instruments with `MeterListener`, `dotnet-counters`, OpenTelemetry, or another `System.Diagnostics.Metrics` consumer.
 
-- one-shot event wait + completion;
-- unbounded buffered event-stream bursts;
-- bounded `DropNewest` bursts with drop counting only;
-- bounded `DropNewest` bursts with an active drop observer;
-- built-in metrics overhead with collection disabled and with an active `MeterListener`.
+See [`docs/metrics.md`](docs/metrics.md).
 
-As modern optimizations are introduced, they should be justified with these measurements rather than by assumption.
+## Native AOT and trimming
+
+The runtime declares AOT compatibility and CI verifies the packed NuGet package by publishing a separate `linux-x64` Native AOT consumer.
+
+The gate fails if the publish produces `ILxxxx` trimming/AOT warnings, then executes the resulting native binary. The native smoke path covers generated event APIs, sender-aware occurrences, event composition, `ValueTask<T>` bridging, and async-stream bridging.
+
+## Performance
+
+BenchmarkDotNet baselines live under `benchmarks/` and compile in normal CI.
+
+Measured optimization work is documented in [`docs/performance-baselines.md`](docs/performance-baselines.md). In particular, the ordinary successful low-level one-shot wait has been reduced from an earlier 568 B baseline to 440 B per operation on the measured completed-wait path.
+
+Benchmarks are intentionally not executed on every CI run so normal verification remains deterministic.
 
 ## Verification
 
-CI on `dotnet-latest`:
+Every push/PR to `main` or `dotnet-latest` runs the release gate:
 
-- restores and builds the full .NET 10 solution;
-- builds the benchmark project;
-- runs runtime, generator, race, lifecycle, drop-observability, metrics, composition, and stress tests;
-- runs the sensor sample;
-- produces the NuGet package;
-- verifies `lib/net10.0` runtime assets and analyzer contents;
-- restores a clean consumer from the generated `.nupkg` and compiles generated APIs;
-- executes a packaged runtime smoke consumer covering modern payloads, generated `TimeProvider`, sender-aware occurrences, any/all event composition, bounded-stream drop telemetry, and `ValueTask<T>` paths;
-- publishes and executes a Native AOT consumer from the packed package, including sender-aware occurrence and event-composition paths;
-- independently restores, builds, and tests the solution on Windows and macOS.
+- restore/build the full .NET 10 solution;
+- run runtime, generator, lifecycle, race, stress, metrics, and API-lock tests;
+- run the sensor sample;
+- create and inspect `.nupkg` and `.snupkg` artifacts;
+- compile a clean consumer against the packed package;
+- execute a separate packaged runtime consumer;
+- publish and execute the packaged Native AOT consumer with no `ILxxxx` warnings;
+- independently restore/build/test on Windows and macOS.
+
+See [`docs/release-readiness.md`](docs/release-readiness.md) for the complete release contract and [`docs/public-api.md`](docs/public-api.md) for the public surface.
 
 ## Branch model
 
 ```text
 base/netstandard2.0
 ├── unity
-└── dotnet-latest
+└── main / dotnet-latest
 ```
 
-Shared bug fixes should normally land in the base first when they apply to all editions. Modern-only APIs, performance work, and implementation changes belong here.
+- `main`: primary native .NET 10 product line.
+- `dotnet-latest`: modern development/integration line when work is staged before `main`.
+- `base/netstandard2.0`: broad compatibility baseline.
+- `unity`: Unity-specific package and host integration.
 
-See [`docs/MODERN_DOTNET.md`](docs/MODERN_DOTNET.md) for the modernization rules and roadmap.
+Shared fixes should normally land in the compatibility base first when they genuinely apply to all editions. Modern-only APIs, AOT work, metrics, composition, and modern performance changes belong on the modern line.
 
 ## Build from source
 
@@ -390,4 +338,4 @@ dotnet pack src/AsyncEventBridge/AsyncEventBridge.csproj -c Release
 
 ## License
 
-AsyncEventBridge is licensed under the **Mozilla Public License 2.0 (MPL-2.0)**. See [`LICENSE`](LICENSE) for the full license text.
+AsyncEventBridge is licensed under the **Mozilla Public License 2.0 (MPL-2.0)**. See [`LICENSE`](LICENSE).
