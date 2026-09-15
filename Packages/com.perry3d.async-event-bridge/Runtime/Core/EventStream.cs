@@ -1,6 +1,16 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
+using System.Runtime.ExceptionServices;
+using System.Threading;
+using System.Threading.Tasks;
+
 using System.Runtime.CompilerServices;
 
-namespace AsyncEventBridge;
+namespace AsyncEventBridge
+{
 
 /// <summary>
 /// Provides the runtime engine used to expose repeated .NET event occurrences as an async stream.
@@ -390,4 +400,5 @@ public static class EventStream
             }
         }
     }
+}
 }

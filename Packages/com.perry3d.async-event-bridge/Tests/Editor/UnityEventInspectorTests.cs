@@ -7,7 +7,8 @@ using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.TestTools;
 
-namespace AsyncEventBridge.Unity.Tests;
+namespace AsyncEventBridge.Unity.Tests
+{
 
 public sealed class UnityEventInspectorTests
 {
@@ -65,4 +66,5 @@ public sealed class UnityEventInspectorTests
             InvocationCount++;
         }
     }
+}
 }

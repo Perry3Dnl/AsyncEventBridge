@@ -1,4 +1,15 @@
-namespace AsyncEventBridge;
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace AsyncEventBridge
+{
 
 /// <summary>
 /// Provides the runtime engine used to turn a single .NET event occurrence into a task.
@@ -406,4 +417,5 @@ internal sealed class EventWaitState<TEventArgs>
         internal static Completion Faulted(Exception exception) =>
             new(CompletionKind.Faulted, null, exception);
     }
+}
 }

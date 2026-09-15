@@ -1,6 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFrameworks>netstandard2.0;netstandard2.1</TargetFrameworks>
+    <LangVersion>9.0</LangVersion>
+    <ImplicitUsings>disable</ImplicitUsings>
     <AssemblyName>AsyncEventBridge</AssemblyName>
     <RootNamespace>AsyncEventBridge</RootNamespace>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>

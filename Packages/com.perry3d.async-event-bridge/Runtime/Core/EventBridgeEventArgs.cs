@@ -1,4 +1,15 @@
-namespace AsyncEventBridge;
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace AsyncEventBridge
+{
 
 /// <summary>
 /// Carries a value produced by an async operation or sequence.
@@ -31,4 +42,5 @@ public sealed class AsyncFaultedEventArgs : EventArgs
     /// Gets the exception that caused the fault.
     /// </summary>
     public Exception Exception { get; }
+}
 }

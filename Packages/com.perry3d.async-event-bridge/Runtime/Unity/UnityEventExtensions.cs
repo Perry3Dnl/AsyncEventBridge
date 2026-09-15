@@ -2,10 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Events;
 
-namespace AsyncEventBridge.Unity;
+namespace AsyncEventBridge.Unity
+{
 
 /// <summary>
 /// AsyncEventBridge integration for serialized and runtime <see cref="UnityEvent"/> instances.
@@ -281,7 +283,13 @@ public static class UnityEventExtensions
     {
         if (source is null) throw new ArgumentNullException(nameof(source));
         if (owner == null) throw new ArgumentNullException(nameof(owner));
-        return WithOwner(owner, token => source.AsAsyncEnumerable(predicate, options, token), cancellationToken);
+        var destroyToken = owner.destroyCancellationToken;
+        var exitToken = Application.exitCancellationToken;
+        return WithLifetime(
+            destroyToken,
+            exitToken,
+            token => source.AsAsyncEnumerable(predicate, options, token),
+            cancellationToken);
     }
 
     public static IAsyncEnumerable<EventArgs> AsAsyncEnumerable(
@@ -292,7 +300,13 @@ public static class UnityEventExtensions
     {
         if (source is null) throw new ArgumentNullException(nameof(source));
         if (owner == null) throw new ArgumentNullException(nameof(owner));
-        return WithOwner(owner, token => source.AsAsyncEnumerable(options, token), cancellationToken);
+        var destroyToken = owner.destroyCancellationToken;
+        var exitToken = Application.exitCancellationToken;
+        return WithLifetime(
+            destroyToken,
+            exitToken,
+            token => source.AsAsyncEnumerable(options, token),
+            cancellationToken);
     }
 
     public static IAsyncEnumerable<(T0, T1)> AsAsyncEnumerable<T0, T1>(
@@ -326,7 +340,13 @@ public static class UnityEventExtensions
     {
         if (source is null) throw new ArgumentNullException(nameof(source));
         if (owner == null) throw new ArgumentNullException(nameof(owner));
-        return WithOwner(owner, token => source.AsAsyncEnumerable(predicate, options, token), cancellationToken);
+        var destroyToken = owner.destroyCancellationToken;
+        var exitToken = Application.exitCancellationToken;
+        return WithLifetime(
+            destroyToken,
+            exitToken,
+            token => source.AsAsyncEnumerable(predicate, options, token),
+            cancellationToken);
     }
 
     public static IAsyncEnumerable<(T0, T1, T2)> AsAsyncEnumerable<T0, T1, T2>(
@@ -360,7 +380,13 @@ public static class UnityEventExtensions
     {
         if (source is null) throw new ArgumentNullException(nameof(source));
         if (owner == null) throw new ArgumentNullException(nameof(owner));
-        return WithOwner(owner, token => source.AsAsyncEnumerable(predicate, options, token), cancellationToken);
+        var destroyToken = owner.destroyCancellationToken;
+        var exitToken = Application.exitCancellationToken;
+        return WithLifetime(
+            destroyToken,
+            exitToken,
+            token => source.AsAsyncEnumerable(predicate, options, token),
+            cancellationToken);
     }
 
     public static IAsyncEnumerable<(T0, T1, T2, T3)> AsAsyncEnumerable<T0, T1, T2, T3>(
@@ -394,19 +420,25 @@ public static class UnityEventExtensions
     {
         if (source is null) throw new ArgumentNullException(nameof(source));
         if (owner == null) throw new ArgumentNullException(nameof(owner));
-        return WithOwner(owner, token => source.AsAsyncEnumerable(predicate, options, token), cancellationToken);
+        var destroyToken = owner.destroyCancellationToken;
+        var exitToken = Application.exitCancellationToken;
+        return WithLifetime(
+            destroyToken,
+            exitToken,
+            token => source.AsAsyncEnumerable(predicate, options, token),
+            cancellationToken);
     }
 
-    private static async IAsyncEnumerable<T> WithOwner<T>(
-        MonoBehaviour owner,
+    private static async IAsyncEnumerable<T> WithLifetime<T>(
+        CancellationToken destroyToken,
+        CancellationToken exitToken,
         Func<CancellationToken, IAsyncEnumerable<T>> streamFactory,
         CancellationToken callerToken,
         [EnumeratorCancellation] CancellationToken enumerationToken = default)
     {
-        var destroyToken = owner.destroyCancellationToken;
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(
             destroyToken,
-            Application.exitCancellationToken,
+            exitToken,
             callerToken,
             enumerationToken);
 
@@ -500,4 +532,5 @@ internal sealed class UnityMainThreadDispatcher
             throw error;
         }
     }
+}
 }

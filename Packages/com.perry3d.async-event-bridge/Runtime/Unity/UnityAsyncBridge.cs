@@ -6,7 +6,8 @@ using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Events;
 
-namespace AsyncEventBridge.Unity;
+namespace AsyncEventBridge.Unity
+{
 
 /// <summary>
 /// Publishes task and async-stream outcomes to UnityEvents on the Unity main thread.
@@ -238,4 +239,5 @@ public static class UnityAsyncBridge
         internal static TaskOutcome<T> Cancelled() => new(TaskOutcomeKind.Cancelled, default, null);
         internal static TaskOutcome<T> Faulted(Exception exception) => new(TaskOutcomeKind.Faulted, default, exception);
     }
+}
 }

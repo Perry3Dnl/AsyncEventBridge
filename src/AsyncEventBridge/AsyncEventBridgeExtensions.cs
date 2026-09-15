@@ -1,4 +1,15 @@
-namespace AsyncEventBridge;
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace AsyncEventBridge
+{
 
 /// <summary>
 /// Provides conversions from async .NET APIs to event-facing bridges.
@@ -43,4 +54,5 @@ public static class AsyncEventBridgeExtensions
 
         return new EventStreamBridge<T>(source);
     }
+}
 }

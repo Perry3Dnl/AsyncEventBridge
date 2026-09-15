@@ -3,7 +3,8 @@ using System.Collections.Generic;
 using System.Threading;
 using UnityEngine;
 
-namespace AsyncEventBridge.Unity;
+namespace AsyncEventBridge.Unity
+{
 
 /// <summary>
 /// Unity-native event waiting helpers that complete through <see cref="Awaitable{T}"/>
@@ -445,4 +446,5 @@ public static class UnityEventAwaiter
                 new(CompletionKind.Faulted, null, exception);
         }
     }
+}
 }

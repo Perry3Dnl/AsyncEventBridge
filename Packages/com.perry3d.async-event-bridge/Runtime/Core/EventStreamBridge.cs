@@ -1,4 +1,15 @@
-namespace AsyncEventBridge;
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace AsyncEventBridge
+{
 
 /// <summary>
 /// Event-facing bridge for an <see cref="IAsyncEnumerable{T}"/>.
@@ -383,4 +394,5 @@ public sealed class EventStreamBridge<T> : IDisposable, IAsyncDisposable
             // Enumeration completed and disposed the linked source concurrently.
         }
     }
+}
 }

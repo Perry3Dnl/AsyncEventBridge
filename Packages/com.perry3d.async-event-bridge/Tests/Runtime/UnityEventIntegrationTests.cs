@@ -8,7 +8,8 @@ using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.TestTools;
 
-namespace AsyncEventBridge.Unity.Tests;
+namespace AsyncEventBridge.Unity.Tests
+{
 
 public sealed class UnityEventIntegrationTests
 {
@@ -83,6 +84,25 @@ public sealed class UnityEventIntegrationTests
         Assert.That(secondMove.Result, Is.True);
         Assert.That(enumerator.Current, Is.EqualTo(20));
 
+        yield return WaitForTask(enumerator.DisposeAsync().AsTask());
+    }
+
+    [UnityTest]
+    public IEnumerator AsAsyncEnumerable_CachesOwnerLifetimeBeforeEnumerationStarts()
+    {
+        var source = new UnityEvent<int>();
+        var gameObject = new GameObject("AsyncEventBridge deferred stream owner");
+        var owner = gameObject.AddComponent<TestOwner>();
+        var stream = source.AsAsyncEnumerable(owner);
+
+        UnityEngine.Object.Destroy(gameObject);
+        yield return null;
+
+        var enumerator = stream.GetAsyncEnumerator();
+        var move = enumerator.MoveNextAsync().AsTask();
+        yield return WaitForTask(move);
+
+        Assert.That(move.IsCanceled, Is.True);
         yield return WaitForTask(enumerator.DisposeAsync().AsTask());
     }
 
@@ -230,4 +250,5 @@ public sealed class UnityEventIntegrationTests
             }
         }
     }
+}
 }

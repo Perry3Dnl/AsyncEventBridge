@@ -1,4 +1,15 @@
-namespace AsyncEventBridge;
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace AsyncEventBridge
+{
 
 /// <summary>
 /// Requests generated async event APIs for a type that cannot be annotated directly,
@@ -22,4 +33,5 @@ public sealed class GenerateAsyncEventsForAttribute : Attribute
     /// Gets the event source type for which async facade methods should be generated.
     /// </summary>
     public Type TargetType { get; }
+}
 }

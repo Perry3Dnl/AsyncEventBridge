@@ -1,4 +1,15 @@
-namespace AsyncEventBridge;
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace AsyncEventBridge
+{
 
 /// <summary>
 /// Event-facing bridge for a non-generic <see cref="Task"/>.
@@ -513,4 +524,5 @@ public sealed class EventBridge<T> : IDisposable
             throw new ObjectDisposedException(nameof(EventBridge<T>));
         }
     }
+}
 }
