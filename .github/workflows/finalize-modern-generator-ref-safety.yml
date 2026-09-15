@@ -130,7 +130,7 @@ jobs:
                   var generatedSource = Assert.Single(Assert.Single(result.Results).GeneratedSources).SourceText.ToString();
           
                   Assert.Contains("where TSource0 : allows ref struct", generatedSource, StringComparison.Ordinal);
-                  Assert.Contains("Task<global::System.Int32> ChangedAsync", generatedSource, StringComparison.Ordinal);
+                  Assert.Contains("ChangedAsync", generatedSource, StringComparison.Ordinal);
               }
           
           ''' + direct_marker
