@@ -50,6 +50,18 @@ if (taskValue != 7)
     throw new InvalidOperationException("The packaged Task<T> -> Events bridge returned the wrong value.");
 }
 
+var valueTaskValue = 0;
+using (EventBridge<int> valueTaskBridge = new ValueTask<int>(8).ToEventBridge())
+{
+    valueTaskBridge.Completed += (_, eventArgs) => valueTaskValue = eventArgs.Value;
+    valueTaskBridge.Connect();
+}
+
+if (valueTaskValue != 8)
+{
+    throw new InvalidOperationException("The packaged ValueTask<T> -> Events bridge returned the wrong value.");
+}
+
 var streamValues = new List<int>();
 var streamCompleted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 await using (EventStreamBridge<int> streamBridge = Values().ToEventBridge())
