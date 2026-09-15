@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   cleanup:
-    if: github.event.head_commit.message == 'Finalize diagnostics formatting'
+    if: github.event.head_commit.message == 'Harden diagnostics formatting cleanup'
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -25,7 +25,7 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - name: Fix exact whitespace
+      - name: Normalize inserted blocks
         shell: bash
         run: |
           python3 - <<'PY'
@@ -33,50 +33,52 @@ jobs:
 
           path = Path('src/AsyncEventBridge.Generators/AsyncEventBridgeAdapterGenerator.cs')
           text = path.read_text()
+          i4 = ' ' * 4
+          i8 = ' ' * 8
+          i12 = ' ' * 12
+          i16 = ' ' * 16
+          i20 = ' ' * 20
 
-          old = '''    private static readonly DiagnosticDescriptor InvalidGenerationTarget = new(
-          id: "AEB002",
-          title: "Invalid async-event generation target",
-          messageFormat: "Type '{0}' cannot be targeted by GenerateAsyncEventsFor. Generated async-event adapters require a supported class type.",
-          category: "AsyncEventBridge",
-          defaultSeverity: DiagnosticSeverity.Warning,
-          isEnabledByDefault: true);
-          '''
-          new = '''    private static readonly DiagnosticDescriptor InvalidGenerationTarget = new(
-              id: "AEB002",
-              title: "Invalid async-event generation target",
-              messageFormat: "Type '{0}' cannot be targeted by GenerateAsyncEventsFor. Generated async-event adapters require a supported class type.",
-              category: "AsyncEventBridge",
-              defaultSeverity: DiagnosticSeverity.Warning,
-              isEnabledByDefault: true);
-          '''
-          if old not in text:
-              raise SystemExit('AEB002 formatting block not found')
-          text = text.replace(old, new, 1)
+          start = text.index('    private static readonly DiagnosticDescriptor InvalidGenerationTarget = new(')
+          end = text.index('\n\n    private static readonly DiagnosticDescriptor RedundantGenerationRequest', start)
+          descriptor = (
+              i4 + 'private static readonly DiagnosticDescriptor InvalidGenerationTarget = new(\n'
+              + i8 + 'id: "AEB002",\n'
+              + i8 + 'title: "Invalid async-event generation target",\n'
+              + i8 + 'messageFormat: "Type \'{0}\' cannot be targeted by GenerateAsyncEventsFor. Generated async-event adapters require a supported class type.",\n'
+              + i8 + 'category: "AsyncEventBridge",\n'
+              + i8 + 'defaultSeverity: DiagnosticSeverity.Warning,\n'
+              + i8 + 'isEnabledByDefault: true);'
+          )
+          text = text[:start] + descriptor + text[end:]
 
-          old = '''            var targetType = requestedType.IsUnboundGenericType
-          ? requestedType.OriginalDefinition
-          : requestedType;
-          '''
-          new = '''            var targetType = requestedType.IsUnboundGenericType
-                  ? requestedType.OriginalDefinition
-                  : requestedType;
-          '''
-          if old not in text:
-              raise SystemExit('target type formatting block not found')
-          text = text.replace(old, new, 1)
-
-          old = '''            targets.Add(targetType, location);
-
-          }
-          '''
-          new = '''            targets.Add(targetType, location);
-          }
-          '''
-          if old not in text:
-              raise SystemExit('foreach formatting block not found')
-          text = text.replace(old, new, 1)
-
+          start = text.index('            var targetType = requestedType.IsUnboundGenericType')
+          end = text.index('\n\n        }\n\n        if (targets.Count == 0)', start)
+          block = (
+              i12 + 'var targetType = requestedType.IsUnboundGenericType\n'
+              + i16 + '? requestedType.OriginalDefinition\n'
+              + i16 + ': requestedType;\n'
+              + i12 + 'var location = request.ApplicationSyntaxReference?.GetSyntax(context.CancellationToken).GetLocation()\n'
+              + i16 + '?? Location.None;\n\n'
+              + i12 + 'if (!CanGenerateForType(targetType))\n'
+              + i12 + '{\n'
+              + i16 + 'context.ReportDiagnostic(Diagnostic.Create(\n'
+              + i20 + 'InvalidGenerationTarget,\n'
+              + i20 + 'location,\n'
+              + i20 + 'targetType.ToDisplayString()));\n'
+              + i16 + 'continue;\n'
+              + i12 + '}\n\n'
+              + i12 + 'if (targets.ContainsKey(targetType))\n'
+              + i12 + '{\n'
+              + i16 + 'context.ReportDiagnostic(Diagnostic.Create(\n'
+              + i20 + 'RedundantGenerationRequest,\n'
+              + i20 + 'location,\n'
+              + i20 + 'targetType.ToDisplayString()));\n'
+              + i16 + 'continue;\n'
+              + i12 + '}\n\n'
+              + i12 + 'targets.Add(targetType, location);'
+          )
+          text = text[:start] + block + text[end:]
           path.write_text(text)
           PY
 
