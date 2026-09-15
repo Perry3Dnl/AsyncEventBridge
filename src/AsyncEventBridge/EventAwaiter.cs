@@ -1,15 +1,4 @@
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Runtime.ExceptionServices;
-using System.Threading;
-using System.Threading.Tasks;
-
-namespace AsyncEventBridge
-{
+namespace AsyncEventBridge;
 
 /// <summary>
 /// Provides the runtime engine used to turn a single .NET event occurrence into a task.
@@ -24,17 +13,11 @@ public static class EventAwaiter
         Action<EventHandler> unsubscribe,
         Predicate<EventArgs>? predicate = null,
         CancellationToken cancellationToken = default,
-        TimeSpan? timeout = null)
+        TimeSpan? timeout = null,
+        TimeProvider? timeProvider = null)
     {
-        if (subscribe is null)
-        {
-            throw new ArgumentNullException(nameof(subscribe));
-        }
-
-        if (unsubscribe is null)
-        {
-            throw new ArgumentNullException(nameof(unsubscribe));
-        }
+        ArgumentNullException.ThrowIfNull(subscribe);
+        ArgumentNullException.ThrowIfNull(unsubscribe);
 
         EventHandler? adaptedHandler = null;
 
@@ -47,7 +30,8 @@ public static class EventAwaiter
             _ => unsubscribe(adaptedHandler!),
             predicate,
             cancellationToken,
-            timeout);
+            timeout,
+            timeProvider);
     }
 
     /// <summary>
@@ -58,18 +42,12 @@ public static class EventAwaiter
         Action<EventHandler<TEventArgs>> unsubscribe,
         Predicate<TEventArgs>? predicate = null,
         CancellationToken cancellationToken = default,
-        TimeSpan? timeout = null)
+        TimeSpan? timeout = null,
+        TimeProvider? timeProvider = null)
         where TEventArgs : EventArgs
     {
-        if (subscribe is null)
-        {
-            throw new ArgumentNullException(nameof(subscribe));
-        }
-
-        if (unsubscribe is null)
-        {
-            throw new ArgumentNullException(nameof(unsubscribe));
-        }
+        ArgumentNullException.ThrowIfNull(subscribe);
+        ArgumentNullException.ThrowIfNull(unsubscribe);
 
         ValidateTimeout(timeout);
 
@@ -89,54 +67,7 @@ public static class EventAwaiter
             predicate,
             cancellationToken,
             timeout,
-            SystemTimeoutScheduler.Instance);
-
-        return state.Start();
-    }
-
-    internal static Task<TEventArgs> WaitAsync<TEventArgs>(
-        Action<EventHandler<TEventArgs>> subscribe,
-        Action<EventHandler<TEventArgs>> unsubscribe,
-        Predicate<TEventArgs>? predicate,
-        CancellationToken cancellationToken,
-        TimeSpan? timeout,
-        ITimeoutScheduler timeoutScheduler)
-        where TEventArgs : EventArgs
-    {
-        if (subscribe is null)
-        {
-            throw new ArgumentNullException(nameof(subscribe));
-        }
-
-        if (unsubscribe is null)
-        {
-            throw new ArgumentNullException(nameof(unsubscribe));
-        }
-
-        if (timeoutScheduler is null)
-        {
-            throw new ArgumentNullException(nameof(timeoutScheduler));
-        }
-
-        ValidateTimeout(timeout);
-
-        if (cancellationToken.IsCancellationRequested)
-        {
-            return Task.FromCanceled<TEventArgs>(cancellationToken);
-        }
-
-        if (timeout == TimeSpan.Zero)
-        {
-            return Task.FromException<TEventArgs>(CreateTimeoutException(timeout.Value));
-        }
-
-        var state = new EventWaitState<TEventArgs>(
-            subscribe,
-            unsubscribe,
-            predicate,
-            cancellationToken,
-            timeout,
-            timeoutScheduler);
+            timeProvider ?? TimeProvider.System);
 
         return state.Start();
     }
@@ -153,34 +84,6 @@ public static class EventAwaiter
         new($"The event wait timed out after {timeout}.");
 }
 
-internal interface ITimeoutScheduler
-{
-    IDisposable Schedule(TimeSpan timeout, Action callback);
-}
-
-internal sealed class SystemTimeoutScheduler : ITimeoutScheduler
-{
-    internal static SystemTimeoutScheduler Instance { get; } = new();
-
-    private SystemTimeoutScheduler()
-    {
-    }
-
-    public IDisposable Schedule(TimeSpan timeout, Action callback)
-    {
-        if (callback is null)
-        {
-            throw new ArgumentNullException(nameof(callback));
-        }
-
-        return new Timer(
-            static state => ((Action)state!).Invoke(),
-            callback,
-            timeout,
-            Timeout.InfiniteTimeSpan);
-    }
-}
-
 internal sealed class EventWaitState<TEventArgs>
     where TEventArgs : EventArgs
 {
@@ -189,13 +92,13 @@ internal sealed class EventWaitState<TEventArgs>
     private readonly Predicate<TEventArgs>? _predicate;
     private readonly CancellationToken _cancellationToken;
     private readonly TimeSpan? _timeout;
-    private readonly ITimeoutScheduler _timeoutScheduler;
+    private readonly TimeProvider _timeProvider;
     private readonly TaskCompletionSource<TEventArgs> _completionSource;
     private readonly EventHandler<TEventArgs> _handler;
     private readonly object _predicateGate = new();
 
     private CancellationTokenRegistration _cancellationRegistration;
-    private IDisposable? _timeoutRegistration;
+    private ITimer? _timeoutRegistration;
     private Completion? _completion;
     private int _subscriptionAttempted;
     private int _initializationComplete;
@@ -207,14 +110,14 @@ internal sealed class EventWaitState<TEventArgs>
         Predicate<TEventArgs>? predicate,
         CancellationToken cancellationToken,
         TimeSpan? timeout,
-        ITimeoutScheduler timeoutScheduler)
+        TimeProvider timeProvider)
     {
         _subscribe = subscribe;
         _unsubscribe = unsubscribe;
         _predicate = predicate;
         _cancellationToken = cancellationToken;
         _timeout = timeout;
-        _timeoutScheduler = timeoutScheduler;
+        _timeProvider = timeProvider;
         _handler = OnEvent;
         _completionSource = new TaskCompletionSource<TEventArgs>(TaskCreationOptions.RunContinuationsAsynchronously);
     }
@@ -228,14 +131,18 @@ internal sealed class EventWaitState<TEventArgs>
 
             if (_cancellationToken.CanBeCanceled)
             {
-                _cancellationRegistration = _cancellationToken.Register(
-                    static state => ((EventWaitState<TEventArgs>)state!).TryCancel(),
+                _cancellationRegistration = _cancellationToken.UnsafeRegister(
+                    static (state, _) => ((EventWaitState<TEventArgs>)state!).TryCancel(),
                     this);
             }
 
             if (_timeout is { } timeout && timeout != Timeout.InfiniteTimeSpan)
             {
-                _timeoutRegistration = _timeoutScheduler.Schedule(timeout, TryTimeout);
+                _timeoutRegistration = _timeProvider.CreateTimer(
+                    static state => ((EventWaitState<TEventArgs>)state!).TryTimeout(),
+                    this,
+                    timeout,
+                    Timeout.InfiniteTimeSpan);
             }
         }
         catch (Exception exception)
@@ -378,7 +285,7 @@ internal sealed class EventWaitState<TEventArgs>
 
     private static void AddCleanupError(ref List<Exception>? cleanupErrors, Exception exception)
     {
-        cleanupErrors ??= new List<Exception>();
+        cleanupErrors ??= [];
         cleanupErrors.Add(exception);
     }
 
@@ -417,5 +324,4 @@ internal sealed class EventWaitState<TEventArgs>
         internal static Completion Faulted(Exception exception) =>
             new(CompletionKind.Faulted, null, exception);
     }
-}
 }

@@ -134,26 +134,26 @@ public sealed class EventAwaiterTests
     }
 
     [Fact]
-    public async Task TimeoutFaultsAndUnsubscribes()
+    public async Task TimeoutFaultsAndUnsubscribesUsingInjectedTimeProvider()
     {
         var source = new TestEventSource<TestEventArgs>();
-        var scheduler = new ManualTimeoutScheduler();
+        var timeProvider = new ManualTimeProvider();
         var wait = EventAwaiter.WaitAsync<TestEventArgs>(
             handler => source.Changed += handler,
             handler => source.Changed -= handler,
             predicate: null,
             cancellationToken: default,
             timeout: TimeSpan.FromMinutes(1),
-            timeoutScheduler: scheduler);
+            timeProvider: timeProvider);
 
-        scheduler.Fire();
+        timeProvider.Fire();
 
         await Assert.ThrowsAsync<TimeoutException>(() => wait);
         Assert.Equal(0, source.HandlerCount);
     }
 
     [Fact]
-    public async Task TimeoutDuringSchedulingFaultsAndCleansUp()
+    public async Task TimeoutDuringTimerCreationFaultsAndCleansUp()
     {
         var source = new TestEventSource<TestEventArgs>();
         var wait = EventAwaiter.WaitAsync<TestEventArgs>(
@@ -162,7 +162,7 @@ public sealed class EventAwaiterTests
             predicate: null,
             cancellationToken: default,
             timeout: TimeSpan.FromMinutes(1),
-            timeoutScheduler: new ImmediateTimeoutScheduler());
+            timeProvider: new ManualTimeProvider(fireOnCreate: true));
 
         await Assert.ThrowsAsync<TimeoutException>(() => wait);
 
@@ -271,7 +271,7 @@ public sealed class EventAwaiterTests
     public async Task EventAndTimeoutRaceHasExactlyOneOutcome()
     {
         var source = new TestEventSource<TestEventArgs>();
-        var scheduler = new ManualTimeoutScheduler();
+        var timeProvider = new ManualTimeProvider();
         using var barrier = new Barrier(3);
         var wait = EventAwaiter.WaitAsync<TestEventArgs>(
             handler => source.Changed += handler,
@@ -279,7 +279,7 @@ public sealed class EventAwaiterTests
             predicate: null,
             cancellationToken: default,
             timeout: TimeSpan.FromHours(1),
-            timeoutScheduler: scheduler);
+            timeProvider: timeProvider);
 
         var raiseTask = Task.Run(() =>
         {
@@ -290,7 +290,7 @@ public sealed class EventAwaiterTests
         var timeoutTask = Task.Run(() =>
         {
             barrier.SignalAndWait();
-            scheduler.Fire();
+            timeProvider.Fire();
         });
 
         barrier.SignalAndWait();
@@ -313,7 +313,7 @@ public sealed class EventAwaiterTests
     public async Task CancellationAndTimeoutRaceHasExactlyOneOutcome()
     {
         var source = new TestEventSource<TestEventArgs>();
-        var scheduler = new ManualTimeoutScheduler();
+        var timeProvider = new ManualTimeProvider();
         using var cancellation = new CancellationTokenSource();
         using var barrier = new Barrier(3);
         var wait = EventAwaiter.WaitAsync<TestEventArgs>(
@@ -322,7 +322,7 @@ public sealed class EventAwaiterTests
             predicate: null,
             cancellationToken: cancellation.Token,
             timeout: TimeSpan.FromHours(1),
-            timeoutScheduler: scheduler);
+            timeProvider: timeProvider);
 
         var cancelTask = Task.Run(() =>
         {
@@ -333,7 +333,7 @@ public sealed class EventAwaiterTests
         var timeoutTask = Task.Run(() =>
         {
             barrier.SignalAndWait();
-            scheduler.Fire();
+            timeProvider.Fire();
         });
 
         barrier.SignalAndWait();
