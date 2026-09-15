@@ -40,15 +40,18 @@ This gate is deliberately narrower than the complete product roadmap. Optional i
 6. BenchmarkDotNet baselines for one-shot waits, stream throughput, and bounded-drop telemetry.
 7. Native AOT and trimming verification against the packed NuGet package, including execution of the published native smoke-test binary.
 8. Targeted generator diagnostics: `AEB001` for unsupported event delegates, `AEB002` for invalid `GenerateAsyncEventsFor` targets, and `AEB003` for duplicate or redundant generation requests.
+9. Sender-aware occurrence waits/streams plus lifecycle-safe event-wait composition: heterogeneous two-way any/all and indexed N-way homogeneous any/all with deterministic sibling cancellation and cleanup observation.
+10. BCL-native `System.Diagnostics.Metrics` instrumentation for terminal event-wait outcomes and bounded-stream drops with low-cardinality tags.
 
 ## Work after the foundation
 
 Remaining work is now separate from “basic completeness”:
 
-1. Benchmark-driven optimization of allocations, contention, cancellation, and stream throughput.
-2. Additional production integrations only where they materially improve real applications, such as metrics or hosting integration.
-3. Additional ergonomic APIs only where they remove recurring consumer boilerplate without duplicating BCL abstractions.
-4. Broader examples, documentation, release notes, versioning, and final release preparation.
-5. Experimental techniques such as pooling, `IValueTaskSource<T>`, reusable waiters, or generated fast paths only when measurements justify their complexity.
+1. Release hardening: API/documentation polish, release notes, versioning, package metadata review, and a release-candidate checklist.
+2. Benchmark-driven optimization of allocations, contention, cancellation, composition overhead, and stream throughput where measurements show material wins.
+3. Additional production integrations only where they materially improve real applications rather than duplicating BCL or OpenTelemetry abstractions.
+4. Additional ergonomic APIs only where they remove recurring consumer boilerplate; new composition helpers should preserve deterministic subscription cleanup as a non-negotiable invariant.
+5. Broader examples and end-to-end scenarios for generated adapters, sender-aware occurrences, bounded streams, metrics, and composition.
+6. Experimental techniques such as pooling, `IValueTaskSource<T>`, reusable waiters, or generated fast paths only when measurements justify their complexity.
 
 The foundation should remain boring and dependable; experimentation belongs above it, not inside it.
