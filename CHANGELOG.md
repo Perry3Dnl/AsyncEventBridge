@@ -36,12 +36,14 @@ All notable changes to the native modern-.NET line of AsyncEventBridge are docum
 - Add `ValueTask` and `ValueTask<T>` `ToEventBridge()` overloads for modern async APIs that do not naturally return `Task`.
 - Define explicit ownership semantics for `ValueTask`: once handed to a bridge, the original value task must not be consumed independently.
 - Verify `ValueTask<T>` behavior through runtime tests and a consumer restored from the generated NuGet package.
+- Consume `ValueTask` and `ValueTask<T>` directly inside event bridges instead of converting through `.AsTask()`, preserving completion, fault, and cancellation classification while avoiding the intermediate task wrapper.
 - Classify `OperationCanceledException` from an `IAsyncEnumerable<T>` as `Cancelled` only when the bridge lifetime token is actually cancelled; an unrelated source-thrown cancellation exception now publishes `Faulted` instead of being misreported as bridge cancellation.
 
 ### Performance and verification
 
 - Add a BenchmarkDotNet project for one-shot wait and buffered event-stream benchmarks.
 - Add bounded `DropNewest` benchmark baselines for counter-only and counter-plus-observer telemetry paths.
+- Add direct-`ValueTask` versus `.AsTask()` bridge benchmarks; a focused .NET 10 run reduced allocation for a completed generic bridge from 296 B to 224 B per operation (72 B), while timing remained close enough on the hosted runner that no general latency claim is made.
 - Build the benchmark project in normal CI without executing benchmarks on every push.
 - Require the generated NuGet package to contain native `net10.0` assets.
 - Restore, compile, and execute isolated `net10.0` consumers from the generated `.nupkg` in CI.
