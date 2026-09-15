@@ -1,4 +1,4 @@
-name: Bootstrap Unity package payload
+name: Finalize Unity integration
 
 on:
   push:
@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  apply:
+  finalize:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -24,30 +24,32 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
-      - name: Apply reviewed Unity payload
+      - name: Apply final reviewed Unity payload
         shell: bash
         run: |
           set -euo pipefail
           base64 -d .github/unity-update.payload.b64 | tar -xz -C .
 
-      - name: Build Unity source generator
-        run: dotnet build src/AsyncEventBridge.Unity.Generators/AsyncEventBridge.Unity.Generators.csproj --configuration Release
+      - name: Compile Unity runtime API surface
+        run: dotnet build tests/AsyncEventBridge.UnityCompileSmoke/AsyncEventBridge.UnityCompileSmoke.csproj --configuration Release
 
-      - name: Bundle generator in UPM package
+      - name: Verify bundled generator is reproducible
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p Packages/com.perry3d.async-event-bridge/Analyzers
-          cp src/AsyncEventBridge.Unity.Generators/bin/Release/netstandard2.0/AsyncEventBridge.Unity.Generators.dll \
-             Packages/com.perry3d.async-event-bridge/Analyzers/AsyncEventBridge.Unity.Generators.dll
+          dotnet build src/AsyncEventBridge.Unity.Generators/AsyncEventBridge.Unity.Generators.csproj --configuration Release
+          cmp \
+            Packages/com.perry3d.async-event-bridge/Analyzers/AsyncEventBridge.Unity.Generators.dll \
+            src/AsyncEventBridge.Unity.Generators/bin/Release/netstandard2.0/AsyncEventBridge.Unity.Generators.dll
 
-      - name: Commit Unity integration
+      - name: Commit final Unity integration
         shell: bash
         run: |
           set -euo pipefail
+          rm .github/unity-update.payload.b64 .github/workflows/unity-bootstrap.yml
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add CHANGELOG.md Packages/com.perry3d.async-event-bridge
+          git add -A
           git diff --cached --check
-          git commit -m 'Integrate UnityEvent APIs and Unity tests'
+          git commit -m 'Harden Unity lifecycle and CI'
           git push origin HEAD:feature/unity-package
