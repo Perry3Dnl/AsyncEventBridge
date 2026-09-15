@@ -90,6 +90,44 @@ if (!choice.IsSecond || choice.Second != "ready" ||
     throw new InvalidOperationException("The packaged WaitAny composition did not return the winner and clean up the loser.");
 }
 
+var waitAll = EventComposition.WaitAllAsync(
+    token => choiceSensor.NumberAsync(token),
+    token => choiceSensor.TextAsync(token));
+choiceSensor.RaiseText("both");
+choiceSensor.RaiseNumber(7);
+var all = await waitAll;
+if (all.First != 7 || all.Second != "both" ||
+    choiceSensor.NumberHandlerCount != 0 || choiceSensor.TextHandlerCount != 0)
+{
+    throw new InvalidOperationException("The packaged heterogeneous WaitAll composition returned the wrong values or leaked a subscription.");
+}
+
+var indexedSensor = new IndexedChoiceSensor();
+Func<CancellationToken, Task<int>>[] indexedWaits =
+[
+    token => indexedSensor.FirstAsync(token),
+    token => indexedSensor.SecondAsync(token),
+    token => indexedSensor.ThirdAsync(token),
+];
+
+var indexedAnyWait = EventComposition.WaitAnyAsync(indexedWaits);
+indexedSensor.RaiseSecond(20);
+var indexedAny = await indexedAnyWait;
+if (indexedAny.Index != 1 || indexedAny.Value != 20 || indexedSensor.HandlerCount != 0)
+{
+    throw new InvalidOperationException("The packaged indexed WaitAny composition returned the wrong winner or leaked subscriptions.");
+}
+
+var indexedAllWait = EventComposition.WaitAllAsync(indexedWaits);
+indexedSensor.RaiseThird(30);
+indexedSensor.RaiseFirst(10);
+indexedSensor.RaiseSecond(20);
+var indexedAll = await indexedAllWait;
+if (!indexedAll.SequenceEqual([10, 20, 30]) || indexedSensor.HandlerCount != 0)
+{
+    throw new InvalidOperationException("The packaged indexed WaitAll composition did not preserve input ordering or leaked subscriptions.");
+}
+
 var droppedCounts = new List<long>();
 var dropOptions = new EventStreamOptions
 {
@@ -229,7 +267,6 @@ public sealed class StrongSenderSensor
     public void Raise(int value) => ValueChanged?.Invoke(this, value);
 }
 
-
 [GenerateAsyncEvents]
 public sealed class ChoiceSensor
 {
@@ -251,5 +288,41 @@ public sealed class ChoiceSensor
     public int NumberHandlerCount => _number?.GetInvocationList().Length ?? 0;
     public int TextHandlerCount => _text?.GetInvocationList().Length ?? 0;
 
+    public void RaiseNumber(int value) => _number?.Invoke(this, value);
     public void RaiseText(string value) => _text?.Invoke(this, value);
+}
+
+[GenerateAsyncEvents]
+public sealed class IndexedChoiceSensor
+{
+    private EventHandler<int>? _first;
+    private EventHandler<int>? _second;
+    private EventHandler<int>? _third;
+
+    public event EventHandler<int>? First
+    {
+        add => _first += value;
+        remove => _first -= value;
+    }
+
+    public event EventHandler<int>? Second
+    {
+        add => _second += value;
+        remove => _second -= value;
+    }
+
+    public event EventHandler<int>? Third
+    {
+        add => _third += value;
+        remove => _third -= value;
+    }
+
+    public int HandlerCount =>
+        (_first?.GetInvocationList().Length ?? 0) +
+        (_second?.GetInvocationList().Length ?? 0) +
+        (_third?.GetInvocationList().Length ?? 0);
+
+    public void RaiseFirst(int value) => _first?.Invoke(this, value);
+    public void RaiseSecond(int value) => _second?.Invoke(this, value);
+    public void RaiseThird(int value) => _third?.Invoke(this, value);
 }
