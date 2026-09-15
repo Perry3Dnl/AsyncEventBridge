@@ -23,6 +23,8 @@ public sealed class PublicApiTests
             "AsyncEventBridge.EventOccurrence`2",
             "AsyncEventBridge.EventOccurrenceAwaiter",
             "AsyncEventBridge.EventOccurrenceStream",
+            "AsyncEventBridge.EventWaitAllResult`2",
+            "AsyncEventBridge.EventWaitAnyResult`1",
             "AsyncEventBridge.EventWaitAnyResult`2",
             "AsyncEventBridge.EventBridge",
             "AsyncEventBridge.EventBridge`1",
@@ -50,7 +52,7 @@ public sealed class PublicApiTests
         AssertMethodNames(typeof(EventAwaiter), "WaitAsync", "WaitAsync");
         AssertMethodNames(typeof(EventOccurrenceAwaiter), "WaitAsync");
         AssertMethodNames(typeof(EventOccurrenceStream), "Create");
-        AssertMethodNames(typeof(EventComposition), "WaitAnyAsync");
+        AssertMethodNames(typeof(EventComposition), "WaitAllAsync", "WaitAllAsync", "WaitAnyAsync", "WaitAnyAsync");
         AssertMethodNames(typeof(EventStream), "Create", "Create");
         AssertMethodNames(typeof(EventBridge), "Connect", "Dispose");
         AssertMethodNames(typeof(EventBridge<int>), "Connect", "Dispose");
@@ -80,7 +82,10 @@ public sealed class PublicApiTests
 
         AssertMethodSignatures(
             typeof(EventComposition),
-            "System.Threading.Tasks.Task<AsyncEventBridge.EventWaitAnyResult<TFirst,TSecond>> WaitAnyAsync<TFirst,TSecond>(System.Func<System.Threading.CancellationToken,System.Threading.Tasks.Task<TFirst>> firstWait, System.Func<System.Threading.CancellationToken,System.Threading.Tasks.Task<TSecond>> secondWait, System.Threading.CancellationToken cancellationToken optional)");
+            "System.Threading.Tasks.Task<AsyncEventBridge.EventWaitAllResult<TFirst,TSecond>> WaitAllAsync<TFirst,TSecond>(System.Func<System.Threading.CancellationToken,System.Threading.Tasks.Task<TFirst>> firstWait, System.Func<System.Threading.CancellationToken,System.Threading.Tasks.Task<TSecond>> secondWait, System.Threading.CancellationToken cancellationToken optional)",
+            "System.Threading.Tasks.Task<AsyncEventBridge.EventWaitAnyResult<TFirst,TSecond>> WaitAnyAsync<TFirst,TSecond>(System.Func<System.Threading.CancellationToken,System.Threading.Tasks.Task<TFirst>> firstWait, System.Func<System.Threading.CancellationToken,System.Threading.Tasks.Task<TSecond>> secondWait, System.Threading.CancellationToken cancellationToken optional)",
+            "System.Threading.Tasks.Task<AsyncEventBridge.EventWaitAnyResult<T>> WaitAnyAsync<T>(System.Collections.Generic.IReadOnlyList<System.Func<System.Threading.CancellationToken,System.Threading.Tasks.Task<T>>> waits, System.Threading.CancellationToken cancellationToken optional)",
+            "System.Threading.Tasks.Task<T[]> WaitAllAsync<T>(System.Collections.Generic.IReadOnlyList<System.Func<System.Threading.CancellationToken,System.Threading.Tasks.Task<T>>> waits, System.Threading.CancellationToken cancellationToken optional)");
 
         AssertMethodSignatures(
             typeof(AsyncEventBridgeExtensions),
@@ -118,6 +123,8 @@ public sealed class PublicApiTests
         AssertPropertyNames(typeof(AsyncFaultedEventArgs), "Exception");
         AssertPropertyNames(typeof(EventStreamOptions), "Capacity", "DroppedCount", "DropObserver", "FullMode");
         AssertPropertyNames(typeof(EventOccurrence<object, int>), "Payload", "Sender");
+        AssertPropertyNames(typeof(EventWaitAllResult<int, string>), "First", "Second");
+        AssertPropertyNames(typeof(EventWaitAnyResult<int>), "Index", "Value");
         AssertPropertyNames(typeof(EventWaitAnyResult<int, string>), "First", "IsFirst", "IsSecond", "Second");
         AssertPropertyNames(typeof(GenerateAsyncEventsForAttribute), "TargetType");
 
@@ -159,6 +166,14 @@ public sealed class PublicApiTests
             typeof(EventOccurrence<object, int>),
             "Payload:System.Int32:get",
             "Sender:System.Object:get");
+        AssertPropertySignatures(
+            typeof(EventWaitAllResult<int, string>),
+            "First:System.Int32:get",
+            "Second:System.String:get");
+        AssertPropertySignatures(
+            typeof(EventWaitAnyResult<int>),
+            "Index:System.Int32:get",
+            "Value:System.Int32:get");
         AssertPropertySignatures(
             typeof(EventWaitAnyResult<int, string>),
             "First:System.Int32:get",
