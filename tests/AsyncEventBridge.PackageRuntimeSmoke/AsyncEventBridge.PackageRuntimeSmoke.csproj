@@ -5,7 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <IsPackable>false</IsPackable>
-    <AsyncEventBridgePackageVersion Condition="'$(AsyncEventBridgePackageVersion)' == ''">0.1.0</AsyncEventBridgePackageVersion>
+    <AsyncEventBridgePackageVersion Condition="'$(AsyncEventBridgePackageVersion)' == ''">$(Version)</AsyncEventBridgePackageVersion>
   </PropertyGroup>
 
   <ItemGroup>
