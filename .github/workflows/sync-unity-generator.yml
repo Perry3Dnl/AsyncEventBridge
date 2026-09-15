@@ -1,0 +1,45 @@
+name: Sync Unity generator binary
+
+on:
+  push:
+    branches:
+      - feature/unity-package
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Build deterministic Unity generator
+        run: dotnet build src/AsyncEventBridge.Unity.Generators/AsyncEventBridge.Unity.Generators.csproj --configuration Release
+
+      - name: Sync packaged analyzer
+        shell: bash
+        run: |
+          set -euo pipefail
+          built="src/AsyncEventBridge.Unity.Generators/bin/Release/netstandard2.0/AsyncEventBridge.Unity.Generators.dll"
+          packaged="Packages/com.perry3d.async-event-bridge/Analyzers/AsyncEventBridge.Unity.Generators.dll"
+          cp "$built" "$packaged"
+
+          if git diff --quiet -- "$packaged"; then
+            echo "Packaged analyzer already matches the deterministic build."
+            exit 0
+          fi
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add "$packaged"
+          git commit -m 'Sync deterministic Unity generator binary'
+          git push origin HEAD:feature/unity-package
