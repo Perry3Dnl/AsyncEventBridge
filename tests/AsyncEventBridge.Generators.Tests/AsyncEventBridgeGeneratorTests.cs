@@ -38,8 +38,7 @@ public sealed class AsyncEventBridgeGeneratorTests
                     Action<EventHandler<TEventArgs>> unsubscribe,
                     Predicate<TEventArgs>? predicate = null,
                     CancellationToken cancellationToken = default,
-                    TimeSpan? timeout = null)
-                    where TEventArgs : EventArgs => throw new NotImplementedException();
+                    TimeSpan? timeout = null) => throw new NotImplementedException();
             }
 
             public static class EventStream
@@ -56,8 +55,7 @@ public sealed class AsyncEventBridgeGeneratorTests
                     Action<EventHandler<TEventArgs>> unsubscribe,
                     Predicate<TEventArgs>? predicate = null,
                     EventStreamOptions? options = null,
-                    CancellationToken cancellationToken = default)
-                    where TEventArgs : EventArgs => throw new NotImplementedException();
+                    CancellationToken cancellationToken = default) => throw new NotImplementedException();
             }
         }
 
@@ -98,6 +96,28 @@ public sealed class AsyncEventBridgeGeneratorTests
         Assert.Contains("global::System.TimeSpan timeout", generatedSource, StringComparison.Ordinal);
         Assert.Contains("global::AsyncEventBridge.EventStream.Create<global::Demo.SensorEventArgs>", generatedSource, StringComparison.Ordinal);
         Assert.Contains("(global::System.EventHandler handler) => source.Tick += handler", generatedSource, StringComparison.Ordinal);
+        Assert.Empty(result.Diagnostics.Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+    }
+
+    [Fact]
+    public void GeneratesForModernNonEventArgsPayload()
+    {
+        var source = RuntimeStubs + """
+            namespace Demo
+            {
+                [AsyncEventBridge.GenerateAsyncEvents]
+                public sealed class Sensor
+                {
+                    public event EventHandler<int>? ValueChanged;
+                }
+            }
+            """;
+
+        var result = RunGenerator(source);
+        var generatedSource = Assert.Single(Assert.Single(result.Results).GeneratedSources).SourceText.ToString();
+
+        Assert.Contains("ValueChangedAsync", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("ValueChangedStream", generatedSource, StringComparison.Ordinal);
         Assert.Empty(result.Diagnostics.Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
     }
 

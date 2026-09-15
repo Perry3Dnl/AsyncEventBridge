@@ -14,7 +14,7 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
     private static readonly DiagnosticDescriptor UnsupportedEventDelegate = new(
         id: "AEB001",
         title: "Unsupported event delegate",
-        messageFormat: "Event '{0}.{1}' uses unsupported delegate type '{2}'. Generated event APIs require EventHandler, EventHandler<TEventArgs>, or a void delegate with two non-ref parameters whose second parameter derives from EventArgs.",
+        messageFormat: "Event '{0}.{1}' uses unsupported delegate type '{2}'. Generated event APIs require EventHandler, EventHandler<TPayload>, EventHandler<TSender, TPayload>, or a void delegate with two non-ref parameters and a non-ref-like second parameter.",
         category: "AsyncEventBridge",
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true);
@@ -370,7 +370,7 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
             .AppendLine("            {")
             .Append("                adaptedHandler = new ")
             .Append(item.HandlerType)
-            .AppendLine("((sender, eventArgs) => handler(sender, eventArgs));")
+            .AppendLine("((_, eventArgs) => handler(null, eventArgs));")
             .Append("                source.")
             .Append(eventName)
             .AppendLine(" += adaptedHandler;")
@@ -541,7 +541,7 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
             .AppendLine("            {")
             .Append("                var adaptedHandler = new ")
             .Append(item.HandlerType)
-            .AppendLine("((sender, eventArgs) => handler(sender, eventArgs));")
+            .AppendLine("((_, eventArgs) => handler(null, eventArgs));")
             .AppendLine("                if (!adaptedHandlers.TryAdd(handler, adaptedHandler))")
             .AppendLine("                {")
             .AppendLine("                    throw new global::System.InvalidOperationException(\"The event handler adapter was already registered.\");")
@@ -592,13 +592,22 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
             }
 
             if (delegateType.TypeArguments.Length == 1 &&
-                IsEventArgsCompatible(delegateType.TypeArguments[0]))
+                IsAsyncPayloadCompatible(delegateType.TypeArguments[0]))
             {
-                var eventArgsType = RenderType(delegateType.TypeArguments[0], typeParameters);
+                var payloadType = RenderType(delegateType.TypeArguments[0], typeParameters);
                 return new EventClassification(
                     EventKind.StandardTyped,
-                    eventArgsType,
-                    $"global::System.EventHandler<{eventArgsType}>");
+                    payloadType,
+                    $"global::System.EventHandler<{payloadType}>");
+            }
+
+            if (delegateType.TypeArguments.Length == 2 &&
+                IsAsyncPayloadCompatible(delegateType.TypeArguments[1]))
+            {
+                return new EventClassification(
+                    EventKind.Custom,
+                    RenderType(delegateType.TypeArguments[1], typeParameters),
+                    RenderType(delegateType, typeParameters));
             }
 
             return EventClassification.Unsupported(RenderType(delegateType, typeParameters));
@@ -611,8 +620,7 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
             invokeMethod.Parameters.Length != 2 ||
             invokeMethod.Parameters[0].RefKind != RefKind.None ||
             invokeMethod.Parameters[1].RefKind != RefKind.None ||
-            invokeMethod.Parameters[0].Type.IsRefLikeType ||
-            !IsEventArgsCompatible(invokeMethod.Parameters[1].Type))
+            !IsAsyncPayloadCompatible(invokeMethod.Parameters[1].Type))
         {
             return EventClassification.Unsupported(RenderType(delegateType, typeParameters));
         }
@@ -658,33 +666,8 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
         }
     }
 
-    private static bool IsEventArgsCompatible(ITypeSymbol typeSymbol)
-    {
-        if (typeSymbol is ITypeParameterSymbol typeParameter)
-        {
-            return typeParameter.ConstraintTypes.Any(IsEventArgsCompatible);
-        }
-
-        if (typeSymbol is not INamedTypeSymbol namedType)
-        {
-            return false;
-        }
-
-        INamedTypeSymbol? current = namedType;
-
-        while (current is not null)
-        {
-            if (current.Name == "EventArgs" &&
-                current.ContainingNamespace.ToDisplayString() == "System")
-            {
-                return true;
-            }
-
-            current = current.BaseType;
-        }
-
-        return false;
-    }
+    private static bool IsAsyncPayloadCompatible(ITypeSymbol typeSymbol) =>
+        !typeSymbol.IsRefLikeType;
 
     private static bool CanAccessEvent(
         IEventSymbol eventSymbol,

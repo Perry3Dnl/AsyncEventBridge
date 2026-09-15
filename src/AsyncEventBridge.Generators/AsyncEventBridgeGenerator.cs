@@ -492,7 +492,7 @@ public sealed class AsyncEventBridgeGenerator : IIncrementalGenerator
         }
 
         if (delegateType.TypeArguments.Length != 1 ||
-            !IsEventArgsCompatible(delegateType.TypeArguments[0]))
+            !IsAsyncPayloadCompatible(delegateType.TypeArguments[0]))
         {
             return false;
         }
@@ -502,33 +502,8 @@ public sealed class AsyncEventBridgeGenerator : IIncrementalGenerator
         return true;
     }
 
-    private static bool IsEventArgsCompatible(ITypeSymbol typeSymbol)
-    {
-        if (typeSymbol is ITypeParameterSymbol typeParameter)
-        {
-            return typeParameter.ConstraintTypes.Any(IsEventArgsCompatible);
-        }
-
-        if (typeSymbol is not INamedTypeSymbol namedType)
-        {
-            return false;
-        }
-
-        INamedTypeSymbol? current = namedType;
-
-        while (current is not null)
-        {
-            if (current.Name == "EventArgs" &&
-                current.ContainingNamespace.ToDisplayString() == "System")
-            {
-                return true;
-            }
-
-            current = current.BaseType;
-        }
-
-        return false;
-    }
+    private static bool IsAsyncPayloadCompatible(ITypeSymbol typeSymbol) =>
+        !typeSymbol.IsRefLikeType;
 
     private static bool CanAccessEvent(IEventSymbol eventSymbol, INamedTypeSymbol targetType)
     {

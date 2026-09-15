@@ -38,6 +38,22 @@ if (customSensor.HandlerCount != 0)
     throw new InvalidOperationException("The packaged custom-delegate stream adapter did not unsubscribe.");
 }
 
+var modernSensor = new ModernPayloadSensor();
+var modernWait = modernSensor.ValueChangedAsync();
+modernSensor.Raise(123);
+if (await modernWait != 123)
+{
+    throw new InvalidOperationException("The packaged EventHandler<int> bridge returned the wrong value.");
+}
+
+var strongSenderSensor = new StrongSenderSensor();
+var strongSenderWait = strongSenderSensor.ValueChangedAsync();
+strongSenderSensor.Raise(321);
+if (await strongSenderWait != 321)
+{
+    throw new InvalidOperationException("The packaged EventHandler<TSender, TPayload> bridge returned the wrong value.");
+}
+
 var taskValue = 0;
 using (EventBridge<int> taskBridge = Task.FromResult(7).ToEventBridge())
 {
@@ -129,4 +145,21 @@ public sealed class SensorEventArgs : EventArgs
     }
 
     public int Value { get; }
+}
+
+
+[GenerateAsyncEvents]
+public sealed class ModernPayloadSensor
+{
+    public event EventHandler<int>? ValueChanged;
+
+    public void Raise(int value) => ValueChanged?.Invoke(this, value);
+}
+
+[GenerateAsyncEvents]
+public sealed class StrongSenderSensor
+{
+    public event EventHandler<StrongSenderSensor, int>? ValueChanged;
+
+    public void Raise(int value) => ValueChanged?.Invoke(this, value);
 }

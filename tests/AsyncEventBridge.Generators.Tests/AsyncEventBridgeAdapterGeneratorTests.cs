@@ -47,8 +47,7 @@ public sealed class AsyncEventBridgeAdapterGeneratorTests
                     Action<EventHandler<TEventArgs>> unsubscribe,
                     Predicate<TEventArgs>? predicate = null,
                     CancellationToken cancellationToken = default,
-                    TimeSpan? timeout = null)
-                    where TEventArgs : EventArgs => throw new NotImplementedException();
+                    TimeSpan? timeout = null) => throw new NotImplementedException();
             }
 
             public static class EventStream
@@ -65,8 +64,7 @@ public sealed class AsyncEventBridgeAdapterGeneratorTests
                     Action<EventHandler<TEventArgs>> unsubscribe,
                     Predicate<TEventArgs>? predicate = null,
                     EventStreamOptions? options = null,
-                    CancellationToken cancellationToken = default)
-                    where TEventArgs : EventArgs => throw new NotImplementedException();
+                    CancellationToken cancellationToken = default) => throw new NotImplementedException();
             }
         }
 
@@ -100,6 +98,76 @@ public sealed class AsyncEventBridgeAdapterGeneratorTests
         Assert.Contains("new global::Demo.SensorChangedHandler", generatedSource, StringComparison.Ordinal);
         Assert.Contains("ConcurrentDictionary", generatedSource, StringComparison.Ordinal);
         Assert.DoesNotContain(result.Diagnostics, diagnostic => diagnostic.Id == "AEB001");
+    }
+
+    [Fact]
+    public void GeneratesForStronglyTypedSenderAndValuePayload()
+    {
+        var source = RuntimeStubs + """
+            namespace Demo
+            {
+                [AsyncEventBridge.GenerateAsyncEvents]
+                public sealed class Sensor
+                {
+                    public event EventHandler<Sensor, int>? ValueChanged;
+                }
+            }
+            """;
+
+        var result = RunGenerator(source);
+        var generatedSource = Assert.Single(Assert.Single(result.Results).GeneratedSources).SourceText.ToString();
+
+        Assert.Contains("ValueChangedAsync", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("ValueChangedStream", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("handler(null, eventArgs)", generatedSource, StringComparison.Ordinal);
+        Assert.DoesNotContain(result.Diagnostics, diagnostic => diagnostic.Id == "AEB001");
+    }
+
+    [Fact]
+    public void GeneratesForCustomDelegateWithValuePayload()
+    {
+        var source = RuntimeStubs + """
+            namespace Demo
+            {
+                public delegate void ValueChangedHandler(Sensor sender, int value);
+
+                [AsyncEventBridge.GenerateAsyncEvents]
+                public sealed class Sensor
+                {
+                    public event ValueChangedHandler? ValueChanged;
+                }
+            }
+            """;
+
+        var result = RunGenerator(source);
+        var generatedSource = Assert.Single(Assert.Single(result.Results).GeneratedSources).SourceText.ToString();
+
+        Assert.Contains("ValueChangedAsync", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("ValueChangedStream", generatedSource, StringComparison.Ordinal);
+        Assert.DoesNotContain(result.Diagnostics, diagnostic => diagnostic.Id == "AEB001");
+    }
+
+    [Fact]
+    public void ReportsAeb001ForRefLikePayload()
+    {
+        var source = RuntimeStubs + """
+            namespace Demo
+            {
+                public delegate void BufferChangedHandler(object sender, Span<int> value);
+
+                [AsyncEventBridge.GenerateAsyncEvents]
+                public sealed class Sensor
+                {
+                    public event BufferChangedHandler? Changed;
+                }
+            }
+            """;
+
+        var result = RunGenerator(source, allowGeneratorWarnings: true);
+        var diagnostic = Assert.Single(result.Diagnostics.Where(diagnostic => diagnostic.Id == "AEB001"));
+
+        Assert.Contains("Changed", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Empty(Assert.Single(result.Results).GeneratedSources);
     }
 
     [Fact]
