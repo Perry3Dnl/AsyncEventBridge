@@ -48,6 +48,19 @@ jobs:
             cmp "$source" "$unity_copy"
           done
 
+      - name: Verify Unity runtime asset metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          UNITY_PACKAGE="Packages/com.perry3d.async-event-bridge"
+          UNITY_RUNTIME="$UNITY_PACKAGE/Runtime"
+
+          test -f "$UNITY_PACKAGE/Runtime.meta"
+          while IFS= read -r asset; do
+            [[ "$asset" == *.meta ]] && continue
+            test -f "${asset}.meta"
+          done < <(find "$UNITY_RUNTIME" -mindepth 1 -print | sort)
+
       - name: Restore
         run: dotnet restore AsyncEventBridge.sln
 
@@ -95,4 +108,11 @@ jobs:
         with:
           name: AsyncEventBridge-${{ env.VERSION }}
           path: artifacts/packages/AsyncEventBridge.${{ env.VERSION }}.nupkg
+          if-no-files-found: error
+
+      - name: Upload Unity generator artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AsyncEventBridge.Unity.Generators-${{ env.VERSION }}
+          path: src/AsyncEventBridge.Unity.Generators/bin/Release/netstandard2.0/AsyncEventBridge.Unity.Generators.dll
           if-no-files-found: error
