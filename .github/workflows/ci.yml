@@ -74,6 +74,13 @@ jobs:
       - name: Compile Unity runtime against Unity API stubs
         run: dotnet build tests/AsyncEventBridge.UnityCompileSmoke/AsyncEventBridge.UnityCompileSmoke.csproj --configuration Release
 
+      - name: Upload Unity generator artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AsyncEventBridge.Unity.Generators-${{ env.VERSION }}
+          path: src/AsyncEventBridge.Unity.Generators/bin/Release/netstandard2.0/AsyncEventBridge.Unity.Generators.dll
+          if-no-files-found: error
+
       - name: Verify bundled Unity generator matches build
         shell: bash
         run: |
@@ -122,11 +129,4 @@ jobs:
         with:
           name: AsyncEventBridge-${{ env.VERSION }}
           path: artifacts/packages/AsyncEventBridge.${{ env.VERSION }}.nupkg
-          if-no-files-found: error
-
-      - name: Upload Unity generator artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: AsyncEventBridge.Unity.Generators-${{ env.VERSION }}
-          path: src/AsyncEventBridge.Unity.Generators/bin/Release/netstandard2.0/AsyncEventBridge.Unity.Generators.dll
           if-no-files-found: error
