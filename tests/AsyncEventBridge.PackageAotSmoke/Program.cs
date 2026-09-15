@@ -39,6 +39,42 @@ await using (var stream = sensor.ValueChangedStream().GetAsyncEnumerator())
     }
 }
 
+var compositionSensor = new AotCompositionSensor();
+var pairAll = EventComposition.WaitAllAsync(
+    token => compositionSensor.NumberAsync(token),
+    token => compositionSensor.TextAsync(token));
+compositionSensor.RaiseText("ready");
+compositionSensor.RaiseNumber(48);
+var pairResult = await pairAll;
+if (pairResult.First != 48 || pairResult.Second != "ready" || compositionSensor.HandlerCount != 0)
+{
+    throw new InvalidOperationException("Native AOT heterogeneous WaitAll returned the wrong values or leaked subscriptions.");
+}
+
+Func<CancellationToken, Task<int>>[] indexedWaits =
+[
+    token => compositionSensor.FirstAsync(token),
+    token => compositionSensor.SecondAsync(token),
+    token => compositionSensor.ThirdAsync(token),
+];
+
+var indexedAnyWait = EventComposition.WaitAnyAsync(indexedWaits);
+compositionSensor.RaiseThird(51);
+var indexedAny = await indexedAnyWait;
+if (indexedAny.Index != 2 || indexedAny.Value != 51 || compositionSensor.HandlerCount != 0)
+{
+    throw new InvalidOperationException("Native AOT indexed WaitAny returned the wrong winner or leaked subscriptions.");
+}
+
+var indexedAllWait = EventComposition.WaitAllAsync(indexedWaits);
+compositionSensor.RaiseSecond(50);
+compositionSensor.RaiseFirst(49);
+compositionSensor.RaiseThird(51);
+if (!(await indexedAllWait).SequenceEqual([49, 50, 51]) || compositionSensor.HandlerCount != 0)
+{
+    throw new InvalidOperationException("Native AOT indexed WaitAll returned the wrong values or leaked subscriptions.");
+}
+
 var external = new ExternalSensor();
 var externalWait = external.ChangedAsync();
 external.Raise(44);
@@ -93,6 +129,59 @@ public sealed class ModernSensor
     public event EventHandler<int>? ValueChanged;
 
     public void Raise(int value) => ValueChanged?.Invoke(this, value);
+}
+
+[GenerateAsyncEvents]
+public sealed class AotCompositionSensor
+{
+    private EventHandler<int>? _number;
+    private EventHandler<string>? _text;
+    private EventHandler<int>? _first;
+    private EventHandler<int>? _second;
+    private EventHandler<int>? _third;
+
+    public event EventHandler<int>? Number
+    {
+        add => _number += value;
+        remove => _number -= value;
+    }
+
+    public event EventHandler<string>? Text
+    {
+        add => _text += value;
+        remove => _text -= value;
+    }
+
+    public event EventHandler<int>? First
+    {
+        add => _first += value;
+        remove => _first -= value;
+    }
+
+    public event EventHandler<int>? Second
+    {
+        add => _second += value;
+        remove => _second -= value;
+    }
+
+    public event EventHandler<int>? Third
+    {
+        add => _third += value;
+        remove => _third -= value;
+    }
+
+    public int HandlerCount =>
+        (_number?.GetInvocationList().Length ?? 0) +
+        (_text?.GetInvocationList().Length ?? 0) +
+        (_first?.GetInvocationList().Length ?? 0) +
+        (_second?.GetInvocationList().Length ?? 0) +
+        (_third?.GetInvocationList().Length ?? 0);
+
+    public void RaiseNumber(int value) => _number?.Invoke(this, value);
+    public void RaiseText(string value) => _text?.Invoke(this, value);
+    public void RaiseFirst(int value) => _first?.Invoke(this, value);
+    public void RaiseSecond(int value) => _second?.Invoke(this, value);
+    public void RaiseThird(int value) => _third?.Invoke(this, value);
 }
 
 public delegate void ExternalChangedHandler(object? sender, int value);
