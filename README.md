@@ -30,6 +30,7 @@ The modern line currently uses:
 
 - `net10.0` runtime assets;
 - `System.Threading.Channels` for event-stream buffering;
+- bounded-stream drop observability through the channel's real dropped-item callback;
 - `TimeProvider` for injectable/testable timeout scheduling;
 - `CancellationToken.UnsafeRegister` on the internal one-shot wait cancellation path;
 - native `IAsyncEnumerable<T>` / `IAsyncDisposable` support without `Microsoft.Bcl.AsyncInterfaces`;
@@ -182,6 +183,29 @@ var options = new EventStreamOptions
 };
 ```
 
+Bounded streams expose real drop telemetry rather than forcing callers to infer backpressure from timing or write behavior:
+
+```csharp
+var options = new EventStreamOptions
+{
+    Capacity = 100,
+    FullMode = EventStreamFullMode.DropNewest,
+    DropObserver = droppedCount =>
+        Console.WriteLine($"Dropped events: {droppedCount}"),
+};
+
+await foreach (Reading reading in sensor.ReadingChangedStream(options, cancellationToken))
+{
+    Process(reading);
+}
+
+Console.WriteLine($"Total dropped: {options.DroppedCount}");
+```
+
+`DroppedCount` is thread-safe and is the lifetime aggregate for that `EventStreamOptions` instance. Reusing one options object across stream enumerations intentionally aggregates their drop counts. `DropObserver` receives the updated aggregate count, runs synchronously on the event producer thread, and may be invoked concurrently if the event itself is raised concurrently. Keep observers fast. Observer exceptions are isolated and traced; they do not fault the stream.
+
+`Grow` never reports drops. For bounded modes, AsyncEventBridge uses `System.Threading.Channels`' actual dropped-item callback, so the count tracks the channel's real backpressure decision rather than an approximation.
+
 There is deliberately no blocking producer mode: blocking a synchronous event callback can change event semantics and introduce deadlocks.
 
 ## Async work back to events
@@ -227,10 +251,12 @@ The modern branch includes BenchmarkDotNet benchmarks for the performance-sensit
 dotnet run -c Release --project benchmarks/AsyncEventBridge.Benchmarks -- --filter *
 ```
 
-Current benchmark coverage starts with:
+Current benchmark coverage includes:
 
 - one-shot event wait + completion;
-- buffered event-stream bursts.
+- unbounded buffered event-stream bursts;
+- bounded `DropNewest` bursts with drop counting only;
+- bounded `DropNewest` bursts with an active drop observer.
 
 As modern optimizations are introduced, they should be justified with these measurements rather than by assumption.
 
@@ -240,12 +266,12 @@ CI on `dotnet-latest`:
 
 - restores and builds the full .NET 10 solution;
 - builds the benchmark project;
-- runs runtime, generator, race, lifecycle, and stress tests;
+- runs runtime, generator, race, lifecycle, drop-observability, and stress tests;
 - runs the sensor sample;
 - produces the NuGet package;
 - verifies `lib/net10.0` runtime assets and analyzer contents;
 - restores a clean consumer from the generated `.nupkg` and compiles generated APIs;
-- executes a separate packaged runtime smoke consumer, including modern event-payload, generated `TimeProvider`, and `ValueTask<T>` paths.
+- executes a separate packaged runtime smoke consumer, including modern event-payload, generated `TimeProvider`, bounded-stream drop telemetry, and `ValueTask<T>` paths.
 
 ## Branch model
 
