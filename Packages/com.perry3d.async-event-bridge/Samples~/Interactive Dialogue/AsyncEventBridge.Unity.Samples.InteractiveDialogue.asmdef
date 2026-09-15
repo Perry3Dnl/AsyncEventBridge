@@ -1,0 +1,16 @@
+{
+  "name": "AsyncEventBridge.Unity.Samples.InteractiveDialogue",
+  "rootNamespace": "AsyncEventBridge.Unity.Samples",
+  "references": [
+    "AsyncEventBridge.Unity"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

@@ -1,15 +1,28 @@
 # Changelog
 
-All notable changes to the .NET Standard 2.0 baseline of AsyncEventBridge are documented here.
+All notable changes to the Unity distribution of AsyncEventBridge are documented here.
 
 ## Unreleased
 
 ### Runtime baseline
 
-- Keep .NET Standard 2.0 as the complete portable runtime contract.
-- Keep `Microsoft.Bcl.AsyncInterfaces` on the baseline target for async-stream compatibility.
-- Centralize package versioning in the shared build configuration.
-- Keep the runtime source compatible with the C# language level required by downstream compatibility targets.
+- Keep .NET Standard 2.0 as the shared portable runtime contract inherited from `base/netstandard2.0`.
+- Keep `Microsoft.Bcl.AsyncInterfaces` on the baseline NuGet target for async-stream compatibility.
+- Keep package versioning centralized so the base and Unity distributions stay on the same version train.
+
+### Unity
+
+- Add the Unity Package Manager distribution as `com.perry3d.async-event-bridge`, targeting Unity 2023.1+.
+- Add Unity-native one-shot event waits that return `Awaitable<T>` and marshal cleanup/completion to the captured Unity main-thread synchronization context.
+- Add `MonoBehaviour` lifecycle-aware waits that link caller cancellation with `destroyCancellationToken` and `Application.exitCancellationToken`.
+- Bundle a Unity/Roslyn-3.8-compatible source-generator DLL in the UPM package as a `RoslynAnalyzer` asset.
+- Add `UnityEvent` / Inspector waits for zero through four arguments with predicates, timeouts, lifecycle cancellation, and persistent-listener-safe runtime subscriptions.
+- Add buffered `UnityEvent` async streams with main-thread listener subscription and cleanup.
+- Add main-thread publication from `Task`, `Task<T>`, and `IAsyncEnumerable<T>` to UnityEvents for Inspector-driven reactions.
+- Add Runtime and Editor Unity Test Framework suites for lifecycle cancellation, main-thread behavior, stream buffering, Task publication, and Inspector persistent-listener preservation.
+- Keep the Unity package's vendored core runtime sources byte-for-byte aligned with the shared base through CI checks.
+- Add the Interactive Dialogue + Live Code importable sample.
+- Pin Git-based UPM installation instructions to the `unity` branch.
 
 ### Source generator
 
@@ -17,7 +30,7 @@ All notable changes to the .NET Standard 2.0 baseline of AsyncEventBridge are do
 - Add generated support for custom event-handler-shaped delegates that return `void`, have two non-ref parameters, and use an `EventArgs`-derived second parameter.
 - Cover common delegates such as `PropertyChangedEventHandler`, `NotifyCollectionChangedEventHandler`, and `ElapsedEventHandler` through the custom delegate adapter path.
 - Add `AEB001` warnings for annotated or explicitly targeted events whose delegate shape cannot be generated safely instead of silently skipping them.
-- Keep generated adapter code compatible with the .NET Standard 2.0 baseline.
+- Keep generated adapter code compatible with the shared .NET Standard 2.0 baseline.
 - Verify assembly-level generation and custom delegate adapters through generator tests, package-only compilation, and packaged runtime smoke tests.
 
 ## 0.1.0
@@ -55,8 +68,6 @@ First release.
 - Preserves source accessibility and normal C# member-hiding behavior.
 - Keeps generated source compatible with C# 8 syntax.
 - Handles generated class-name collisions and source instance-method collisions.
-- v0.1.0 generation is limited to annotatable classes and `EventHandler` / `EventHandler<TEventArgs>` events where `TEventArgs : EventArgs`.
-- Custom event delegate generation and diagnostics for unsupported event delegate types are not part of v0.1.0.
 
 ### Packaging and license
 
