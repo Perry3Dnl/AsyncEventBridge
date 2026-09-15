@@ -36,6 +36,7 @@ All notable changes to the native modern-.NET line of AsyncEventBridge are docum
 - Add `ValueTask` and `ValueTask<T>` `ToEventBridge()` overloads for modern async APIs that do not naturally return `Task`.
 - Define explicit ownership semantics for `ValueTask`: once handed to a bridge, the original value task must not be consumed independently.
 - Verify `ValueTask<T>` behavior through runtime tests and a consumer restored from the generated NuGet package.
+- Classify `OperationCanceledException` from an `IAsyncEnumerable<T>` as `Cancelled` only when the bridge lifetime token is actually cancelled; an unrelated source-thrown cancellation exception now publishes `Faulted` instead of being misreported as bridge cancellation.
 
 ### Performance and verification
 
@@ -46,6 +47,10 @@ All notable changes to the native modern-.NET line of AsyncEventBridge are docum
 - Restore, compile, and execute isolated `net10.0` consumers from the generated `.nupkg` in CI.
 - Exercise generated `EventHandler<int>` and `EventHandler<TSender, int>` APIs through the packaged runtime smoke test, including their generated `TimeProvider` timeout overloads.
 - Exercise bounded generated streams from the packaged runtime consumer and verify both drop counts and observer callbacks without changing retained event ordering.
+- Pin the modern SDK baseline with `global.json` while allowing compatible .NET 10 feature-band roll-forward.
+- Produce and validate NuGet symbol packages and repository/source metadata in CI.
+- Restore, build, and test the full modern solution on Linux, Windows, and macOS.
+- Strengthen public API lock tests to cover method return types, generic arity, parameter order/types/optionality, event handler types, and property types/accessors instead of protecting names alone.
 
 ### Source generator
 
@@ -54,6 +59,9 @@ All notable changes to the native modern-.NET line of AsyncEventBridge are docum
 - Generate adapters for .NET 10 `EventHandler<TSender, TPayload>` events while keeping AsyncEventBridge's async contract payload-centric: the second event parameter becomes the task/stream result.
 - Allow custom two-parameter `void` delegates whose second parameter is a normal non-ref-like payload type.
 - Reject ref-like payloads such as `Span<T>` with `AEB001`, because they cannot safely escape an event callback into `Task<T>` or `IAsyncEnumerable<T>`.
+- Reject generic payload type parameters that use `allows ref struct`, since they may legally become ref-like and therefore cannot safely cross the async lifetime boundary.
+- Preserve `allows ref struct` anti-constraints on generic source-type parameters when the generated facade itself does not expose that parameter as an async payload.
+- Move the generator's Roslyn dependency to 4.12 so ref-like anti-constraint metadata can be inspected without unnecessarily adopting newer compiler APIs.
 - Add `TimeProvider` to generated timeout overloads without changing the simple no-timeout call shape.
 - Continue packaging the source generator with the runtime package.
 
