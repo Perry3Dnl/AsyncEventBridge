@@ -1,24 +1,40 @@
 # Changelog
 
-All notable changes to the .NET Standard 2.0 baseline of AsyncEventBridge are documented here.
+All notable changes to the native modern-.NET line of AsyncEventBridge are documented here.
 
 ## Unreleased
 
-### Runtime baseline
+### Native .NET runtime
 
-- Keep .NET Standard 2.0 as the complete portable runtime contract.
-- Keep `Microsoft.Bcl.AsyncInterfaces` on the baseline target for async-stream compatibility.
-- Centralize package versioning in the shared build configuration.
-- Keep the runtime source compatible with the C# language level required by downstream compatibility targets.
+- Move the runtime, tests, stress tests, sample, and package consumers to `net10.0`.
+- Remove the `Microsoft.Bcl.AsyncInterfaces` compatibility dependency from the modern runtime.
+- Keep the Roslyn source generator on `netstandard2.0` so it remains broadly compatible with compiler hosts.
+- Remove the .NET Standard compatibility consumer from the modern solution; compatibility remains the responsibility of `base/netstandard2.0`.
+
+### Modern event waits
+
+- Add an optional `TimeProvider` to `EventAwaiter.WaitAsync(...)` so timeout behavior can use virtual/test time.
+- Replace the runtime-specific timeout scheduler abstraction with `TimeProvider.CreateTimer(...)`.
+- Use `CancellationToken.UnsafeRegister(...)` for the internal cancellation callback to avoid unnecessary execution-context capture on the hot wait path.
+- Preserve timeout, cancellation, event, subscription, cleanup, and race semantics through the existing test suite plus virtual-time tests.
+
+### Modern event streams
+
+- Replace the compatibility queue / signal / cancellation implementation with `System.Threading.Channels`.
+- Preserve `Grow`, `DropOldest`, and `DropNewest` public buffering semantics; `DropNewest` maps to the channel `DropWrite` behavior so the incoming event is discarded at capacity.
+- Keep subscription, predicate-fault, cancellation, ordering, reentrancy, and cleanup behavior covered by runtime and stress tests.
+
+### Performance and verification
+
+- Add a BenchmarkDotNet project for one-shot wait and buffered event-stream benchmarks.
+- Build the benchmark project in normal CI without executing benchmarks on every push.
+- Require the generated NuGet package to contain native `net10.0` assets.
+- Restore, compile, and execute isolated `net10.0` consumers from the generated `.nupkg` in CI.
 
 ### Source generator
 
-- Add `[assembly: GenerateAsyncEventsFor(typeof(...))]` for generating async event facades around public types that cannot be annotated directly, including third-party and framework types.
-- Add generated support for custom event-handler-shaped delegates that return `void`, have two non-ref parameters, and use an `EventArgs`-derived second parameter.
-- Cover common delegates such as `PropertyChangedEventHandler`, `NotifyCollectionChangedEventHandler`, and `ElapsedEventHandler` through the custom delegate adapter path.
-- Add `AEB001` warnings for annotated or explicitly targeted events whose delegate shape cannot be generated safely instead of silently skipping them.
-- Keep generated adapter code compatible with the .NET Standard 2.0 baseline.
-- Verify assembly-level generation and custom delegate adapters through generator tests, package-only compilation, and packaged runtime smoke tests.
+- Retain `[assembly: GenerateAsyncEventsFor(typeof(...))]`, custom event-handler-shaped delegate support, and `AEB001` diagnostics from the stable base.
+- Continue packaging the source generator with the runtime package.
 
 ## 0.1.0
 
