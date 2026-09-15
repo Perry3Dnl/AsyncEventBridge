@@ -132,8 +132,6 @@ public sealed class AsyncEventBridgeUnityGeneratorTests
     public void GeneratesForAssemblyTargetAndPreservesGenericConstraints()
     {
         var source = RuntimeStubs + """
-            [assembly: AsyncEventBridge.GenerateAsyncEventsFor(typeof(Demo.Sensor<>))]
-
             namespace Demo
             {
                 public class Sensor<TEventArgs>
@@ -144,7 +142,9 @@ public sealed class AsyncEventBridgeUnityGeneratorTests
             }
             """;
 
-        var result = RunGenerator(source);
+        var result = RunGenerator(
+            source,
+            assemblySource: "[assembly: AsyncEventBridge.GenerateAsyncEventsFor(typeof(Demo.Sensor<>))]");
         var generatedSource = Assert.Single(Assert.Single(result.Results).GeneratedSources).SourceText.ToString();
 
         Assert.Contains("Sensor_A1UnityAsyncEventExtensions", generatedSource, StringComparison.Ordinal);
@@ -177,13 +177,23 @@ public sealed class AsyncEventBridgeUnityGeneratorTests
 
     private static GeneratorDriverRunResult RunGenerator(
         string source,
-        bool allowGeneratorWarnings = false)
+        bool allowGeneratorWarnings = false,
+        string? assemblySource = null)
     {
         var parseOptions = new CSharpParseOptions(LanguageVersion.CSharp9);
-        var syntaxTree = CSharpSyntaxTree.ParseText(source, parseOptions);
+        var syntaxTrees = new List<SyntaxTree>
+        {
+            CSharpSyntaxTree.ParseText(source, parseOptions),
+        };
+
+        if (assemblySource is not null)
+        {
+            syntaxTrees.Add(CSharpSyntaxTree.ParseText(assemblySource, parseOptions));
+        }
+
         var compilation = CSharpCompilation.Create(
             assemblyName: "UnityGeneratorTests",
-            syntaxTrees: [syntaxTree],
+            syntaxTrees: syntaxTrees,
             references: GetPlatformReferences(),
             options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
