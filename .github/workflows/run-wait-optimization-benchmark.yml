@@ -1,0 +1,49 @@
+name: Measure optimized event waits
+
+on:
+  push:
+    branches:
+      - dotnet-latest
+
+permissions:
+  contents: write
+
+jobs:
+  benchmark:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore benchmarks
+        run: dotnet restore benchmarks/AsyncEventBridge.Benchmarks/AsyncEventBridge.Benchmarks.csproj
+
+      - name: Run event wait benchmark matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet run --project benchmarks/AsyncEventBridge.Benchmarks/AsyncEventBridge.Benchmarks.csproj \
+            --configuration Release --no-restore -- \
+            --filter '*EventWaitBenchmarks*' \
+            --launchCount 1 \
+            --warmupCount 3 \
+            --iterationCount 5 2>&1 | tee optimized-event-wait-benchmarks.log
+
+      - name: Remove temporary workflow
+        shell: bash
+        run: |
+          git config user.name "Perry"
+          git config user.email "its_Q@hotmail.com"
+          git rm .github/workflows/run-wait-optimization-benchmark.yml
+          git commit -m "Remove optimized wait benchmark runner"
+          git push origin HEAD:dotnet-latest
