@@ -42,6 +42,8 @@ All notable changes to the native modern-.NET line of AsyncEventBridge are docum
 ### Performance and verification
 
 - Add a BenchmarkDotNet project for one-shot wait and buffered event-stream benchmarks.
+- Add a low-level-versus-generated event-wait matrix covering successful completion, cancellation, and timeout with allocation measurements.
+- Split the common no-predicate/non-cancellable/no-finite-timeout event wait onto a lean internal state and allocate predicate synchronization only when required. The measured successful low-level wait fell from 536 B to 440 B per operation and the generated wait from 560 B to 464 B; cancellation and timeout paths each dropped 24 B. Hosted-runner timing was not used for a cross-run latency claim.
 - Add bounded `DropNewest` benchmark baselines for counter-only and counter-plus-observer telemetry paths.
 - Add direct-`ValueTask` versus `.AsTask()` bridge benchmarks; a focused .NET 10 run reduced allocation for a completed generic bridge from 296 B to 224 B per operation (72 B), while timing remained close enough on the hosted runner that no general latency claim is made.
 - Build the benchmark project in normal CI without executing benchmarks on every push.
