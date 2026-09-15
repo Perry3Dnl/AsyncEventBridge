@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../Packages/com.perry3d.async-event-bridge/Runtime/Core/*.cs"
+             Link="UnityRuntime/Core/%(Filename)%(Extension)" />
+    <Compile Include="../../Packages/com.perry3d.async-event-bridge/Runtime/Unity/*.cs"
+             Link="UnityRuntime/Unity/%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>

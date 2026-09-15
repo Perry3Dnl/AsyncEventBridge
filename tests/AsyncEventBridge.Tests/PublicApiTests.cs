@@ -26,6 +26,7 @@ public sealed class PublicApiTests
             "AsyncEventBridge.EventStreamFullMode",
             "AsyncEventBridge.EventStreamOptions",
             "AsyncEventBridge.GenerateAsyncEventsAttribute",
+            "AsyncEventBridge.GenerateAsyncEventsForAttribute",
         }.OrderBy(name => name, StringComparer.Ordinal).ToArray();
 
         Assert.Equal(expectedTypes, exportedTypes);
@@ -52,6 +53,7 @@ public sealed class PublicApiTests
         AssertPropertyNames(typeof(AsyncValueEventArgs<int>), "Value");
         AssertPropertyNames(typeof(AsyncFaultedEventArgs), "Exception");
         AssertPropertyNames(typeof(EventStreamOptions), "Capacity", "FullMode");
+        AssertPropertyNames(typeof(GenerateAsyncEventsForAttribute), "TargetType");
 
         Assert.Equal(
             new[] { "DropNewest", "DropOldest", "Grow" },

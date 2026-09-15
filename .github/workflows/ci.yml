@@ -21,11 +21,72 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
+      - name: Resolve shared version
+        shell: bash
+        run: |
+          VERSION="$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' Directory.Build.props | head -n 1)"
+          test -n "$VERSION"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Verify Unity package version
+        shell: bash
+        run: |
+          grep -Eq "\"version\"[[:space:]]*:[[:space:]]*\"${VERSION}\"" Packages/com.perry3d.async-event-bridge/package.json
+
+      - name: Verify Unity core source parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          for source in src/AsyncEventBridge/*.cs; do
+            name="$(basename "$source")"
+            if [[ "$name" == "AssemblyInfo.cs" ]]; then
+              continue
+            fi
+
+            unity_copy="Packages/com.perry3d.async-event-bridge/Runtime/Core/$name"
+            test -f "$unity_copy"
+            cmp "$source" "$unity_copy"
+          done
+
+      - name: Verify Unity package asset metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          UNITY_PACKAGE="Packages/com.perry3d.async-event-bridge"
+
+          for root in Runtime Analyzers Tests; do
+            test -f "$UNITY_PACKAGE/${root}.meta"
+            while IFS= read -r asset; do
+              [[ "$asset" == *.meta ]] && continue
+              test -f "${asset}.meta"
+            done < <(find "$UNITY_PACKAGE/$root" -mindepth 1 -print | sort)
+          done
+
+          grep -q '^labels:$' "$UNITY_PACKAGE/Analyzers/AsyncEventBridge.Unity.Generators.dll.meta"
+          grep -q '^- RoslynAnalyzer$' "$UNITY_PACKAGE/Analyzers/AsyncEventBridge.Unity.Generators.dll.meta"
+
       - name: Restore
         run: dotnet restore AsyncEventBridge.sln
 
       - name: Build
         run: dotnet build AsyncEventBridge.sln --configuration Release --no-restore
+
+      - name: Compile Unity runtime against Unity API stubs
+        run: dotnet build tests/AsyncEventBridge.UnityCompileSmoke/AsyncEventBridge.UnityCompileSmoke.csproj --configuration Release
+
+      - name: Upload Unity generator artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AsyncEventBridge.Unity.Generators-${{ env.VERSION }}
+          path: src/AsyncEventBridge.Unity.Generators/bin/Release/netstandard2.0/AsyncEventBridge.Unity.Generators.dll
+          if-no-files-found: error
+
+      - name: Verify bundled Unity generator matches build
+        shell: bash
+        run: |
+          cmp \
+            Packages/com.perry3d.async-event-bridge/Analyzers/AsyncEventBridge.Unity.Generators.dll \
+            src/AsyncEventBridge.Unity.Generators/bin/Release/netstandard2.0/AsyncEventBridge.Unity.Generators.dll
 
       - name: Test
         run: dotnet test AsyncEventBridge.sln --configuration Release --no-build --logger "trx;LogFileName=test-results.trx"
@@ -33,37 +94,39 @@ jobs:
       - name: Run sensor sample
         run: timeout 15s dotnet run --project samples/SensorMonitoring/SensorMonitoring.csproj --configuration Release --no-build
 
-      - name: Pack 0.1.0
+      - name: Pack current version
         run: dotnet pack src/AsyncEventBridge/AsyncEventBridge.csproj --configuration Release --no-build --no-restore -o artifacts/packages
 
       - name: Verify package contents
         shell: bash
         run: |
-          PACKAGE="artifacts/packages/AsyncEventBridge.0.1.0.nupkg"
+          PACKAGE="artifacts/packages/AsyncEventBridge.${VERSION}.nupkg"
           test -f "$PACKAGE"
           unzip -l "$PACKAGE" | tee artifacts/package-contents.txt
           unzip -l "$PACKAGE" | grep -q "lib/netstandard2.0/AsyncEventBridge.dll"
           unzip -l "$PACKAGE" | grep -q "lib/netstandard2.0/AsyncEventBridge.xml"
+          unzip -l "$PACKAGE" | grep -q "lib/netstandard2.1/AsyncEventBridge.dll"
+          unzip -l "$PACKAGE" | grep -q "lib/netstandard2.1/AsyncEventBridge.xml"
           unzip -l "$PACKAGE" | grep -q "analyzers/dotnet/cs/AsyncEventBridge.Generators.dll"
           unzip -l "$PACKAGE" | grep -q "assets/AsyncEventBridge.png"
           unzip -l "$PACKAGE" | grep -q "README.md"
           unzip -p "$PACKAGE" AsyncEventBridge.nuspec | grep -q '<license type="expression">MPL-2.0</license>'
 
       - name: Restore packaged .NET Standard consumer
-        run: dotnet restore tests/AsyncEventBridge.PackageSmoke/AsyncEventBridge.PackageSmoke.csproj --source "$PWD/artifacts/packages" --source https://api.nuget.org/v3/index.json -p:AsyncEventBridgePackageVersion=0.1.0
+        run: dotnet restore tests/AsyncEventBridge.PackageSmoke/AsyncEventBridge.PackageSmoke.csproj --source "$PWD/artifacts/packages" --source https://api.nuget.org/v3/index.json -p:AsyncEventBridgePackageVersion="$VERSION"
 
       - name: Build packaged .NET Standard consumer
-        run: dotnet build tests/AsyncEventBridge.PackageSmoke/AsyncEventBridge.PackageSmoke.csproj --configuration Release --no-restore -p:AsyncEventBridgePackageVersion=0.1.0
+        run: dotnet build tests/AsyncEventBridge.PackageSmoke/AsyncEventBridge.PackageSmoke.csproj --configuration Release --no-restore -p:AsyncEventBridgePackageVersion="$VERSION"
 
       - name: Restore packaged runtime consumer
-        run: dotnet restore tests/AsyncEventBridge.PackageRuntimeSmoke/AsyncEventBridge.PackageRuntimeSmoke.csproj --source "$PWD/artifacts/packages" --source https://api.nuget.org/v3/index.json -p:AsyncEventBridgePackageVersion=0.1.0
+        run: dotnet restore tests/AsyncEventBridge.PackageRuntimeSmoke/AsyncEventBridge.PackageRuntimeSmoke.csproj --source "$PWD/artifacts/packages" --source https://api.nuget.org/v3/index.json -p:AsyncEventBridgePackageVersion="$VERSION"
 
       - name: Run packaged runtime consumer
-        run: timeout 15s dotnet run --project tests/AsyncEventBridge.PackageRuntimeSmoke/AsyncEventBridge.PackageRuntimeSmoke.csproj --configuration Release --no-restore -p:AsyncEventBridgePackageVersion=0.1.0
+        run: timeout 15s dotnet run --project tests/AsyncEventBridge.PackageRuntimeSmoke/AsyncEventBridge.PackageRuntimeSmoke.csproj --configuration Release --no-restore -p:AsyncEventBridgePackageVersion="$VERSION"
 
       - name: Upload package artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AsyncEventBridge-0.1.0
-          path: artifacts/packages/AsyncEventBridge.0.1.0.nupkg
+          name: AsyncEventBridge-${{ env.VERSION }}
+          path: artifacts/packages/AsyncEventBridge.${{ env.VERSION }}.nupkg
           if-no-files-found: error

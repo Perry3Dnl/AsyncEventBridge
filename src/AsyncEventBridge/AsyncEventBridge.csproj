@@ -1,15 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFrameworks>netstandard2.0;netstandard2.1</TargetFrameworks>
+    <LangVersion>9.0</LangVersion>
+    <ImplicitUsings>disable</ImplicitUsings>
     <AssemblyName>AsyncEventBridge</AssemblyName>
     <RootNamespace>AsyncEventBridge</RootNamespace>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
 
     <PackageId>AsyncEventBridge</PackageId>
-    <Version>0.1.0</Version>
     <Authors>Perry3Dnl</Authors>
-    <Description>Bridge event-driven and async .NET code in both directions. First release built on the complete .NET Standard 2.0 baseline.</Description>
-    <PackageTags>async;events;task;iasyncenumerable;source-generator;netstandard;netstandard2.0</PackageTags>
+    <Description>Bridge event-driven and async .NET code in both directions. The complete minimum runtime contract remains .NET Standard 2.0, with a native .NET Standard 2.1 asset for modern runtimes and Unity.</Description>
+    <PackageTags>async;events;task;iasyncenumerable;source-generator;netstandard;netstandard2.0;netstandard2.1</PackageTags>
     <PackageProjectUrl>https://github.com/Perry3Dnl/AsyncEventBridge</PackageProjectUrl>
     <RepositoryUrl>https://github.com/Perry3Dnl/AsyncEventBridge.git</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
@@ -19,7 +20,7 @@
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
   </PropertyGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
     <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="8.0.0" />
   </ItemGroup>
 

@@ -1,0 +1,19 @@
+{
+  "name": "AsyncEventBridge.Unity.Tests",
+  "rootNamespace": "AsyncEventBridge.Unity.Tests",
+  "references": [
+    "AsyncEventBridge.Unity"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false,
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

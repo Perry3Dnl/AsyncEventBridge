@@ -1,5 +1,7 @@
 using AsyncEventBridge;
 
+[assembly: GenerateAsyncEventsFor(typeof(CustomSensor))]
+
 var sensor = new Sensor();
 var wait = sensor.ValueChangedAsync();
 sensor.Raise(42);
@@ -8,6 +10,32 @@ var observed = await wait;
 if (observed.Value != 42)
 {
     throw new InvalidOperationException("The packaged Event -> Task bridge returned the wrong value.");
+}
+
+var customSensor = new CustomSensor();
+var customWait = customSensor.ChangedAsync();
+customSensor.Raise(99);
+var customObserved = await customWait;
+
+if (customObserved.Value != 99 || customSensor.HandlerCount != 0)
+{
+    throw new InvalidOperationException("The packaged custom-delegate Event -> Task adapter did not complete and clean up correctly.");
+}
+
+await using (var customEnumerator = customSensor.ChangedStream().GetAsyncEnumerator())
+{
+    var moveNext = customEnumerator.MoveNextAsync().AsTask();
+    customSensor.Raise(100);
+
+    if (!await moveNext || customEnumerator.Current.Value != 100)
+    {
+        throw new InvalidOperationException("The packaged custom-delegate Event -> async-stream adapter returned the wrong value.");
+    }
+}
+
+if (customSensor.HandlerCount != 0)
+{
+    throw new InvalidOperationException("The packaged custom-delegate stream adapter did not unsubscribe.");
 }
 
 var taskValue = 0;
@@ -58,6 +86,26 @@ public sealed class Sensor
     public void Raise(int value)
     {
         ValueChanged?.Invoke(this, new SensorEventArgs(value));
+    }
+}
+
+public delegate void CustomSensorChangedHandler(object? sender, SensorEventArgs eventArgs);
+
+public sealed class CustomSensor
+{
+    private CustomSensorChangedHandler? _changed;
+
+    public event CustomSensorChangedHandler? Changed
+    {
+        add => _changed += value;
+        remove => _changed -= value;
+    }
+
+    public int HandlerCount => _changed?.GetInvocationList().Length ?? 0;
+
+    public void Raise(int value)
+    {
+        _changed?.Invoke(this, new SensorEventArgs(value));
     }
 }
 
