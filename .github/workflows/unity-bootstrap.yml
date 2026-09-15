@@ -98,6 +98,15 @@ jobs:
                   shutil.copyfile(path, unity_core / path.name)
 
           package = root / 'Packages/com.perry3d.async-event-bridge'
+          extensions = package / 'Runtime/Unity/UnityEventExtensions.cs'
+          extensions_text = read(extensions)
+          if 'using System.Threading.Tasks;' not in extensions_text:
+              extensions_text = extensions_text.replace(
+                  'using System.Threading;\n',
+                  'using System.Threading;\nusing System.Threading.Tasks;\n',
+                  1)
+              write(extensions, extensions_text)
+
           for path in list((package / 'Runtime/Unity').glob('*.cs')) + list((package / 'Tests').rglob('*.cs')):
               block_namespace(path)
           PY
