@@ -2,6 +2,26 @@
 
 Unity-focused distribution of AsyncEventBridge. It follows the same version number as the .NET/NuGet package, is packaged for Unity Package Manager, and adds Unity-native `Awaitable`, lifecycle, main-thread, `UnityEvent`, and Inspector integration.
 
+## Install from GitHub
+
+In Unity Package Manager, choose **Add package from git URL...** and use:
+
+```text
+https://github.com/Perry3Dnl/AsyncEventBridge.git?path=/Packages/com.perry3d.async-event-bridge
+```
+
+Or add it directly to the project's `Packages/manifest.json`:
+
+```json
+{
+  "dependencies": {
+    "com.perry3d.async-event-bridge": "https://github.com/Perry3Dnl/AsyncEventBridge.git?path=/Packages/com.perry3d.async-event-bridge"
+  }
+}
+```
+
+The Unity package and NuGet package share the same version. The current package version is `0.2.0`.
+
 ## Baseline
 
 - Unity 2023.1 or newer.
@@ -112,6 +132,12 @@ private async Awaitable Start()
 
 The owner overload suppresses publication after the owning `MonoBehaviour` is destroyed or the application exits. Task cancellation can be published through the cancellation UnityEvent; faults are published as strings so they are straightforward to bind in the Inspector.
 
+## Interactive sample
+
+The package includes **Interactive Dialogue + Live Code** under `Samples~`. Import it from Unity Package Manager to see a real `UnityEvent<bool>` drive an awaited dialogue flow while the active `WaitAsync` line is highlighted in the scene.
+
+The sample is render-pipeline independent and does not require uGUI, TextMesh Pro, sprites, fonts, materials, or extra sample dependencies.
+
 ## Unity package tests
 
 The package contains both `Tests/Runtime` and `Tests/Editor` Unity Test Framework assemblies. Coverage includes:
@@ -130,5 +156,6 @@ For a Git/registry dependency, add `com.perry3d.async-event-bridge` to the consu
 - `Runtime/Core`: matching portable AsyncEventBridge runtime sources.
 - `Runtime/Unity`: Unity-specific Awaitable, UnityEvent, stream, and publication integration.
 - `Analyzers`: prebuilt Unity-compatible source generator, imported with the `RoslynAnalyzer` label and disabled as a normal plugin.
+- `Samples~`: importable Unity samples, including Interactive Dialogue + Live Code.
 - `Tests/Runtime` and `Tests/Editor`: Unity Test Framework coverage.
 - `Documentation~`: package documentation ignored by Unity asset import.
