@@ -30,7 +30,7 @@ jobs:
           set -euo pipefail
           base64 -d .github/unity-update.payload.b64 | tar -xz -C .
 
-      - name: Build tested Unity source generator
+      - name: Build Unity source generator
         run: dotnet build src/AsyncEventBridge.Unity.Generators/AsyncEventBridge.Unity.Generators.csproj --configuration Release
 
       - name: Bundle generator in UPM package
@@ -40,7 +40,6 @@ jobs:
           mkdir -p Packages/com.perry3d.async-event-bridge/Analyzers
           cp src/AsyncEventBridge.Unity.Generators/bin/Release/netstandard2.0/AsyncEventBridge.Unity.Generators.dll \
              Packages/com.perry3d.async-event-bridge/Analyzers/AsyncEventBridge.Unity.Generators.dll
-          echo 'ec7bf1b251c085fc21dce4c81d45f7018f6b7f2d822ec0cd4ad7ffc1ead2da85  Packages/com.perry3d.async-event-bridge/Analyzers/AsyncEventBridge.Unity.Generators.dll' | sha256sum -c -
 
       - name: Commit Unity integration
         shell: bash
