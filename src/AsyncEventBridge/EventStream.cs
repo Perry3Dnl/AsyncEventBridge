@@ -34,7 +34,6 @@ public static class EventStream
         Predicate<TEventArgs>? predicate = null,
         EventStreamOptions? options = null,
         CancellationToken cancellationToken = default)
-        where TEventArgs : EventArgs
     {
         ArgumentNullException.ThrowIfNull(subscribe);
         ArgumentNullException.ThrowIfNull(unsubscribe);
@@ -111,7 +110,6 @@ public static class EventStream
         EventStreamSettings settings,
         CancellationToken creationCancellationToken,
         [EnumeratorCancellation] CancellationToken enumerationCancellationToken = default)
-        where TEventArgs : EventArgs
     {
         using var linkedCancellation = CreateLinkedCancellation(
             creationCancellationToken,
