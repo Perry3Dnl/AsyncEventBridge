@@ -15,6 +15,11 @@ All notable changes to AsyncEventBridge are documented here.
 - Add the first Unity Package Manager distribution as `com.perry3d.async-event-bridge`, targeting Unity 2023.1+.
 - Add Unity-native one-shot event waits that return `Awaitable<T>` and marshal cleanup/completion to the captured Unity main-thread synchronization context.
 - Add `MonoBehaviour` lifecycle-aware waits that link caller cancellation with `destroyCancellationToken` and `Application.exitCancellationToken`.
+- Bundle a Unity/Roslyn-3.8-compatible source-generator DLL in the UPM package as a `RoslynAnalyzer` asset.
+- Add `UnityEvent` / Inspector waits for zero through four arguments with predicates, timeouts, lifecycle cancellation, and persistent-listener-safe runtime subscriptions.
+- Add buffered `UnityEvent` async streams with main-thread listener subscription and cleanup.
+- Add main-thread publication from `Task`, `Task<T>`, and `IAsyncEnumerable<T>` to UnityEvents for Inspector-driven reactions.
+- Add Runtime and Editor Unity Test Framework suites for lifecycle cancellation, main-thread behavior, stream buffering, Task publication, and Inspector persistent-listener preservation.
 - Keep the Unity package's vendored core runtime sources byte-for-byte aligned with the matching NuGet core through CI checks.
 
 ### Source generator
