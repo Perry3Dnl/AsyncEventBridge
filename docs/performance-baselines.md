@@ -44,6 +44,19 @@ The two runs landed on different hosted-runner CPU models, so the timing columns
 - Cancellation measurements include creation and disposal of the consumer-owned `CancellationTokenSource` used to trigger cancellation after subscription.
 - Timeout measurements use a reusable manual `TimeProvider` so the benchmark exercises timeout registration and completion without sleeping and without allocating a new provider for each operation.
 
+## Runtime metrics overhead
+
+The production-metrics pass uses the BCL `System.Diagnostics.Metrics` implementation. A focused .NET 10.0.12 run compared the same operations with no collector and with an active `MeterListener`.
+
+| Path | Listener | Mean | Allocated |
+| --- | --- | ---: | ---: |
+| Wait completion | Disabled | 99.72 ns | 440 B |
+| Wait completion | Enabled | 99.20 ns | 440 B |
+| Bounded `DropNewest` burst | Disabled | 5.192 us | 2,288 B |
+| Bounded `DropNewest` burst | Enabled | 5.234 us | 2,288 B |
+
+The listener-enabled wait result is within benchmark noise of the disabled case, while the actively collected bounded-drop burst is roughly 0.8% slower in this run. Neither path gained any managed allocation when collection was enabled. This is the acceptance signal for keeping the built-in metrics enabled by default rather than adding a public instrumentation toggle.
+
 ## Optimization rule
 
 Do not accept a more complicated implementation solely because it is theoretically faster. Performance changes should preserve lifecycle, cleanup, cancellation, timeout, reentrancy, and race semantics and should demonstrate a repeatable improvement in the relevant BenchmarkDotNet baseline.
