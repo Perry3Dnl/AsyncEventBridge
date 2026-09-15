@@ -11,16 +11,42 @@
 - Add modern-only features when they solve a concrete integration, correctness, performance, testability, or operability problem; do not add APIs merely because the runtime makes them possible.
 - Shared bug fixes should normally land in `base/netstandard2.0` first when they apply there; modern-only optimizations stay on this branch.
 
-## Modernization roadmap
+## Core foundation gate
 
-Completed foundations:
+The basic modern edition is considered complete when all of these remain true:
 
-1. Native `net10.0` runtime/package and `net10.0` test/sample consumers.
-2. `System.Threading.Channels` event-stream buffering.
-3. `TimeProvider` timeout scheduling plus deterministic virtual-time tests and generated timeout overloads.
-4. BenchmarkDotNet baselines for one-shot waits and stream throughput.
-5. Direct `ValueTask` / `ValueTask<T>` event bridges.
-6. Modern event payload support, including non-`EventArgs` payloads and `EventHandler<TSender, TPayload>`.
-7. Bounded-stream drop observability through thread-safe dropped-event counters and optional observers backed by the channel's real drop callback.
+- [x] Runtime targets `net10.0` directly; the Roslyn analyzer stays `netstandard2.0` for compiler-host compatibility.
+- [x] The repository has an explicit .NET 10 SDK baseline through `global.json`, deterministic builds, nullable analysis, and warnings-as-errors.
+- [x] Event -> `Task` and Event -> `IAsyncEnumerable<T>` work for standard events, modern payloads, strongly typed senders, and supported custom delegate shapes.
+- [x] `Task`, `Task<T>`, `ValueTask`, `ValueTask<T>`, and `IAsyncEnumerable<T>` can bridge back to events.
+- [x] Cancellation, timeout, cleanup, races, reentrancy, and `TimeProvider` behavior are covered by tests.
+- [x] Event streams use `System.Threading.Channels` with explicit `Grow`, `DropOldest`, and `DropNewest` semantics.
+- [x] Source generation supports owned and third-party types and reports unsupported event shapes with `AEB001`.
+- [x] Public API lock tests protect the intended runtime surface.
+- [x] Runtime, generator, lifecycle, race, stress, generated-code, and packaged-consumer tests are part of CI.
+- [x] The NuGet package contains the `net10.0` runtime, XML documentation, analyzer, README, icon, license metadata, repository metadata, and a symbol package.
+- [x] Linux performs the full package pipeline; Windows and macOS independently restore, build, and test the solution.
+- [x] BenchmarkDotNet baselines are kept in the solution and compile in CI before performance work is accepted.
 
-Next candidates should continue to earn their complexity. Useful areas include richer `System.Diagnostics.Metrics` integration, Channel-facing interoperability, and benchmark-driven allocation/locking improvements. Pooling, `IValueTaskSource<T>`, reusable waiters, or specialized generated fast paths should only be adopted when measurements show a material gain.
+This gate is deliberately narrower than the complete product roadmap. Optional integrations and aggressive optimizations are not required for the modern edition to have a sound core.
+
+## Completed modern capabilities above the baseline
+
+1. `System.Threading.Channels` event-stream buffering.
+2. `TimeProvider` timeout scheduling plus deterministic virtual-time tests and generated timeout overloads.
+3. Direct `ValueTask` / `ValueTask<T>` event bridges.
+4. Modern event payload support, including non-`EventArgs` payloads and `EventHandler<TSender, TPayload>`.
+5. Bounded-stream drop observability through thread-safe dropped-event counters and optional observers backed by the channel's real drop callback.
+6. BenchmarkDotNet baselines for one-shot waits, stream throughput, and bounded-drop telemetry.
+
+## Work after the foundation
+
+Remaining work is now separate from “basic completeness”:
+
+1. Benchmark-driven optimization of allocations, contention, cancellation, and stream throughput.
+2. Additional production integrations only where they materially improve real applications, such as metrics or hosting integration.
+3. Additional ergonomic APIs only where they remove recurring consumer boilerplate without duplicating BCL abstractions.
+4. Broader examples, documentation, release notes, versioning, and final release preparation.
+5. Experimental techniques such as pooling, `IValueTaskSource<T>`, reusable waiters, or generated fast paths only when measurements justify their complexity.
+
+The foundation should remain boring and dependable; experimentation belongs above it, not inside it.
