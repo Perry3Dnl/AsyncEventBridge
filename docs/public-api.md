@@ -1,37 +1,34 @@
-# Public API — v0.1.0
+# Public API — v0.2.0
 
-AsyncEventBridge `0.1.0` establishes the .NET Standard 2.0 baseline and the first public bridge contract.
+AsyncEventBridge `0.2.0` is the native .NET 10 line and the primary product contract on `main`.
 
-The generated event APIs are the normal Event -> async entry points. `ToEventBridge()` is the normal async -> events entry point.
+The normal Event -> async entry points are generated APIs such as `<EventName>Async(...)`, `<EventName>Stream(...)`, and sender-aware `<EventName>OccurrenceAsync(...)` / `<EventName>OccurrenceStream(...)`. The normal async -> events entry point is `ToEventBridge()`.
 
-## Compatibility baseline
+## Runtime baseline
 
-The complete runtime targets **.NET Standard 2.0**.
+The runtime targets **.NET 10 (`net10.0`)** directly. The source generator remains `netstandard2.0` so Roslyn compiler-host compatibility is not tied to the runtime target.
 
-Async-stream interfaces on this target are provided through `Microsoft.Bcl.AsyncInterfaces`. Generated source remains compatible with C# 8 syntax.
+The runtime is verified under trimming and Native AOT through a packaged `linux-x64` consumer in CI.
 
 ## Selecting event source types
 
-For a source type you own, annotate the type:
+For a source type you own:
 
 ```csharp
 [GenerateAsyncEvents]
 public sealed class Sensor
 {
-    public event EventHandler? Connected;
-    public event EventHandler<SensorEventArgs>? ValueChanged;
+    public event EventHandler<int>? ValueChanged;
 }
 ```
 
-For a type you cannot annotate, request generation at assembly level:
+For a public type you cannot annotate:
 
 ```csharp
 [assembly: GenerateAsyncEventsFor(typeof(ThirdParty.LegacySensor))]
 ```
 
-`GenerateAsyncEventsForAttribute` is repeatable, so a consuming assembly can target multiple external event sources.
-
-The assembly-level form does not modify the target type. It generates extension methods in the consuming compilation and only uses events that are accessible there.
+Assembly-level generation does not modify the target type. It generates extensions in the consuming compilation and only exposes events accessible there.
 
 ## Supported event delegates
 
@@ -39,81 +36,70 @@ The generator supports:
 
 ```text
 System.EventHandler
-System.EventHandler<TEventArgs>
-custom void delegates with two non-ref parameters where the second parameter derives from EventArgs
+System.EventHandler<TPayload>
+System.EventHandler<TSender, TPayload>
+custom void delegates with exactly two non-ref parameters
 ```
 
-The custom-delegate rule covers common delegates such as `PropertyChangedEventHandler`, `NotifyCollectionChangedEventHandler`, `ElapsedEventHandler`, and similarly shaped framework or legacy delegates.
+The payload must be safe to carry across an async lifetime. Concrete ref-like payloads and generic payload parameters that allow ref structs are rejected.
 
-A custom delegate is adapted internally to the central `EventAwaiter` / `EventStream` runtime behavior. The generated facade remains the same regardless of the source delegate type.
-
-If an annotated or explicitly targeted event uses an unsupported delegate shape, the generator reports:
+Generator diagnostics currently include:
 
 ```text
-AEB001: Unsupported event delegate
+AEB001  unsupported event delegate/payload shape
+AEB002  invalid GenerateAsyncEventsFor target
+AEB003  duplicate or redundant generation request
 ```
-
-Unsupported delegates are therefore visible in build output rather than being silently skipped.
 
 ## Event -> Task
 
-For a non-generic `EventHandler` event:
+Low-level manual integration uses `EventAwaiter.WaitAsync(...)` and supports filtering, cancellation, timeout, and an optional `TimeProvider`.
+
+Generated payload-centric APIs keep sender plumbing out of the result:
 
 ```csharp
-Task ConnectedAsync(CancellationToken cancellationToken = default);
-Task ConnectedAsync(TimeSpan timeout, CancellationToken cancellationToken = default);
+int value = await sensor.ValueChangedAsync(cancellationToken);
 ```
 
-For an event whose second delegate parameter is `SensorEventArgs`:
+Strongly typed sender delegates still return the second event argument from the ordinary generated API.
+
+## Sender-aware event occurrences
+
+When sender identity matters, use the occurrence facade:
 
 ```csharp
-Task<SensorEventArgs> ValueChangedAsync(CancellationToken cancellationToken = default);
-Task<SensorEventArgs> ValueChangedAsync(
-    Predicate<SensorEventArgs> predicate,
-    CancellationToken cancellationToken = default);
-Task<SensorEventArgs> ValueChangedAsync(
-    TimeSpan timeout,
-    CancellationToken cancellationToken = default);
-Task<SensorEventArgs> ValueChangedAsync(
-    Predicate<SensorEventArgs> predicate,
-    TimeSpan timeout,
-    CancellationToken cancellationToken = default);
+EventOccurrence<Sensor, int> occurrence =
+    await sensor.ValueChangedOccurrenceAsync(cancellationToken);
+
+Sensor sender = occurrence.Sender;
+int value = occurrence.Payload;
 ```
 
-`EventAwaiter` is the low-level runtime API for manual integration.
+Low-level integration uses `EventOccurrenceAwaiter.WaitAsync<TSender, TPayload>(...)`.
 
 ## Event -> IAsyncEnumerable<T>
 
-Typed events expose:
+Generated event streams expose repeated payloads:
 
 ```csharp
-IAsyncEnumerable<SensorEventArgs> ValueChangedStream(
-    CancellationToken cancellationToken = default);
-
-IAsyncEnumerable<SensorEventArgs> ValueChangedStream(
-    EventStreamOptions options,
-    CancellationToken cancellationToken = default);
-
-IAsyncEnumerable<SensorEventArgs> ValueChangedStream(
-    Predicate<SensorEventArgs> predicate,
-    CancellationToken cancellationToken = default);
-
-IAsyncEnumerable<SensorEventArgs> ValueChangedStream(
-    Predicate<SensorEventArgs> predicate,
-    EventStreamOptions options,
-    CancellationToken cancellationToken = default);
+await foreach (int value in sensor.ValueChangedStream(cancellationToken))
+{
+    Process(value);
+}
 ```
 
-A non-generic `EventHandler` is exposed as `IAsyncEnumerable<EventArgs>`.
+Sender-aware streams are available through `<EventName>OccurrenceStream(...)` and the low-level `EventOccurrenceStream.Create(...)` API.
 
 `EventStreamOptions` defaults to:
 
 ```text
 Capacity = 100
 FullMode = Grow
+DroppedCount = 0
+DropObserver = null
 ```
 
-The fixed `EventStreamFullMode` values are:
+The fixed enum values are:
 
 ```text
 Grow = 0
@@ -121,34 +107,52 @@ DropOldest = 1
 DropNewest = 2
 ```
 
-`Grow` is lossless but can grow memory usage without a fixed upper bound when producers permanently outrun consumers. `DropOldest` and `DropNewest` use `Capacity` as a hard bound.
+`Grow` is unbounded. `DropOldest` and `DropNewest` use `Capacity` as the buffer bound. Bounded drop telemetry comes from the underlying channel's real dropped-item callback.
 
-`EventStream` is the low-level runtime API for manual integration.
+## Event composition
 
-## Task -> events
+`EventComposition` provides lifecycle-safe composition for cancellable event waits.
+
+Two heterogeneous waits:
+
+```csharp
+EventWaitAnyResult<int, string> any = await EventComposition.WaitAnyAsync(
+    token => source.NumberAsync(token),
+    token => source.TextAsync(token),
+    cancellationToken);
+
+EventWaitAllResult<int, string> all = await EventComposition.WaitAllAsync(
+    token => source.NumberAsync(token),
+    token => source.TextAsync(token),
+    cancellationToken);
+```
+
+N homogeneous waits:
+
+```csharp
+EventWaitAnyResult<int> winner = await EventComposition.WaitAnyAsync(
+    waits,
+    cancellationToken);
+
+IReadOnlyList<int> values = await EventComposition.WaitAllAsync(
+    waits,
+    cancellationToken);
+```
+
+Composition owns coordination cancellation. Losing or pending waits are cancelled and observed so hidden event subscriptions are not left behind. Startup failures and cleanup failures remain observable.
+
+## Task / ValueTask -> events
 
 ```csharp
 EventBridge ToEventBridge(this Task task);
 EventBridge<T> ToEventBridge<T>(this Task<T> task);
+EventBridge ToEventBridge(this ValueTask task);
+EventBridge<T> ToEventBridge<T>(this ValueTask<T> task);
 ```
 
-`EventBridge` publishes:
+`EventBridge` publishes `Completed`, `Faulted`, and `Cancelled`. Generic bridges carry results through `AsyncValueEventArgs<T>`.
 
-```text
-Completed
-Faulted
-Cancelled
-```
-
-`EventBridge<T>` publishes the same terminal events, with the result carried by `AsyncValueEventArgs<T>`.
-
-Consumers attach handlers and then call:
-
-```csharp
-bridge.Connect();
-```
-
-`Connect()` does not start the underlying task. It connects the already-created async source to event publication. A bridge can only be connected once.
+A bridge can be connected only once. A `ValueTask` handed to a bridge is owned by the bridge for observation and should not also be consumed independently unless its producer explicitly permits multiple consumption.
 
 ## IAsyncEnumerable<T> -> events
 
@@ -156,50 +160,36 @@ bridge.Connect();
 EventStreamBridge<T> ToEventBridge<T>(this IAsyncEnumerable<T> source);
 ```
 
-The stream bridge publishes:
+The stream bridge publishes `Value`, `Completed`, `Faulted`, and `Cancelled` in enumeration order.
 
-```text
-Value
-Completed
-Faulted
-Cancelled
-```
+`Dispose()` suppresses new publication without waiting for already-running dispatch. `DisposeAsync()` additionally waits for bridge-owned enumeration cleanup and in-flight dispatch. Owner disposal does not publish `Cancelled`.
 
-Consumers attach handlers and then call:
-
-```csharp
-bridge.Connect(cancellationToken);
-```
-
-Values are published in enumeration order. There is no replay buffer in this direction.
-
-`Dispose()` suppresses new publication without waiting for an event dispatch already in progress. `DisposeAsync()` also waits for bridge-owned async enumeration cleanup and in-flight dispatch. Owner disposal does not publish `Cancelled`.
+A source-thrown `OperationCanceledException` is classified as bridge cancellation only when the bridge lifetime token was actually cancelled; otherwise it is surfaced as `Faulted`.
 
 ## Subscriber exception policy
 
-Async -> events publication isolates subscribers. If a bridge event handler throws, the bridge catches the exception, writes it through `System.Diagnostics.Trace.TraceError`, and continues with the remaining subscribers.
+Async -> events publication isolates subscribers. If one bridge event handler throws, AsyncEventBridge writes the failure through `System.Diagnostics.Trace.TraceError` and continues dispatching remaining subscribers. Subscriber exceptions are not propagated through the bridge.
 
-The exception is not propagated through the bridge. This differs from ordinary synchronous event invocation and is part of the v0.1.0 bridge contract.
+## Metrics
+
+The runtime exposes the `AsyncEventBridge` meter with stable low-cardinality counters:
+
+```text
+asynceventbridge.event_wait.outcomes
+asynceventbridge.event_stream.dropped
+```
+
+See `docs/metrics.md` for instrument names, tags, and semantics.
 
 ## Generated API rules
 
-The generator follows these rules:
+The generator preserves normal C# accessibility, inheritance, generic constraints, member hiding, source-method precedence, and collision-safe extension naming. It supports directly annotated classes and public third-party targets selected at assembly level.
 
-- source accessibility is never widened;
-- external targets expose only events accessible to the consuming compilation;
-- public inherited class events are supported;
-- protected and private events are not surfaced as top-level generated extensions;
-- generic source classes are supported;
-- accessible nested source classes are supported;
-- generic constraints are preserved;
-- normal C# member hiding is respected;
-- source instance methods keep normal C# precedence;
-- generated extension classes use collision-safe names and remain explicitly callable when a source method conflicts;
-- duplicate assembly-level requests for the same target do not create duplicate generated APIs.
+Generated async payloads must be safe to escape the synchronous event callback. Ref-like values are therefore deliberately not supported as async results.
 
-## Public runtime types
+## Intended public runtime types
 
-The intended exported runtime type set is:
+The public surface is protected by API-lock tests and includes:
 
 ```text
 GenerateAsyncEventsAttribute
@@ -208,6 +198,13 @@ EventAwaiter
 EventStream
 EventStreamOptions
 EventStreamFullMode
+EventOccurrence<TSender, TPayload>
+EventOccurrenceAwaiter
+EventOccurrenceStream
+EventComposition
+EventWaitAnyResult<TFirst, TSecond>
+EventWaitAnyResult<T>
+EventWaitAllResult<TFirst, TSecond>
 AsyncEventBridgeExtensions
 EventBridge
 EventBridge<T>
@@ -216,4 +213,4 @@ AsyncValueEventArgs<T>
 AsyncFaultedEventArgs
 ```
 
-The exported type set and public member names are locked by tests to catch accidental API expansion.
+API-lock tests protect exported types, exact method signatures and optional parameters, event/property shapes, configuration defaults, and enum numeric values.
