@@ -1,16 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
-    <LangVersion>9.0</LangVersion>
-    <ImplicitUsings>disable</ImplicitUsings>
+    <TargetFramework>net10.0</TargetFramework>
     <AssemblyName>AsyncEventBridge</AssemblyName>
     <RootNamespace>AsyncEventBridge</RootNamespace>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
 
     <PackageId>AsyncEventBridge</PackageId>
     <Authors>Perry3Dnl</Authors>
-    <Description>Bridge event-driven and async .NET code in both directions on the stable .NET Standard 2.0 baseline.</Description>
-    <PackageTags>async;events;task;iasyncenumerable;source-generator;netstandard;netstandard2.0</PackageTags>
+    <Description>Bridge event-driven and async .NET code in both directions with a native modern .NET runtime.</Description>
+    <PackageTags>async;events;task;iasyncenumerable;source-generator;net10</PackageTags>
     <PackageProjectUrl>https://github.com/Perry3Dnl/AsyncEventBridge</PackageProjectUrl>
     <RepositoryUrl>https://github.com/Perry3Dnl/AsyncEventBridge.git</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
@@ -19,10 +17,6 @@
     <PackageLicenseExpression>MPL-2.0</PackageLicenseExpression>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
   </PropertyGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="8.0.0" />
-  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="../AsyncEventBridge.Generators/AsyncEventBridge.Generators.csproj"

@@ -44,20 +44,34 @@ jobs:
       - name: Run sensor sample
         run: timeout 15s dotnet run --project samples/SensorMonitoring/SensorMonitoring.csproj --configuration Release --no-build
 
-      - name: Pack current development package
+      - name: Pack modern package
         run: dotnet pack src/AsyncEventBridge/AsyncEventBridge.csproj --configuration Release --no-build --no-restore -o artifacts/packages
 
-      - name: Verify package basics
+      - name: Verify modern package contents
         shell: bash
         run: |
           set -euo pipefail
           PACKAGE="artifacts/packages/AsyncEventBridge.${VERSION}.nupkg"
           test -f "$PACKAGE"
           unzip -l "$PACKAGE" | tee artifacts/package-contents.txt
+          unzip -l "$PACKAGE" | grep -q "lib/net10.0/AsyncEventBridge.dll"
+          unzip -l "$PACKAGE" | grep -q "lib/net10.0/AsyncEventBridge.xml"
           unzip -l "$PACKAGE" | grep -q "analyzers/dotnet/cs/AsyncEventBridge.Generators.dll"
           unzip -l "$PACKAGE" | grep -q "assets/AsyncEventBridge.png"
           unzip -l "$PACKAGE" | grep -q "README.md"
           unzip -p "$PACKAGE" AsyncEventBridge.nuspec | grep -q '<license type="expression">MPL-2.0</license>'
+
+      - name: Restore packaged modern consumer
+        run: dotnet restore tests/AsyncEventBridge.PackageSmoke/AsyncEventBridge.PackageSmoke.csproj --source "$PWD/artifacts/packages" --source https://api.nuget.org/v3/index.json -p:AsyncEventBridgePackageVersion="$VERSION"
+
+      - name: Build packaged modern consumer
+        run: dotnet build tests/AsyncEventBridge.PackageSmoke/AsyncEventBridge.PackageSmoke.csproj --configuration Release --no-restore -p:AsyncEventBridgePackageVersion="$VERSION"
+
+      - name: Restore packaged runtime consumer
+        run: dotnet restore tests/AsyncEventBridge.PackageRuntimeSmoke/AsyncEventBridge.PackageRuntimeSmoke.csproj --source "$PWD/artifacts/packages" --source https://api.nuget.org/v3/index.json -p:AsyncEventBridgePackageVersion="$VERSION"
+
+      - name: Run packaged runtime consumer
+        run: timeout 15s dotnet run --project tests/AsyncEventBridge.PackageRuntimeSmoke/AsyncEventBridge.PackageRuntimeSmoke.csproj --configuration Release --no-restore -p:AsyncEventBridgePackageVersion="$VERSION"
 
       - name: Upload development package
         uses: actions/upload-artifact@v4

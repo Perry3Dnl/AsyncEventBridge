@@ -1,16 +1,7 @@
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Runtime.ExceptionServices;
-using System.Threading;
-using System.Threading.Tasks;
-
 using System.Runtime.CompilerServices;
+using System.Threading.Channels;
 
-namespace AsyncEventBridge
-{
+namespace AsyncEventBridge;
 
 /// <summary>
 /// Provides the runtime engine used to expose repeated .NET event occurrences as an async stream.
@@ -20,11 +11,6 @@ public static class EventStream
     /// <summary>
     /// Creates an async stream for an <see cref="EventHandler"/> event.
     /// </summary>
-    /// <param name="subscribe">Action used to subscribe the bridge handler.</param>
-    /// <param name="unsubscribe">Action used to unsubscribe the bridge handler.</param>
-    /// <param name="predicate">Optional filter applied before values enter the stream buffer.</param>
-    /// <param name="options">Optional buffering configuration. The default mode preserves every value and may grow memory usage.</param>
-    /// <param name="cancellationToken">Optional token used to stop the stream.</param>
     public static IAsyncEnumerable<EventArgs> Create(
         Action<EventHandler> subscribe,
         Action<EventHandler> unsubscribe,
@@ -32,15 +18,8 @@ public static class EventStream
         EventStreamOptions? options = null,
         CancellationToken cancellationToken = default)
     {
-        if (subscribe is null)
-        {
-            throw new ArgumentNullException(nameof(subscribe));
-        }
-
-        if (unsubscribe is null)
-        {
-            throw new ArgumentNullException(nameof(unsubscribe));
-        }
+        ArgumentNullException.ThrowIfNull(subscribe);
+        ArgumentNullException.ThrowIfNull(unsubscribe);
 
         var settings = GetSettings(options);
         return Enumerate(subscribe, unsubscribe, predicate, settings, cancellationToken);
@@ -49,11 +28,6 @@ public static class EventStream
     /// <summary>
     /// Creates an async stream for an <see cref="EventHandler{TEventArgs}"/> event.
     /// </summary>
-    /// <param name="subscribe">Action used to subscribe the bridge handler.</param>
-    /// <param name="unsubscribe">Action used to unsubscribe the bridge handler.</param>
-    /// <param name="predicate">Optional filter applied before values enter the stream buffer.</param>
-    /// <param name="options">Optional buffering configuration. The default mode preserves every value and may grow memory usage.</param>
-    /// <param name="cancellationToken">Optional token used to stop the stream.</param>
     public static IAsyncEnumerable<TEventArgs> Create<TEventArgs>(
         Action<EventHandler<TEventArgs>> subscribe,
         Action<EventHandler<TEventArgs>> unsubscribe,
@@ -62,15 +36,8 @@ public static class EventStream
         CancellationToken cancellationToken = default)
         where TEventArgs : EventArgs
     {
-        if (subscribe is null)
-        {
-            throw new ArgumentNullException(nameof(subscribe));
-        }
-
-        if (unsubscribe is null)
-        {
-            throw new ArgumentNullException(nameof(unsubscribe));
-        }
+        ArgumentNullException.ThrowIfNull(subscribe);
+        ArgumentNullException.ThrowIfNull(unsubscribe);
 
         var settings = GetSettings(options);
         return Enumerate(subscribe, unsubscribe, predicate, settings, cancellationToken);
@@ -84,15 +51,16 @@ public static class EventStream
         CancellationToken creationCancellationToken,
         [EnumeratorCancellation] CancellationToken enumerationCancellationToken = default)
     {
-        using var cancellation = CreateLinkedCancellation(
+        using var linkedCancellation = CreateLinkedCancellation(
             creationCancellationToken,
             enumerationCancellationToken);
-        var cancellationToken = cancellation?.Token ??
+
+        var cancellationToken = linkedCancellation?.Token ??
             (creationCancellationToken.CanBeCanceled
                 ? creationCancellationToken
                 : enumerationCancellationToken);
 
-        var buffer = new EventBuffer<EventArgs>(settings);
+        var channel = CreateChannel<EventArgs>(settings);
         var subscriptionAttempted = false;
 
         EventHandler handler = (_, eventArgs) =>
@@ -104,11 +72,11 @@ public static class EventStream
                     return;
                 }
 
-                buffer.TryWrite(eventArgs);
+                channel.Writer.TryWrite(eventArgs);
             }
             catch (Exception exception)
             {
-                buffer.Complete(exception);
+                channel.Writer.TryComplete(exception);
             }
         };
 
@@ -118,21 +86,16 @@ public static class EventStream
             subscriptionAttempted = true;
             subscribe(handler);
 
-            while (true)
+            await foreach (var value in channel.Reader
+                .ReadAllAsync(cancellationToken)
+                .ConfigureAwait(false))
             {
-                var result = await buffer.ReadAsync(cancellationToken).ConfigureAwait(false);
-
-                if (!result.HasValue)
-                {
-                    yield break;
-                }
-
-                yield return result.Value!;
+                yield return value;
             }
         }
         finally
         {
-            buffer.Complete();
+            channel.Writer.TryComplete();
 
             if (subscriptionAttempted)
             {
@@ -150,15 +113,16 @@ public static class EventStream
         [EnumeratorCancellation] CancellationToken enumerationCancellationToken = default)
         where TEventArgs : EventArgs
     {
-        using var cancellation = CreateLinkedCancellation(
+        using var linkedCancellation = CreateLinkedCancellation(
             creationCancellationToken,
             enumerationCancellationToken);
-        var cancellationToken = cancellation?.Token ??
+
+        var cancellationToken = linkedCancellation?.Token ??
             (creationCancellationToken.CanBeCanceled
                 ? creationCancellationToken
                 : enumerationCancellationToken);
 
-        var buffer = new EventBuffer<TEventArgs>(settings);
+        var channel = CreateChannel<TEventArgs>(settings);
         var subscriptionAttempted = false;
 
         EventHandler<TEventArgs> handler = (_, eventArgs) =>
@@ -170,11 +134,11 @@ public static class EventStream
                     return;
                 }
 
-                buffer.TryWrite(eventArgs);
+                channel.Writer.TryWrite(eventArgs);
             }
             catch (Exception exception)
             {
-                buffer.Complete(exception);
+                channel.Writer.TryComplete(exception);
             }
         };
 
@@ -184,21 +148,16 @@ public static class EventStream
             subscriptionAttempted = true;
             subscribe(handler);
 
-            while (true)
+            await foreach (var value in channel.Reader
+                .ReadAllAsync(cancellationToken)
+                .ConfigureAwait(false))
             {
-                var result = await buffer.ReadAsync(cancellationToken).ConfigureAwait(false);
-
-                if (!result.HasValue)
-                {
-                    yield break;
-                }
-
-                yield return result.Value!;
+                yield return value;
             }
         }
         finally
         {
-            buffer.Complete();
+            channel.Writer.TryComplete();
 
             if (subscriptionAttempted)
             {
@@ -207,20 +166,42 @@ public static class EventStream
         }
     }
 
+    private static Channel<T> CreateChannel<T>(EventStreamSettings settings)
+    {
+        if (settings.FullMode == EventStreamFullMode.Grow)
+        {
+            return Channel.CreateUnbounded<T>(new UnboundedChannelOptions
+            {
+                SingleReader = true,
+                SingleWriter = false,
+                AllowSynchronousContinuations = false,
+            });
+        }
+
+        var fullMode = settings.FullMode switch
+        {
+            EventStreamFullMode.DropOldest => BoundedChannelFullMode.DropOldest,
+            EventStreamFullMode.DropNewest => BoundedChannelFullMode.DropWrite,
+            _ => throw new InvalidOperationException($"Unsupported stream full mode: {settings.FullMode}."),
+        };
+
+        return Channel.CreateBounded<T>(new BoundedChannelOptions(settings.Capacity)
+        {
+            FullMode = fullMode,
+            SingleReader = true,
+            SingleWriter = false,
+            AllowSynchronousContinuations = false,
+        });
+    }
+
     private static EventStreamSettings GetSettings(EventStreamOptions? options)
     {
         var capacity = options?.Capacity ?? EventStreamOptions.DefaultCapacity;
         var fullMode = options?.FullMode ?? EventStreamFullMode.Grow;
 
-        if (capacity <= 0)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(options),
-                capacity,
-                "Event stream capacity must be greater than zero.");
-        }
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(capacity, 0, nameof(options));
 
-        if (!Enum.IsDefined(typeof(EventStreamFullMode), fullMode))
+        if (!Enum.IsDefined(fullMode))
         {
             throw new ArgumentOutOfRangeException(
                 nameof(options),
@@ -243,162 +224,5 @@ public static class EventStream
         return CancellationTokenSource.CreateLinkedTokenSource(first, second);
     }
 
-    private static async Task WaitWithCancellationAsync(Task task, CancellationToken cancellationToken)
-    {
-        if (!cancellationToken.CanBeCanceled || task.IsCompleted)
-        {
-            await task.ConfigureAwait(false);
-            return;
-        }
-
-        var cancellationSignal = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        using (cancellationToken.Register(() => cancellationSignal.TrySetResult(true)))
-        {
-            var completedTask = await Task.WhenAny(task, cancellationSignal.Task).ConfigureAwait(false);
-
-            if (!ReferenceEquals(completedTask, task))
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-            }
-        }
-
-        await task.ConfigureAwait(false);
-    }
-
-    private readonly struct EventStreamSettings
-    {
-        internal EventStreamSettings(int capacity, EventStreamFullMode fullMode)
-        {
-            Capacity = capacity;
-            FullMode = fullMode;
-        }
-
-        internal int Capacity { get; }
-
-        internal EventStreamFullMode FullMode { get; }
-    }
-
-    private readonly struct BufferReadResult<T>
-    {
-        private BufferReadResult(bool hasValue, T? value)
-        {
-            HasValue = hasValue;
-            Value = value;
-        }
-
-        internal bool HasValue { get; }
-
-        internal T? Value { get; }
-
-        internal static BufferReadResult<T> End { get; } = new(false, default);
-
-        internal static BufferReadResult<T> FromValue(T value) => new(true, value);
-    }
-
-    private sealed class EventBuffer<T>
-    {
-        private readonly object _gate = new();
-        private readonly Queue<T> _queue;
-        private readonly int _capacity;
-        private readonly EventStreamFullMode _fullMode;
-
-        private TaskCompletionSource<bool>? _signal;
-        private Exception? _error;
-        private bool _completed;
-
-        internal EventBuffer(EventStreamSettings settings)
-        {
-            _queue = new Queue<T>(settings.Capacity);
-            _capacity = settings.Capacity;
-            _fullMode = settings.FullMode;
-        }
-
-        internal bool TryWrite(T value)
-        {
-            TaskCompletionSource<bool>? signal = null;
-
-            lock (_gate)
-            {
-                if (_completed)
-                {
-                    return false;
-                }
-
-                if (_fullMode == EventStreamFullMode.DropNewest && _queue.Count >= _capacity)
-                {
-                    return false;
-                }
-
-                if (_fullMode == EventStreamFullMode.DropOldest && _queue.Count >= _capacity)
-                {
-                    _queue.Dequeue();
-                }
-
-                var wasEmpty = _queue.Count == 0;
-                _queue.Enqueue(value);
-
-                if (wasEmpty && _signal is not null)
-                {
-                    signal = _signal;
-                    _signal = null;
-                }
-            }
-
-            signal?.TrySetResult(true);
-            return true;
-        }
-
-        internal void Complete(Exception? error = null)
-        {
-            TaskCompletionSource<bool>? signal;
-
-            lock (_gate)
-            {
-                if (_completed)
-                {
-                    return;
-                }
-
-                _completed = true;
-                _error = error;
-                signal = _signal;
-                _signal = null;
-            }
-
-            signal?.TrySetResult(true);
-        }
-
-        internal async ValueTask<BufferReadResult<T>> ReadAsync(CancellationToken cancellationToken)
-        {
-            while (true)
-            {
-                Task waitTask;
-
-                lock (_gate)
-                {
-                    if (_queue.Count > 0)
-                    {
-                        return BufferReadResult<T>.FromValue(_queue.Dequeue());
-                    }
-
-                    if (_completed)
-                    {
-                        if (_error is not null)
-                        {
-                            throw _error;
-                        }
-
-                        return BufferReadResult<T>.End;
-                    }
-
-                    _signal ??= new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-                    waitTask = _signal.Task;
-                }
-
-                await WaitWithCancellationAsync(waitTask, cancellationToken).ConfigureAwait(false);
-            }
-        }
-    }
-}
+    private readonly record struct EventStreamSettings(int Capacity, EventStreamFullMode FullMode);
 }
