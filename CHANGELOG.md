@@ -24,6 +24,12 @@ All notable changes to the native modern-.NET line of AsyncEventBridge are docum
 - Preserve `Grow`, `DropOldest`, and `DropNewest` public buffering semantics; `DropNewest` maps to the channel `DropWrite` behavior so the incoming event is discarded at capacity.
 - Keep subscription, predicate-fault, cancellation, ordering, reentrancy, and cleanup behavior covered by runtime and stress tests.
 
+### Async -> events
+
+- Add `ValueTask` and `ValueTask<T>` `ToEventBridge()` overloads for modern async APIs that do not naturally return `Task`.
+- Define explicit ownership semantics for `ValueTask`: once handed to a bridge, the original value task must not be consumed independently.
+- Verify `ValueTask<T>` behavior through runtime tests and a consumer restored from the generated NuGet package.
+
 ### Performance and verification
 
 - Add a BenchmarkDotNet project for one-shot wait and buffered event-stream benchmarks.
