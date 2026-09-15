@@ -1,0 +1,103 @@
+name: Finalize diagnostics formatting
+
+on:
+  push:
+    branches:
+      - dotnet-latest
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    if: github.event.head_commit.message == 'Finalize diagnostics formatting'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Fix exact whitespace
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/AsyncEventBridge.Generators/AsyncEventBridgeAdapterGenerator.cs')
+          text = path.read_text()
+
+          old = '''    private static readonly DiagnosticDescriptor InvalidGenerationTarget = new(
+          id: "AEB002",
+          title: "Invalid async-event generation target",
+          messageFormat: "Type '{0}' cannot be targeted by GenerateAsyncEventsFor. Generated async-event adapters require a supported class type.",
+          category: "AsyncEventBridge",
+          defaultSeverity: DiagnosticSeverity.Warning,
+          isEnabledByDefault: true);
+          '''
+          new = '''    private static readonly DiagnosticDescriptor InvalidGenerationTarget = new(
+              id: "AEB002",
+              title: "Invalid async-event generation target",
+              messageFormat: "Type '{0}' cannot be targeted by GenerateAsyncEventsFor. Generated async-event adapters require a supported class type.",
+              category: "AsyncEventBridge",
+              defaultSeverity: DiagnosticSeverity.Warning,
+              isEnabledByDefault: true);
+          '''
+          if old not in text:
+              raise SystemExit('AEB002 formatting block not found')
+          text = text.replace(old, new, 1)
+
+          old = '''            var targetType = requestedType.IsUnboundGenericType
+          ? requestedType.OriginalDefinition
+          : requestedType;
+          '''
+          new = '''            var targetType = requestedType.IsUnboundGenericType
+                  ? requestedType.OriginalDefinition
+                  : requestedType;
+          '''
+          if old not in text:
+              raise SystemExit('target type formatting block not found')
+          text = text.replace(old, new, 1)
+
+          old = '''            targets.Add(targetType, location);
+
+          }
+          '''
+          new = '''            targets.Add(targetType, location);
+          }
+          '''
+          if old not in text:
+              raise SystemExit('foreach formatting block not found')
+          text = text.replace(old, new, 1)
+
+          path.write_text(text)
+          PY
+
+      - name: Restore
+        run: dotnet restore tests/AsyncEventBridge.Generators.Tests/AsyncEventBridge.Generators.Tests.csproj
+
+      - name: Verify whitespace
+        run: git diff --check
+
+      - name: Build generator tests
+        run: dotnet build tests/AsyncEventBridge.Generators.Tests/AsyncEventBridge.Generators.Tests.csproj -c Release --no-restore
+
+      - name: Run generator tests
+        run: dotnet test tests/AsyncEventBridge.Generators.Tests/AsyncEventBridge.Generators.Tests.csproj -c Release --no-build --no-restore
+
+      - name: Commit clean source
+        shell: bash
+        run: |
+          git config user.name "Perry"
+          git config user.email "its_Q@hotmail.com"
+          git rm .github/workflows/finalize-diagnostics-formatting.yml
+          git add src/AsyncEventBridge.Generators/AsyncEventBridgeAdapterGenerator.cs
+          git commit -m "Clean up generator diagnostics formatting"
+          git push origin HEAD:dotnet-latest
