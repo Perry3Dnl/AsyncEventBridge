@@ -13,6 +13,15 @@
     "async",
     "awaitable",
     "events",
-    "unity"
+    "unity",
+    "unityevent",
+    "inspector"
+  ],
+  "samples": [
+    {
+      "displayName": "Interactive Dialogue + Live Code",
+      "description": "A playable dialogue scene where a real UnityEvent is awaited and the currently executing AsyncEventBridge code is highlighted live.",
+      "path": "Samples~/Interactive Dialogue"
+    }
   ]
 }
