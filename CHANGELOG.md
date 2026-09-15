@@ -19,6 +19,7 @@ All notable changes to the native modern-.NET line of AsyncEventBridge are docum
 - Use `CancellationToken.UnsafeRegister(...)` for the internal cancellation callback to avoid unnecessary execution-context capture on the hot wait path.
 - Preserve timeout, cancellation, event, subscription, cleanup, and race semantics through the existing test suite plus virtual-time tests.
 - Make completion-state storage valid for both reference and value-type event payloads.
+- Surface optional `TimeProvider` parameters from generated timeout overloads and forward them to the runtime, so generated APIs can participate in deterministic/virtual-time tests directly.
 
 ### Modern event streams
 
@@ -39,7 +40,7 @@ All notable changes to the native modern-.NET line of AsyncEventBridge are docum
 - Build the benchmark project in normal CI without executing benchmarks on every push.
 - Require the generated NuGet package to contain native `net10.0` assets.
 - Restore, compile, and execute isolated `net10.0` consumers from the generated `.nupkg` in CI.
-- Exercise generated `EventHandler<int>` and `EventHandler<TSender, int>` APIs through the packaged runtime smoke test.
+- Exercise generated `EventHandler<int>` and `EventHandler<TSender, int>` APIs through the packaged runtime smoke test, including their generated `TimeProvider` timeout overloads.
 
 ### Source generator
 
@@ -48,6 +49,7 @@ All notable changes to the native modern-.NET line of AsyncEventBridge are docum
 - Generate adapters for .NET 10 `EventHandler<TSender, TPayload>` events while keeping AsyncEventBridge's async contract payload-centric: the second event parameter becomes the task/stream result.
 - Allow custom two-parameter `void` delegates whose second parameter is a normal non-ref-like payload type.
 - Reject ref-like payloads such as `Span<T>` with `AEB001`, because they cannot safely escape an event callback into `Task<T>` or `IAsyncEnumerable<T>`.
+- Add `TimeProvider` to generated timeout overloads without changing the simple no-timeout call shape.
 - Continue packaging the source generator with the runtime package.
 
 ## 0.1.0
