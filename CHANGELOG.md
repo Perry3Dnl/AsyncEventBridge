@@ -4,6 +4,19 @@ All notable changes to AsyncEventBridge are documented here.
 
 ## Unreleased
 
+### Runtime baseline
+
+- Add a native .NET Standard 2.1 runtime asset while preserving .NET Standard 2.0 as the complete minimum runtime contract.
+- Keep `Microsoft.Bcl.AsyncInterfaces` only on the .NET Standard 2.0 asset so modern runtimes and Unity do not need the compatibility dependency.
+- Move package versioning to the shared build configuration so the NuGet and Unity packages follow the same version train.
+
+### Unity
+
+- Add the first Unity Package Manager distribution as `com.perry3d.async-event-bridge`, targeting Unity 2023.1+.
+- Add Unity-native one-shot event waits that return `Awaitable<T>` and marshal cleanup/completion to the captured Unity main-thread synchronization context.
+- Add `MonoBehaviour` lifecycle-aware waits that link caller cancellation with `destroyCancellationToken` and `Application.exitCancellationToken`.
+- Keep the Unity package's vendored core runtime sources byte-for-byte aligned with the matching NuGet core through CI checks.
+
 ### Source generator
 
 - Add `[assembly: GenerateAsyncEventsFor(typeof(...))]` for generating async event facades around public types that cannot be annotated directly, including third-party and framework types.
