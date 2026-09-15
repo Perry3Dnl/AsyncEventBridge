@@ -8,7 +8,7 @@ using Microsoft.CodeAnalysis.Text;
 
 namespace AsyncEventBridge.Unity.Generators;
 
-[Generator(LanguageNames.CSharp)]
+[Generator]
 public sealed class AsyncEventBridgeUnityGenerator : ISourceGenerator
 {
     private const string DirectAttributeMetadataName = "AsyncEventBridge.GenerateAsyncEventsAttribute";
