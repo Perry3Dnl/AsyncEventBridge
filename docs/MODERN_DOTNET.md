@@ -21,7 +21,7 @@ The basic modern edition is considered complete when all of these remain true:
 - [x] `Task`, `Task<T>`, `ValueTask`, `ValueTask<T>`, and `IAsyncEnumerable<T>` can bridge back to events.
 - [x] Cancellation, timeout, cleanup, races, reentrancy, and `TimeProvider` behavior are covered by tests.
 - [x] Event streams use `System.Threading.Channels` with explicit `Grow`, `DropOldest`, and `DropNewest` semantics.
-- [x] Source generation supports owned and third-party types and reports unsupported event shapes with `AEB001`.
+- [x] Source generation supports owned and third-party types and reports unsupported event shapes and invalid/redundant generation requests with `AEB001`-`AEB003` diagnostics.
 - [x] Public API lock tests protect the intended runtime surface.
 - [x] Runtime, generator, lifecycle, race, stress, generated-code, and packaged-consumer tests are part of CI.
 - [x] The NuGet package contains the `net10.0` runtime, XML documentation, analyzer, README, icon, license metadata, repository metadata, and a symbol package.
@@ -38,6 +38,8 @@ This gate is deliberately narrower than the complete product roadmap. Optional i
 4. Modern event payload support, including non-`EventArgs` payloads and `EventHandler<TSender, TPayload>`.
 5. Bounded-stream drop observability through thread-safe dropped-event counters and optional observers backed by the channel's real drop callback.
 6. BenchmarkDotNet baselines for one-shot waits, stream throughput, and bounded-drop telemetry.
+7. Native AOT and trimming verification against the packed NuGet package, including execution of the published native smoke-test binary.
+8. Targeted generator diagnostics: `AEB001` for unsupported event delegates, `AEB002` for invalid `GenerateAsyncEventsFor` targets, and `AEB003` for duplicate or redundant generation requests.
 
 ## Work after the foundation
 
