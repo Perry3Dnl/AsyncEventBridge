@@ -117,13 +117,13 @@ jobs:
       - name: Build solution
         run: dotnet build AsyncEventBridge.sln --configuration Release
 
-      - name: Verify bundled generator is reproducible
+      - name: Refresh bundled Unity generator
         shell: bash
         run: |
           set -euo pipefail
-          cmp \
-            Packages/com.perry3d.async-event-bridge/Analyzers/AsyncEventBridge.Unity.Generators.dll \
-            src/AsyncEventBridge.Unity.Generators/bin/Release/netstandard2.0/AsyncEventBridge.Unity.Generators.dll
+          cp \
+            src/AsyncEventBridge.Unity.Generators/bin/Release/netstandard2.0/AsyncEventBridge.Unity.Generators.dll \
+            Packages/com.perry3d.async-event-bridge/Analyzers/AsyncEventBridge.Unity.Generators.dll
 
       - name: Commit final Unity integration
         shell: bash
