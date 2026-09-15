@@ -60,6 +60,13 @@ public static class EventAwaiter
             return Task.FromException<TEventArgs>(CreateTimeoutException(timeout.Value));
         }
 
+        if (predicate is null &&
+            !cancellationToken.CanBeCanceled &&
+            (timeout is null || timeout == Timeout.InfiniteTimeSpan))
+        {
+            return new SimpleEventWaitState<TEventArgs>(subscribe, unsubscribe).Start();
+        }
+
         var state = new EventWaitState<TEventArgs>(
             subscribe,
             unsubscribe,
@@ -83,6 +90,137 @@ public static class EventAwaiter
         new($"The event wait timed out after {timeout}.");
 }
 
+internal sealed class SimpleEventWaitState<TEventArgs>
+{
+    private readonly Action<EventHandler<TEventArgs>> _subscribe;
+    private readonly Action<EventHandler<TEventArgs>> _unsubscribe;
+    private readonly TaskCompletionSource<TEventArgs> _completionSource;
+    private readonly EventHandler<TEventArgs> _handler;
+
+    private TEventArgs _result = default!;
+    private Exception? _exception;
+    private int _winnerClaimed;
+    private int _completionKind;
+    private int _initializationComplete;
+    private int _cleanupStarted;
+
+    internal SimpleEventWaitState(
+        Action<EventHandler<TEventArgs>> subscribe,
+        Action<EventHandler<TEventArgs>> unsubscribe)
+    {
+        _subscribe = subscribe;
+        _unsubscribe = unsubscribe;
+        _handler = OnEvent;
+        _completionSource = new TaskCompletionSource<TEventArgs>(TaskCreationOptions.RunContinuationsAsynchronously);
+    }
+
+    internal Task<TEventArgs> Start()
+    {
+        try
+        {
+            _subscribe(_handler);
+        }
+        catch (Exception exception)
+        {
+            TryFault(exception);
+        }
+        finally
+        {
+            Volatile.Write(ref _initializationComplete, 1);
+            TryFinalize();
+        }
+
+        return _completionSource.Task;
+    }
+
+    private void OnEvent(object? sender, TEventArgs eventArgs)
+    {
+        if (!TryClaimWinner())
+        {
+            return;
+        }
+
+        _result = eventArgs;
+        Volatile.Write(ref _completionKind, (int)CompletionKind.Succeeded);
+        TryFinalize();
+    }
+
+    private void TryFault(Exception exception)
+    {
+        if (!TryClaimWinner())
+        {
+            return;
+        }
+
+        _exception = exception;
+        Volatile.Write(ref _completionKind, (int)CompletionKind.Faulted);
+        TryFinalize();
+    }
+
+    private bool TryClaimWinner() =>
+        Interlocked.CompareExchange(ref _winnerClaimed, 1, 0) == 0;
+
+    private void TryFinalize()
+    {
+        var completionKind = (CompletionKind)Volatile.Read(ref _completionKind);
+
+        if (completionKind == CompletionKind.Pending || Volatile.Read(ref _initializationComplete) == 0)
+        {
+            return;
+        }
+
+        if (Interlocked.CompareExchange(ref _cleanupStarted, 1, 0) != 0)
+        {
+            return;
+        }
+
+        Exception? cleanupException = null;
+
+        try
+        {
+            _unsubscribe(_handler);
+        }
+        catch (Exception exception)
+        {
+            cleanupException = exception;
+        }
+
+        if (cleanupException is not null)
+        {
+            if (completionKind == CompletionKind.Faulted && _exception is not null)
+            {
+                _completionSource.TrySetException([_exception, cleanupException]);
+            }
+            else
+            {
+                _completionSource.TrySetException(cleanupException);
+            }
+
+            return;
+        }
+
+        switch (completionKind)
+        {
+            case CompletionKind.Succeeded:
+                _completionSource.TrySetResult(_result);
+                break;
+            case CompletionKind.Faulted:
+                _completionSource.TrySetException(_exception!);
+                break;
+            default:
+                _completionSource.TrySetException(new InvalidOperationException("Unknown simple event wait completion state."));
+                break;
+        }
+    }
+
+    private enum CompletionKind
+    {
+        Pending = 0,
+        Succeeded = 1,
+        Faulted = 2,
+    }
+}
+
 internal sealed class EventWaitState<TEventArgs>
 {
     private readonly Action<EventHandler<TEventArgs>> _subscribe;
@@ -93,7 +231,7 @@ internal sealed class EventWaitState<TEventArgs>
     private readonly TimeProvider _timeProvider;
     private readonly TaskCompletionSource<TEventArgs> _completionSource;
     private readonly EventHandler<TEventArgs> _handler;
-    private readonly object _predicateGate = new();
+    private readonly object? _predicateGate;
 
     private CancellationTokenRegistration _cancellationRegistration;
     private ITimer? _timeoutRegistration;
@@ -121,6 +259,7 @@ internal sealed class EventWaitState<TEventArgs>
         _timeProvider = timeProvider;
         _handler = OnEvent;
         _completionSource = new TaskCompletionSource<TEventArgs>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _predicateGate = predicate is null ? null : new object();
     }
 
     internal Task<TEventArgs> Start()
@@ -161,10 +300,23 @@ internal sealed class EventWaitState<TEventArgs>
 
     private void OnEvent(object? sender, TEventArgs eventArgs)
     {
+        if (_predicate is null)
+        {
+            if (!TryClaimWinner())
+            {
+                return;
+            }
+
+            _result = eventArgs;
+            Volatile.Write(ref _completionKind, (int)CompletionKind.Succeeded);
+            TryFinalize();
+            return;
+        }
+
         CompletionKind completionKind;
         Exception? exception = null;
 
-        lock (_predicateGate)
+        lock (_predicateGate!)
         {
             if (Volatile.Read(ref _winnerClaimed) != 0)
             {
@@ -173,7 +325,7 @@ internal sealed class EventWaitState<TEventArgs>
 
             try
             {
-                if (_predicate is not null && !_predicate(eventArgs))
+                if (!_predicate(eventArgs))
                 {
                     return;
                 }
