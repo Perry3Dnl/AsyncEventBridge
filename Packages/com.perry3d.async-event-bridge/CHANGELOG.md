@@ -3,7 +3,9 @@
 ## 0.2.0 - Unreleased
 
 - Add the first Unity Package Manager distribution.
-- Target Unity 2023.1+ so Unity-facing APIs can use `Awaitable` directly.
+- Target Unity 2023.1.0f1+ so Unity-facing APIs can use `Awaitable` directly.
+- Add `unityRelease` metadata and CI validation for the Asset Store-required manifest fields.
+- Preserve `.meta` files for the importable Interactive Dialogue sample so sample asset identities remain stable.
 - Add Unity-native waiting for `EventHandler` and `EventHandler<TEventArgs>` events.
 - Add `MonoBehaviour` lifecycle-aware cancellation that links destroy, application-exit, and caller cancellation tokens.
 - Bundle the Unity-compatible source generator as a `RoslynAnalyzer` asset so the UPM package is self-contained.

@@ -29,10 +29,40 @@ jobs:
           test -n "$VERSION"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
-      - name: Verify Unity package version
+      - name: Verify Unity package manifest
         shell: bash
         run: |
-          grep -Eq "\"version\"[[:space:]]*:[[:space:]]*\"${VERSION}\"" Packages/com.perry3d.async-event-bridge/package.json
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          package_dir = Path("Packages/com.perry3d.async-event-bridge")
+          manifest = json.loads((package_dir / "package.json").read_text(encoding="utf-8"))
+
+          required = ("name", "displayName", "version", "unity", "unityRelease", "author", "description")
+          missing = [field for field in required if not manifest.get(field)]
+          if missing:
+              raise SystemExit(f"Unity package manifest is missing required fields: {', '.join(missing)}")
+
+          if manifest["name"] != package_dir.name:
+              raise SystemExit(f"Package folder '{package_dir.name}' does not match manifest name '{manifest['name']}'")
+
+          if manifest["version"] != os.environ["VERSION"]:
+              raise SystemExit(f"Unity package version {manifest['version']} does not match shared version {os.environ['VERSION']}")
+
+          if not re.fullmatch(r"\d{4}\.\d+", manifest["unity"]):
+              raise SystemExit(f"Invalid Unity compatibility version: {manifest['unity']}")
+
+          if not re.fullmatch(r"\d+[abfp]\d+", manifest["unityRelease"]):
+              raise SystemExit(f"Invalid unityRelease value: {manifest['unityRelease']}")
+
+          author = manifest["author"]
+          author_name = author.get("name", "") if isinstance(author, dict) else str(author)
+          if not author_name.strip():
+              raise SystemExit("Unity package author name must not be empty")
+          PY
 
       - name: Verify Unity core source parity
         shell: bash
@@ -62,6 +92,13 @@ jobs:
               test -f "${asset}.meta"
             done < <(find "$UNITY_PACKAGE/$root" -mindepth 1 -print | sort)
           done
+
+          SAMPLE_ROOT="$UNITY_PACKAGE/Samples~/Interactive Dialogue"
+          test -f "$UNITY_PACKAGE/Samples~/Interactive Dialogue.meta"
+          while IFS= read -r asset; do
+            [[ "$asset" == *.meta ]] && continue
+            test -f "${asset}.meta"
+          done < <(find "$SAMPLE_ROOT" -mindepth 1 -print | sort)
 
           grep -q '^labels:$' "$UNITY_PACKAGE/Analyzers/AsyncEventBridge.Unity.Generators.dll.meta"
           grep -q '^- RoslynAnalyzer$' "$UNITY_PACKAGE/Analyzers/AsyncEventBridge.Unity.Generators.dll.meta"

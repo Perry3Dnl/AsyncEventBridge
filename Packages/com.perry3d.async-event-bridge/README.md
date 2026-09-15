@@ -6,6 +6,8 @@ This distribution is maintained on the `unity` branch and should regularly merge
 
 ## Install from GitHub
 
+> **Development channel:** the public `unity` branch remains available while the Unity edition is under active development. The eventual Asset Store build will be produced from a validated release commit; retaining or changing GitHub distribution at commercial launch is a separate release decision.
+
 In Unity Package Manager, choose **Add package from git URL...** and use:
 
 ```text
@@ -26,7 +28,7 @@ The Unity package and NuGet package share the same version. The current package 
 
 ## Baseline
 
-- Unity 2023.1 or newer.
+- Unity 2023.1.0f1 or newer.
 - Uses Unity `Awaitable` for Unity-facing one-shot operations.
 - Keeps the portable AsyncEventBridge runtime source aligned with the matching base version.
 - Designed for Mono and IL2CPP; runtime code does not require reflection or runtime code generation.
