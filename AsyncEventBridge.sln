@@ -6,8 +6,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AsyncEventBridge", "src\Asy
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AsyncEventBridge.Generators", "src\AsyncEventBridge.Generators\AsyncEventBridge.Generators.csproj", "{0E368096-64C7-41CF-BC92-578B2385B468}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AsyncEventBridge.Unity.Generators", "src\AsyncEventBridge.Unity.Generators\AsyncEventBridge.Unity.Generators.csproj", "{882A86CD-AB19-451D-A4B5-DADC9B8C8433}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AsyncEventBridge.Tests", "tests\AsyncEventBridge.Tests\AsyncEventBridge.Tests.csproj", "{B2E196A4-5A53-451E-A8C7-3F8DF060D328}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AsyncEventBridge.Generators.Tests", "tests\AsyncEventBridge.Generators.Tests\AsyncEventBridge.Generators.Tests.csproj", "{58A85A8D-E14E-46C6-95BC-84A5B5D4077B}"
@@ -32,10 +30,6 @@ Global
         {0E368096-64C7-41CF-BC92-578B2385B468}.Debug|Any CPU.Build.0 = Debug|Any CPU
         {0E368096-64C7-41CF-BC92-578B2385B468}.Release|Any CPU.ActiveCfg = Release|Any CPU
         {0E368096-64C7-41CF-BC92-578B2385B468}.Release|Any CPU.Build.0 = Release|Any CPU
-        {882A86CD-AB19-451D-A4B5-DADC9B8C8433}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-        {882A86CD-AB19-451D-A4B5-DADC9B8C8433}.Debug|Any CPU.Build.0 = Debug|Any CPU
-        {882A86CD-AB19-451D-A4B5-DADC9B8C8433}.Release|Any CPU.ActiveCfg = Release|Any CPU
-        {882A86CD-AB19-451D-A4B5-DADC9B8C8433}.Release|Any CPU.Build.0 = Release|Any CPU
         {B2E196A4-5A53-451E-A8C7-3F8DF060D328}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
         {B2E196A4-5A53-451E-A8C7-3F8DF060D328}.Debug|Any CPU.Build.0 = Debug|Any CPU
         {B2E196A4-5A53-451E-A8C7-3F8DF060D328}.Release|Any CPU.ActiveCfg = Release|Any CPU
