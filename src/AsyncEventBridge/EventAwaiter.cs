@@ -52,11 +52,13 @@ public static class EventAwaiter
 
         if (cancellationToken.IsCancellationRequested)
         {
+            AsyncEventBridgeMetrics.RecordWaitCancelled();
             return Task.FromCanceled<TEventArgs>(cancellationToken);
         }
 
         if (timeout == TimeSpan.Zero)
         {
+            AsyncEventBridgeMetrics.RecordWaitTimeout();
             return Task.FromException<TEventArgs>(CreateTimeoutException(timeout.Value));
         }
 
@@ -187,6 +189,8 @@ internal sealed class SimpleEventWaitState<TEventArgs>
 
         if (cleanupException is not null)
         {
+            AsyncEventBridgeMetrics.RecordWaitFaulted();
+
             if (completionKind == CompletionKind.Faulted && _exception is not null)
             {
                 _completionSource.TrySetException([_exception, cleanupException]);
@@ -202,12 +206,15 @@ internal sealed class SimpleEventWaitState<TEventArgs>
         switch (completionKind)
         {
             case CompletionKind.Succeeded:
+                AsyncEventBridgeMetrics.RecordWaitSuccess();
                 _completionSource.TrySetResult(_result);
                 break;
             case CompletionKind.Faulted:
+                AsyncEventBridgeMetrics.RecordWaitFaulted();
                 _completionSource.TrySetException(_exception!);
                 break;
             default:
+                AsyncEventBridgeMetrics.RecordWaitFaulted();
                 _completionSource.TrySetException(new InvalidOperationException("Unknown simple event wait completion state."));
                 break;
         }
@@ -445,6 +452,7 @@ internal sealed class EventWaitState<TEventArgs>
                 cleanupErrors.Insert(0, _exception);
             }
 
+            AsyncEventBridgeMetrics.RecordWaitFaulted();
             _completionSource.TrySetException(cleanupErrors);
             return;
         }
@@ -452,16 +460,23 @@ internal sealed class EventWaitState<TEventArgs>
         switch (completionKind)
         {
             case CompletionKind.Succeeded:
+                AsyncEventBridgeMetrics.RecordWaitSuccess();
                 _completionSource.TrySetResult(_result);
                 break;
             case CompletionKind.Cancelled:
+                AsyncEventBridgeMetrics.RecordWaitCancelled();
                 _completionSource.TrySetCanceled(_cancellationToken);
                 break;
             case CompletionKind.TimedOut:
+                AsyncEventBridgeMetrics.RecordWaitTimeout();
+                _completionSource.TrySetException(_exception!);
+                break;
             case CompletionKind.Faulted:
+                AsyncEventBridgeMetrics.RecordWaitFaulted();
                 _completionSource.TrySetException(_exception!);
                 break;
             default:
+                AsyncEventBridgeMetrics.RecordWaitFaulted();
                 _completionSource.TrySetException(new InvalidOperationException("Unknown event wait completion state."));
                 break;
         }
