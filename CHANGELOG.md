@@ -11,6 +11,8 @@ All notable changes to the native modern-.NET line of AsyncEventBridge are docum
 - Keep the Roslyn source generator on `netstandard2.0` so it remains broadly compatible with compiler hosts.
 - Remove the .NET Standard compatibility consumer from the modern solution; compatibility remains the responsibility of `base/netstandard2.0`.
 - Remove the `EventArgs` generic constraint from modern one-shot event waits and event streams so ordinary value, record, struct, DTO, and reference payloads can cross the event-to-async boundary.
+- Emit built-in `System.Diagnostics.Metrics` counters from the `AsyncEventBridge` meter for terminal wait outcomes and bounded-stream drops without taking a logging or OpenTelemetry dependency.
+- Keep built-in metric tags bounded and low-cardinality: wait outcome (`success`, `cancelled`, `timeout`, `faulted`) and stream full mode (`drop_oldest`, `drop_newest`).
 
 ### Modern event waits
 
@@ -46,6 +48,8 @@ All notable changes to the native modern-.NET line of AsyncEventBridge are docum
 - Split the common no-predicate/non-cancellable/no-finite-timeout event wait onto a lean internal state and allocate predicate synchronization only when required. The measured successful low-level wait fell from 536 B to 440 B per operation and the generated wait from 560 B to 464 B; cancellation and timeout paths each dropped 24 B. Hosted-runner timing was not used for a cross-run latency claim.
 - Add bounded `DropNewest` benchmark baselines for counter-only and counter-plus-observer telemetry paths.
 - Add direct-`ValueTask` versus `.AsTask()` bridge benchmarks; a focused .NET 10 run reduced allocation for a completed generic bridge from 296 B to 224 B per operation (72 B), while timing remained close enough on the hosted runner that no general latency claim is made.
+- Add `MeterListener` regression tests for exported wait-outcome and bounded-drop measurements.
+- Benchmark built-in metrics with collection disabled and enabled. Wait completion remained 440 B in both cases; the bounded-drop burst remained 2,288 B in both cases, with about 0.8% timing overhead for active collection in that focused run.
 - Build the benchmark project in normal CI without executing benchmarks on every push.
 - Require the generated NuGet package to contain native `net10.0` assets.
 - Restore, compile, and execute isolated `net10.0` consumers from the generated `.nupkg` in CI.
