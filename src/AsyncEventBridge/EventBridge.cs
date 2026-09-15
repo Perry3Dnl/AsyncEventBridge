@@ -16,7 +16,8 @@ namespace AsyncEventBridge
 /// </summary>
 public sealed class EventBridge : IDisposable
 {
-    private readonly Task _task;
+    private readonly Task? _task;
+    private readonly ValueTask _valueTask;
     private readonly object _gate = new();
 
     private EventHandler? _completed;
@@ -29,6 +30,11 @@ public sealed class EventBridge : IDisposable
     internal EventBridge(Task task)
     {
         _task = task;
+    }
+
+    internal EventBridge(ValueTask task)
+    {
+        _valueTask = task;
     }
 
     /// <summary>
@@ -104,10 +110,18 @@ public sealed class EventBridge : IDisposable
     {
         try
         {
-            await _task.ConfigureAwait(false);
+            if (_task is not null)
+            {
+                await _task.ConfigureAwait(false);
+            }
+            else
+            {
+                await _valueTask.ConfigureAwait(false);
+            }
+
             PublishCompleted();
         }
-        catch (OperationCanceledException) when (_task.IsCanceled)
+        catch (OperationCanceledException) when (_task?.IsCanceled ?? _valueTask.IsCanceled)
         {
             PublishCancelled();
         }
@@ -274,7 +288,8 @@ public sealed class EventBridge : IDisposable
 /// <typeparam name="T">The task result type.</typeparam>
 public sealed class EventBridge<T> : IDisposable
 {
-    private readonly Task<T> _task;
+    private readonly Task<T>? _task;
+    private readonly ValueTask<T> _valueTask;
     private readonly object _gate = new();
 
     private EventHandler<AsyncValueEventArgs<T>>? _completed;
@@ -287,6 +302,11 @@ public sealed class EventBridge<T> : IDisposable
     internal EventBridge(Task<T> task)
     {
         _task = task;
+    }
+
+    internal EventBridge(ValueTask<T> task)
+    {
+        _valueTask = task;
     }
 
     /// <summary>
@@ -362,10 +382,20 @@ public sealed class EventBridge<T> : IDisposable
     {
         try
         {
-            var result = await _task.ConfigureAwait(false);
+            T result;
+
+            if (_task is not null)
+            {
+                result = await _task.ConfigureAwait(false);
+            }
+            else
+            {
+                result = await _valueTask.ConfigureAwait(false);
+            }
+
             PublishCompleted(result);
         }
-        catch (OperationCanceledException) when (_task.IsCanceled)
+        catch (OperationCanceledException) when (_task?.IsCanceled ?? _valueTask.IsCanceled)
         {
             PublishCancelled();
         }

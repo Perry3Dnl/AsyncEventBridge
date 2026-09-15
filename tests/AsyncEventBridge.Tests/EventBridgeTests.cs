@@ -74,6 +74,26 @@ public sealed class EventBridgeTests
     }
 
     [Fact]
+    public void ValueTaskFaultedWithOperationCanceledExceptionPublishesFaulted()
+    {
+        var expected = new OperationCanceledException("faulted ValueTask");
+        var valueTask = new ValueTask<int>(Task.FromException<int>(expected));
+        using EventBridge<int> bridge = valueTask.ToEventBridge();
+        Exception? observed = null;
+        var completed = 0;
+        var cancelled = 0;
+
+        bridge.Completed += (_, _) => Interlocked.Increment(ref completed);
+        bridge.Faulted += (_, e) => observed = e.Exception;
+        bridge.Cancelled += (_, _) => Interlocked.Increment(ref cancelled);
+        bridge.Connect();
+
+        Assert.Same(expected, observed);
+        Assert.Equal(0, completed);
+        Assert.Equal(0, cancelled);
+    }
+
+    [Fact]
     public void NonGenericValueTaskBridgePublishesCancelledWithoutOtherTerminalEvents()
     {
         var valueTask = new ValueTask(Task.FromCanceled(new CancellationToken(canceled: true)));

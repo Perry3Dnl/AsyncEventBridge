@@ -42,7 +42,7 @@ public static class AsyncEventBridgeExtensions
     /// <see cref="ValueTask"/> independently after creating the bridge.
     /// </remarks>
     public static EventBridge ToEventBridge(this ValueTask task) =>
-        new(task.AsTask());
+        new(task);
 
     /// <summary>
     /// Creates an event-facing bridge for a <see cref="ValueTask{TResult}"/>.
@@ -52,7 +52,7 @@ public static class AsyncEventBridgeExtensions
     /// <see cref="ValueTask{TResult}"/> independently after creating the bridge.
     /// </remarks>
     public static EventBridge<T> ToEventBridge<T>(this ValueTask<T> task) =>
-        new(task.AsTask());
+        new(task);
 
     /// <summary>
     /// Creates an event-facing bridge for an <see cref="IAsyncEnumerable{T}"/>.

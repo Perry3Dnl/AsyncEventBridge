@@ -7,6 +7,7 @@ public class EventBridgeBenchmarks
 {
     private readonly BenchmarkEventSource _source = new();
     private readonly BenchmarkEventArgs _singleArgs = new(42);
+    private int _bridgeResult;
 
     [Benchmark]
     public async Task<int> WaitAndRaise()
@@ -18,6 +19,14 @@ public class EventBridgeBenchmarks
         _source.Raise(_singleArgs);
         return (await wait).Value;
     }
+
+    [Benchmark]
+    public int CompletedValueTaskBridge() =>
+        RunCompletedBridge(new ValueTask<int>(42).ToEventBridge());
+
+    [Benchmark]
+    public int CompletedValueTaskViaAsTaskBaseline() =>
+        RunCompletedBridge(new ValueTask<int>(42).AsTask().ToEventBridge());
 
     [Params(32, 256)]
     public int BurstSize { get; set; }
@@ -65,6 +74,22 @@ public class EventBridgeBenchmarks
 
     [Benchmark]
     public Task<long> BoundedDropNewestWithObserver() => RunDropNewestBurst(observeDrops: true);
+
+    private int RunCompletedBridge(EventBridge<int> bridge)
+    {
+        _bridgeResult = 0;
+
+        using (bridge)
+        {
+            bridge.Completed += CaptureBridgeResult;
+            bridge.Connect();
+        }
+
+        return _bridgeResult;
+    }
+
+    private void CaptureBridgeResult(object? sender, AsyncValueEventArgs<int> eventArgs) =>
+        _bridgeResult = eventArgs.Value;
 
     private async Task<long> RunDropNewestBurst(bool observeDrops)
     {
