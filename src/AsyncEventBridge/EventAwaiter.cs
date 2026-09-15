@@ -266,7 +266,7 @@ internal sealed class EventWaitState<TEventArgs>
         switch (completion.Kind)
         {
             case CompletionKind.Succeeded:
-                _completionSource.TrySetResult(completion.Result!);
+                _completionSource.TrySetResult(completion.Result);
                 break;
             case CompletionKind.Cancelled:
                 _completionSource.TrySetCanceled(_cancellationToken);
@@ -297,7 +297,7 @@ internal sealed class EventWaitState<TEventArgs>
 
     private sealed class Completion
     {
-        private Completion(CompletionKind kind, TEventArgs? result, Exception? exception)
+        private Completion(CompletionKind kind, TEventArgs result, Exception? exception)
         {
             Kind = kind;
             Result = result;
@@ -306,7 +306,7 @@ internal sealed class EventWaitState<TEventArgs>
 
         internal CompletionKind Kind { get; }
 
-        internal TEventArgs? Result { get; }
+        internal TEventArgs Result { get; }
 
         internal Exception? Exception { get; }
 
@@ -314,12 +314,12 @@ internal sealed class EventWaitState<TEventArgs>
             new(CompletionKind.Succeeded, result, null);
 
         internal static Completion Cancelled() =>
-            new(CompletionKind.Cancelled, null, null);
+            new(CompletionKind.Cancelled, default!, null);
 
         internal static Completion TimedOut(Exception exception) =>
-            new(CompletionKind.TimedOut, null, exception);
+            new(CompletionKind.TimedOut, default!, exception);
 
         internal static Completion Faulted(Exception exception) =>
-            new(CompletionKind.Faulted, null, exception);
+            new(CompletionKind.Faulted, default!, exception);
     }
 }
