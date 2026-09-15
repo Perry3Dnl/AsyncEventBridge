@@ -6,7 +6,7 @@ on:
       - feature/unity-package
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   finalize:
@@ -125,14 +125,40 @@ jobs:
             src/AsyncEventBridge.Unity.Generators/bin/Release/netstandard2.0/AsyncEventBridge.Unity.Generators.dll \
             Packages/com.perry3d.async-event-bridge/Analyzers/AsyncEventBridge.Unity.Generators.dll
 
-      - name: Commit final Unity integration
+      - name: Package finalized files
         shell: bash
         run: |
           set -euo pipefail
-          rm .github/unity-update.payload.b64 .github/workflows/unity-bootstrap.yml
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -A
-          git diff --cached --check
-          git commit -m 'Make Unity runtime C# 9 portable'
-          git push origin HEAD:feature/unity-package
+          python - <<'PY'
+          import subprocess
+          import tarfile
+          from pathlib import Path
+
+          names = subprocess.check_output(
+              ['git', 'diff', '--name-only', '--diff-filter=ACMRTUXB', 'HEAD'],
+              text=True).splitlines()
+
+          for required in [
+              'tests/AsyncEventBridge.UnityCompileSmoke/AsyncEventBridge.UnityCompileSmoke.csproj',
+              'tests/AsyncEventBridge.UnityCompileSmoke/UnityEngineStubs.cs',
+              'Packages/com.perry3d.async-event-bridge/Analyzers/AsyncEventBridge.Unity.Generators.dll',
+          ]:
+              if required not in names and Path(required).exists():
+                  names.append(required)
+
+          names = sorted({n for n in names if Path(n).is_file()})
+          Path('artifacts').mkdir(exist_ok=True)
+          Path('artifacts/unity-finalized-files.txt').write_text('\n'.join(names) + '\n', encoding='utf-8')
+          with tarfile.open('artifacts/unity-finalized.tar.gz', 'w:gz') as tf:
+              for name in names:
+                  tf.add(name, arcname=name)
+          PY
+
+      - name: Upload finalized Unity tree
+        uses: actions/upload-artifact@v4
+        with:
+          name: unity-finalized-tree
+          path: |
+            artifacts/unity-finalized.tar.gz
+            artifacts/unity-finalized-files.txt
+          if-no-files-found: error
