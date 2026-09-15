@@ -11,4 +11,5 @@
 - Add rich `UnityEvent` / Inspector integration for arities zero through four with timeout, predicate, lifecycle cancellation, and buffered async-stream adapters.
 - Add main-thread `Task`, `Task<T>`, and `IAsyncEnumerable<T>` publication to UnityEvents for Inspector-driven reactions.
 - Add Runtime and Editor Unity Test Framework suites covering lifecycle, main-thread, buffering, and persistent-listener behavior.
+- Add an importable Interactive Dialogue + Live Code sample scene that highlights the active `WaitAsync` line while a real `UnityEvent` drives the conversation.
 - Keep the Unity package version synchronized with the NuGet package version.
