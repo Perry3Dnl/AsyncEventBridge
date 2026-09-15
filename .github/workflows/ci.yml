@@ -3,9 +3,11 @@ name: CI
 on:
   push:
     branches:
+      - main
       - dotnet-latest
   pull_request:
     branches:
+      - main
       - dotnet-latest
 
 jobs:
@@ -105,7 +107,7 @@ jobs:
       - name: Upload development packages
         uses: actions/upload-artifact@v4
         with:
-          name: AsyncEventBridge-dotnet-latest-${{ env.VERSION }}
+          name: AsyncEventBridge-${{ github.ref_name }}-${{ env.VERSION }}
           path: |
             artifacts/packages/AsyncEventBridge.${{ env.VERSION }}.nupkg
             artifacts/packages/AsyncEventBridge.${{ env.VERSION }}.snupkg
