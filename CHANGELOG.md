@@ -27,6 +27,9 @@ All notable changes to the native modern-.NET line of AsyncEventBridge are docum
 - Preserve `Grow`, `DropOldest`, and `DropNewest` public buffering semantics; `DropNewest` maps to the channel `DropWrite` behavior so the incoming event is discarded at capacity.
 - Keep subscription, predicate-fault, cancellation, ordering, reentrancy, and cleanup behavior covered by runtime and stress tests.
 - Support non-`EventArgs` payloads in the generic stream runtime.
+- Add thread-safe `EventStreamOptions.DroppedCount` observability for bounded streams, backed by the channel's actual dropped-item callback rather than inferred write outcomes.
+- Add `EventStreamOptions.DropObserver` for immediate drop telemetry; observers receive the updated lifetime drop count, run on the producer thread, and cannot fault the stream if they throw.
+- Define drop counters as lifetime aggregates for the `EventStreamOptions` instance, so reusing one options object can intentionally aggregate telemetry across multiple stream enumerations.
 
 ### Async -> events
 
@@ -37,10 +40,12 @@ All notable changes to the native modern-.NET line of AsyncEventBridge are docum
 ### Performance and verification
 
 - Add a BenchmarkDotNet project for one-shot wait and buffered event-stream benchmarks.
+- Add bounded `DropNewest` benchmark baselines for counter-only and counter-plus-observer telemetry paths.
 - Build the benchmark project in normal CI without executing benchmarks on every push.
 - Require the generated NuGet package to contain native `net10.0` assets.
 - Restore, compile, and execute isolated `net10.0` consumers from the generated `.nupkg` in CI.
 - Exercise generated `EventHandler<int>` and `EventHandler<TSender, int>` APIs through the packaged runtime smoke test, including their generated `TimeProvider` timeout overloads.
+- Exercise bounded generated streams from the packaged runtime consumer and verify both drop counts and observer callbacks without changing retained event ordering.
 
 ### Source generator
 
