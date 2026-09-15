@@ -20,12 +20,12 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
         isEnabledByDefault: true);
 
     private static readonly DiagnosticDescriptor InvalidGenerationTarget = new(
-    id: "AEB002",
-    title: "Invalid async-event generation target",
-    messageFormat: "Type '{0}' cannot be targeted by GenerateAsyncEventsFor. Generated async-event adapters require a supported class type.",
-    category: "AsyncEventBridge",
-    defaultSeverity: DiagnosticSeverity.Warning,
-    isEnabledByDefault: true);
+        id: "AEB002",
+        title: "Invalid async-event generation target",
+        messageFormat: "Type '{0}' cannot be targeted by GenerateAsyncEventsFor. Generated async-event adapters require a supported class type.",
+        category: "AsyncEventBridge",
+        defaultSeverity: DiagnosticSeverity.Warning,
+        isEnabledByDefault: true);
 
     private static readonly DiagnosticDescriptor RedundantGenerationRequest = new(
         id: "AEB003",
@@ -124,8 +124,8 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
             }
 
             var targetType = requestedType.IsUnboundGenericType
-        ? requestedType.OriginalDefinition
-        : requestedType;
+                ? requestedType.OriginalDefinition
+                : requestedType;
             var location = request.ApplicationSyntaxReference?.GetSyntax(context.CancellationToken).GetLocation()
                 ?? Location.None;
 
