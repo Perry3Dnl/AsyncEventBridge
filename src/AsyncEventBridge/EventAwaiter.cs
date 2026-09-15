@@ -97,7 +97,10 @@ internal sealed class EventWaitState<TEventArgs>
 
     private CancellationTokenRegistration _cancellationRegistration;
     private ITimer? _timeoutRegistration;
-    private Completion? _completion;
+    private TEventArgs _result = default!;
+    private Exception? _exception;
+    private int _winnerClaimed;
+    private int _completionKind;
     private int _subscriptionAttempted;
     private int _initializationComplete;
     private int _cleanupStarted;
@@ -145,7 +148,7 @@ internal sealed class EventWaitState<TEventArgs>
         }
         catch (Exception exception)
         {
-            TryWin(Completion.Faulted(exception));
+            TryFault(exception);
         }
         finally
         {
@@ -158,11 +161,12 @@ internal sealed class EventWaitState<TEventArgs>
 
     private void OnEvent(object? sender, TEventArgs eventArgs)
     {
-        Completion completion;
+        CompletionKind completionKind;
+        Exception? exception = null;
 
         lock (_predicateGate)
         {
-            if (Volatile.Read(ref _completion) is not null)
+            if (Volatile.Read(ref _winnerClaimed) != 0)
             {
                 return;
             }
@@ -174,40 +178,70 @@ internal sealed class EventWaitState<TEventArgs>
                     return;
                 }
 
-                completion = Completion.Succeeded(eventArgs);
+                completionKind = CompletionKind.Succeeded;
             }
-            catch (Exception exception)
+            catch (Exception caughtException)
             {
-                completion = Completion.Faulted(exception);
+                completionKind = CompletionKind.Faulted;
+                exception = caughtException;
             }
 
-            if (Interlocked.CompareExchange(ref _completion, completion, null) is not null)
+            if (!TryClaimWinner())
             {
                 return;
             }
+
+            _result = eventArgs;
+            _exception = exception;
+            Volatile.Write(ref _completionKind, (int)completionKind);
         }
 
         TryFinalize();
     }
 
-    private void TryCancel() => TryWin(Completion.Cancelled());
-
-    private void TryTimeout() =>
-        TryWin(Completion.TimedOut(EventAwaiter.CreateTimeoutException(_timeout!.Value)));
-
-    private void TryWin(Completion completion)
+    private void TryCancel()
     {
-        if (Interlocked.CompareExchange(ref _completion, completion, null) is null)
+        if (!TryClaimWinner())
         {
-            TryFinalize();
+            return;
         }
+
+        Volatile.Write(ref _completionKind, (int)CompletionKind.Cancelled);
+        TryFinalize();
     }
+
+    private void TryTimeout()
+    {
+        if (!TryClaimWinner())
+        {
+            return;
+        }
+
+        _exception = EventAwaiter.CreateTimeoutException(_timeout!.Value);
+        Volatile.Write(ref _completionKind, (int)CompletionKind.TimedOut);
+        TryFinalize();
+    }
+
+    private void TryFault(Exception exception)
+    {
+        if (!TryClaimWinner())
+        {
+            return;
+        }
+
+        _exception = exception;
+        Volatile.Write(ref _completionKind, (int)CompletionKind.Faulted);
+        TryFinalize();
+    }
+
+    private bool TryClaimWinner() =>
+        Interlocked.CompareExchange(ref _winnerClaimed, 1, 0) == 0;
 
     private void TryFinalize()
     {
-        var completion = Volatile.Read(ref _completion);
+        var completionKind = (CompletionKind)Volatile.Read(ref _completionKind);
 
-        if (completion is null || Volatile.Read(ref _initializationComplete) == 0)
+        if (completionKind == CompletionKind.Pending || Volatile.Read(ref _initializationComplete) == 0)
         {
             return;
         }
@@ -254,26 +288,26 @@ internal sealed class EventWaitState<TEventArgs>
 
         if (cleanupErrors is not null)
         {
-            if (completion.Kind == CompletionKind.Faulted && completion.Exception is not null)
+            if (completionKind == CompletionKind.Faulted && _exception is not null)
             {
-                cleanupErrors.Insert(0, completion.Exception);
+                cleanupErrors.Insert(0, _exception);
             }
 
             _completionSource.TrySetException(cleanupErrors);
             return;
         }
 
-        switch (completion.Kind)
+        switch (completionKind)
         {
             case CompletionKind.Succeeded:
-                _completionSource.TrySetResult(completion.Result);
+                _completionSource.TrySetResult(_result);
                 break;
             case CompletionKind.Cancelled:
                 _completionSource.TrySetCanceled(_cancellationToken);
                 break;
             case CompletionKind.TimedOut:
             case CompletionKind.Faulted:
-                _completionSource.TrySetException(completion.Exception!);
+                _completionSource.TrySetException(_exception!);
                 break;
             default:
                 _completionSource.TrySetException(new InvalidOperationException("Unknown event wait completion state."));
@@ -289,37 +323,10 @@ internal sealed class EventWaitState<TEventArgs>
 
     private enum CompletionKind
     {
-        Succeeded,
-        Cancelled,
-        TimedOut,
-        Faulted,
-    }
-
-    private sealed class Completion
-    {
-        private Completion(CompletionKind kind, TEventArgs result, Exception? exception)
-        {
-            Kind = kind;
-            Result = result;
-            Exception = exception;
-        }
-
-        internal CompletionKind Kind { get; }
-
-        internal TEventArgs Result { get; }
-
-        internal Exception? Exception { get; }
-
-        internal static Completion Succeeded(TEventArgs result) =>
-            new(CompletionKind.Succeeded, result, null);
-
-        internal static Completion Cancelled() =>
-            new(CompletionKind.Cancelled, default!, null);
-
-        internal static Completion TimedOut(Exception exception) =>
-            new(CompletionKind.TimedOut, default!, exception);
-
-        internal static Completion Faulted(Exception exception) =>
-            new(CompletionKind.Faulted, default!, exception);
+        Pending = 0,
+        Succeeded = 1,
+        Cancelled = 2,
+        TimedOut = 3,
+        Faulted = 4,
     }
 }
