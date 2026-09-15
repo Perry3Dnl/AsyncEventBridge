@@ -58,6 +58,36 @@ if (await strongSenderWait != 321)
     throw new InvalidOperationException("The packaged EventHandler<TSender, TPayload> bridge returned the wrong value.");
 }
 
+var droppedCounts = new List<long>();
+var dropOptions = new EventStreamOptions
+{
+    Capacity = 1,
+    FullMode = EventStreamFullMode.DropNewest,
+    DropObserver = droppedCounts.Add,
+};
+await using (var modernStream = modernSensor.ValueChangedStream(dropOptions).GetAsyncEnumerator())
+{
+    var firstMove = modernStream.MoveNextAsync().AsTask();
+    modernSensor.Raise(10);
+    if (!await firstMove || modernStream.Current != 10)
+    {
+        throw new InvalidOperationException("The packaged generated stream failed before backpressure verification.");
+    }
+
+    modernSensor.Raise(20);
+    modernSensor.Raise(30);
+
+    if (dropOptions.DroppedCount != 1 || !droppedCounts.SequenceEqual(new long[] { 1 }))
+    {
+        throw new InvalidOperationException("The packaged bounded stream did not report the dropped event.");
+    }
+
+    if (!await modernStream.MoveNextAsync() || modernStream.Current != 20)
+    {
+        throw new InvalidOperationException("DropNewest changed the buffered event ordering.");
+    }
+}
+
 var taskValue = 0;
 using (EventBridge<int> taskBridge = Task.FromResult(7).ToEventBridge())
 {
@@ -150,7 +180,6 @@ public sealed class SensorEventArgs : EventArgs
 
     public int Value { get; }
 }
-
 
 [GenerateAsyncEvents]
 public sealed class ModernPayloadSensor
