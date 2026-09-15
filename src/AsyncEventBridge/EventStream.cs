@@ -192,13 +192,15 @@ public static class EventStream
             AllowSynchronousContinuations = false,
         };
 
-        if (settings.Options is null)
-        {
-            return Channel.CreateBounded<T>(channelOptions);
-        }
-
         return Channel.CreateBounded<T>(channelOptions, _ =>
         {
+            AsyncEventBridgeMetrics.RecordStreamDrop(settings.FullMode);
+
+            if (settings.Options is null)
+            {
+                return;
+            }
+
             var droppedCount = settings.Options.RecordDrop();
             var observer = settings.DropObserver;
 
