@@ -76,6 +76,28 @@ public sealed class EventStreamBridgeTests
     }
 
     [Fact]
+    public async Task SourceOperationCanceledExceptionWithoutBridgeCancellationPublishesFaulted()
+    {
+        var expected = new OperationCanceledException("source failed independently");
+        await using EventStreamBridge<int> bridge = FaultingValues(expected).ToEventBridge();
+        var faulted = new TaskCompletionSource<Exception>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var completed = 0;
+        var cancelled = 0;
+
+        bridge.Completed += (_, _) => Interlocked.Increment(ref completed);
+        bridge.Faulted += (_, e) => faulted.TrySetResult(e.Exception);
+        bridge.Cancelled += (_, _) => Interlocked.Increment(ref cancelled);
+
+        bridge.Connect();
+
+        var actual = await faulted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Same(expected, actual);
+        Assert.Equal(0, completed);
+        Assert.Equal(0, cancelled);
+    }
+
+    [Fact]
     public async Task CancellationPublishesCancelled()
     {
         var channel = Channel.CreateUnbounded<int>();

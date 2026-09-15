@@ -182,7 +182,7 @@ public sealed class EventStreamBridge<T> : IDisposable, IAsyncDisposable
             cancellationToken.ThrowIfCancellationRequested();
             PublishCompleted();
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (lifetimeCts.IsCancellationRequested)
         {
             PublishCancelled();
         }
