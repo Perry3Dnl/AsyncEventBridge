@@ -58,7 +58,7 @@ public sealed class PublicApiTests
 
         AssertPropertyNames(typeof(AsyncValueEventArgs<int>), "Value");
         AssertPropertyNames(typeof(AsyncFaultedEventArgs), "Exception");
-        AssertPropertyNames(typeof(EventStreamOptions), "Capacity", "FullMode");
+        AssertPropertyNames(typeof(EventStreamOptions), "Capacity", "DroppedCount", "DropObserver", "FullMode");
         AssertPropertyNames(typeof(GenerateAsyncEventsForAttribute), "TargetType");
 
         Assert.Equal(
@@ -73,6 +73,8 @@ public sealed class PublicApiTests
 
         Assert.Equal(100, options.Capacity);
         Assert.Equal(EventStreamFullMode.Grow, options.FullMode);
+        Assert.Equal(0, options.DroppedCount);
+        Assert.Null(options.DropObserver);
         Assert.Equal(0, (int)EventStreamFullMode.Grow);
         Assert.Equal(1, (int)EventStreamFullMode.DropOldest);
         Assert.Equal(2, (int)EventStreamFullMode.DropNewest);
