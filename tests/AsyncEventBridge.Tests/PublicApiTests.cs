@@ -35,7 +35,13 @@ public sealed class PublicApiTests
     [Fact]
     public void RuntimePublicMethodsStaySmallAndIntentional()
     {
-        AssertMethodNames(typeof(AsyncEventBridgeExtensions), "ToEventBridge", "ToEventBridge", "ToEventBridge");
+        AssertMethodNames(
+            typeof(AsyncEventBridgeExtensions),
+            "ToEventBridge",
+            "ToEventBridge",
+            "ToEventBridge",
+            "ToEventBridge",
+            "ToEventBridge");
         AssertMethodNames(typeof(EventAwaiter), "WaitAsync", "WaitAsync");
         AssertMethodNames(typeof(EventStream), "Create", "Create");
         AssertMethodNames(typeof(EventBridge), "Connect", "Dispose");
