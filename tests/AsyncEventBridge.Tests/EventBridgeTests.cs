@@ -29,6 +29,71 @@ public sealed class EventBridgeTests
     }
 
     [Fact]
+    public void GenericValueTaskBridgePublishesCompletedValueAfterConnect()
+    {
+        using EventBridge<int> bridge = new ValueTask<int>(42).ToEventBridge();
+        int? value = null;
+
+        bridge.Completed += (_, e) => value = e.Value;
+        bridge.Connect();
+
+        Assert.Equal(42, value);
+    }
+
+    [Fact]
+    public void NonGenericValueTaskBridgePublishesCompletedAfterConnect()
+    {
+        using EventBridge bridge = ValueTask.CompletedTask.ToEventBridge();
+        var completed = false;
+
+        bridge.Completed += (_, _) => completed = true;
+        bridge.Connect();
+
+        Assert.True(completed);
+    }
+
+    [Fact]
+    public void GenericValueTaskBridgePublishesFaultWithoutOtherTerminalEvents()
+    {
+        var expected = new InvalidOperationException("value task failed");
+        var valueTask = new ValueTask<int>(Task.FromException<int>(expected));
+        using EventBridge<int> bridge = valueTask.ToEventBridge();
+        Exception? observed = null;
+        var completed = 0;
+        var cancelled = 0;
+
+        bridge.Completed += (_, _) => Interlocked.Increment(ref completed);
+        bridge.Faulted += (_, e) => observed = e.Exception;
+        bridge.Cancelled += (_, _) => Interlocked.Increment(ref cancelled);
+
+        bridge.Connect();
+
+        Assert.Same(expected, observed);
+        Assert.Equal(0, completed);
+        Assert.Equal(0, cancelled);
+    }
+
+    [Fact]
+    public void NonGenericValueTaskBridgePublishesCancelledWithoutOtherTerminalEvents()
+    {
+        var valueTask = new ValueTask(Task.FromCanceled(new CancellationToken(canceled: true)));
+        using EventBridge bridge = valueTask.ToEventBridge();
+        var completed = 0;
+        var faulted = 0;
+        var cancelled = 0;
+
+        bridge.Completed += (_, _) => Interlocked.Increment(ref completed);
+        bridge.Faulted += (_, _) => Interlocked.Increment(ref faulted);
+        bridge.Cancelled += (_, _) => Interlocked.Increment(ref cancelled);
+
+        bridge.Connect();
+
+        Assert.Equal(0, completed);
+        Assert.Equal(0, faulted);
+        Assert.Equal(1, cancelled);
+    }
+
+    [Fact]
     public void GenericBridgePublishesFaultWithoutOtherTerminalEvents()
     {
         var expected = new InvalidOperationException("sensor configuration failed");
