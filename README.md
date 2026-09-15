@@ -139,6 +139,23 @@ Reading reading = await sensor.ReadingChangedAsync();
 
 AsyncEventBridge remains payload-centric: the generated task/stream carries the second event parameter. A strongly typed sender is used for event subscription but is not added to the async result.
 
+When sender identity matters, the modern package also generates an opt-in occurrence facade without changing the existing payload-only API:
+
+```csharp
+EventOccurrence<Sensor, Reading> occurrence =
+    await sensor.ReadingChangedOccurrenceAsync();
+
+Sensor sender = occurrence.Sender;
+Reading reading = occurrence.Payload;
+
+await foreach (EventOccurrence<Sensor, Reading> item in sensor.ReadingChangedOccurrenceStream())
+{
+    Process(item.Sender, item.Payload);
+}
+```
+
+The sender-aware generator supports ordinary two-parameter `void` event delegates when both sender and payload are safe to carry across an async lifetime. Ref-like senders or payloads are deliberately excluded from occurrence APIs.
+
 Custom two-parameter `void` delegates receive the same treatment when the second parameter is a normal non-ref-like type:
 
 ```csharp
@@ -224,6 +241,29 @@ asynceventbridge.event_stream.dropped
 The tags are intentionally bounded and low-cardinality. Event names, source types, capacities, exception messages, and user data are not attached automatically. Applications can collect the meter with `MeterListener`, `dotnet-counters`, OpenTelemetry, or another `System.Diagnostics.Metrics` consumer.
 
 See [`docs/metrics.md`](docs/metrics.md) for the stable metric contract and semantics.
+
+## Compose event waits
+
+`EventComposition.WaitAnyAsync` races two cancellable event waits and cancels/observes the loser before returning. This avoids leaving a hidden event subscription behind, which is the lifecycle problem with wrapping event waits in a plain `Task.WhenAny` and ignoring the losing task.
+
+```csharp
+EventWaitAnyResult<ConnectedEventArgs, ErrorEventArgs> result =
+    await EventComposition.WaitAnyAsync(
+        token => client.ConnectedAsync(token),
+        token => client.ErrorAsync(token),
+        cancellationToken);
+
+if (result.IsFirst)
+{
+    HandleConnected(result.First);
+}
+else
+{
+    HandleError(result.Second);
+}
+```
+
+Wait factories are expected to honor the supplied cancellation token. Winner faults and losing cleanup faults remain observable; losing cancellation used for cleanup is not treated as an error.
 
 ## Async work back to events
 

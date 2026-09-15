@@ -19,6 +19,11 @@ public sealed class PublicApiTests
             "AsyncEventBridge.AsyncFaultedEventArgs",
             "AsyncEventBridge.AsyncValueEventArgs`1",
             "AsyncEventBridge.EventAwaiter",
+            "AsyncEventBridge.EventComposition",
+            "AsyncEventBridge.EventOccurrence`2",
+            "AsyncEventBridge.EventOccurrenceAwaiter",
+            "AsyncEventBridge.EventOccurrenceStream",
+            "AsyncEventBridge.EventWaitAnyResult`2",
             "AsyncEventBridge.EventBridge",
             "AsyncEventBridge.EventBridge`1",
             "AsyncEventBridge.EventStream",
@@ -43,6 +48,9 @@ public sealed class PublicApiTests
             "ToEventBridge",
             "ToEventBridge");
         AssertMethodNames(typeof(EventAwaiter), "WaitAsync", "WaitAsync");
+        AssertMethodNames(typeof(EventOccurrenceAwaiter), "WaitAsync");
+        AssertMethodNames(typeof(EventOccurrenceStream), "Create");
+        AssertMethodNames(typeof(EventComposition), "WaitAnyAsync");
         AssertMethodNames(typeof(EventStream), "Create", "Create");
         AssertMethodNames(typeof(EventBridge), "Connect", "Dispose");
         AssertMethodNames(typeof(EventBridge<int>), "Connect", "Dispose");
@@ -61,6 +69,18 @@ public sealed class PublicApiTests
             typeof(EventStream),
             "System.Collections.Generic.IAsyncEnumerable<System.EventArgs> Create(System.Action<System.EventHandler> subscribe, System.Action<System.EventHandler> unsubscribe, System.Predicate<System.EventArgs> predicate optional, AsyncEventBridge.EventStreamOptions options optional, System.Threading.CancellationToken cancellationToken optional)",
             "System.Collections.Generic.IAsyncEnumerable<TEventArgs> Create<TEventArgs>(System.Action<System.EventHandler<TEventArgs>> subscribe, System.Action<System.EventHandler<TEventArgs>> unsubscribe, System.Predicate<TEventArgs> predicate optional, AsyncEventBridge.EventStreamOptions options optional, System.Threading.CancellationToken cancellationToken optional)");
+
+        AssertMethodSignatures(
+            typeof(EventOccurrenceAwaiter),
+            "System.Threading.Tasks.Task<AsyncEventBridge.EventOccurrence<TSender,TPayload>> WaitAsync<TSender,TPayload>(System.Action<System.EventHandler<TSender,TPayload>> subscribe, System.Action<System.EventHandler<TSender,TPayload>> unsubscribe, System.Predicate<AsyncEventBridge.EventOccurrence<TSender,TPayload>> predicate optional, System.Threading.CancellationToken cancellationToken optional, System.Nullable<System.TimeSpan> timeout optional, System.TimeProvider timeProvider optional)");
+
+        AssertMethodSignatures(
+            typeof(EventOccurrenceStream),
+            "System.Collections.Generic.IAsyncEnumerable<AsyncEventBridge.EventOccurrence<TSender,TPayload>> Create<TSender,TPayload>(System.Action<System.EventHandler<TSender,TPayload>> subscribe, System.Action<System.EventHandler<TSender,TPayload>> unsubscribe, System.Predicate<AsyncEventBridge.EventOccurrence<TSender,TPayload>> predicate optional, AsyncEventBridge.EventStreamOptions options optional, System.Threading.CancellationToken cancellationToken optional)");
+
+        AssertMethodSignatures(
+            typeof(EventComposition),
+            "System.Threading.Tasks.Task<AsyncEventBridge.EventWaitAnyResult<TFirst,TSecond>> WaitAnyAsync<TFirst,TSecond>(System.Func<System.Threading.CancellationToken,System.Threading.Tasks.Task<TFirst>> firstWait, System.Func<System.Threading.CancellationToken,System.Threading.Tasks.Task<TSecond>> secondWait, System.Threading.CancellationToken cancellationToken optional)");
 
         AssertMethodSignatures(
             typeof(AsyncEventBridgeExtensions),
@@ -97,6 +117,8 @@ public sealed class PublicApiTests
         AssertPropertyNames(typeof(AsyncValueEventArgs<int>), "Value");
         AssertPropertyNames(typeof(AsyncFaultedEventArgs), "Exception");
         AssertPropertyNames(typeof(EventStreamOptions), "Capacity", "DroppedCount", "DropObserver", "FullMode");
+        AssertPropertyNames(typeof(EventOccurrence<object, int>), "Payload", "Sender");
+        AssertPropertyNames(typeof(EventWaitAnyResult<int, string>), "First", "IsFirst", "IsSecond", "Second");
         AssertPropertyNames(typeof(GenerateAsyncEventsForAttribute), "TargetType");
 
         Assert.Equal(
@@ -132,6 +154,17 @@ public sealed class PublicApiTests
             "DroppedCount:System.Int64:get",
             "DropObserver:System.Action<System.Int64>:get,set",
             "FullMode:AsyncEventBridge.EventStreamFullMode:get,set");
+
+        AssertPropertySignatures(
+            typeof(EventOccurrence<object, int>),
+            "Payload:System.Int32:get",
+            "Sender:System.Object:get");
+        AssertPropertySignatures(
+            typeof(EventWaitAnyResult<int, string>),
+            "First:System.Int32:get",
+            "IsFirst:System.Boolean:get",
+            "IsSecond:System.Boolean:get",
+            "Second:System.String:get");
 
         AssertPropertySignatures(typeof(AsyncValueEventArgs<int>), "Value:System.Int32:get");
         AssertPropertySignatures(typeof(AsyncFaultedEventArgs), "Exception:System.Exception:get");

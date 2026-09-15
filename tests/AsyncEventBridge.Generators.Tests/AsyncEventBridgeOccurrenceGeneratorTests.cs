@@ -41,6 +41,20 @@ public sealed class AsyncEventBridgeOccurrenceGeneratorTests
                     TimeSpan? timeout = null,
                     TimeProvider? timeProvider = null) => throw new NotImplementedException();
             }
+
+            public sealed class EventStreamOptions
+            {
+            }
+
+            public static class EventOccurrenceStream
+            {
+                public static System.Collections.Generic.IAsyncEnumerable<EventOccurrence<TSender, TPayload>> Create<TSender, TPayload>(
+                    Action<EventHandler<TSender, TPayload>> subscribe,
+                    Action<EventHandler<TSender, TPayload>> unsubscribe,
+                    Predicate<EventOccurrence<TSender, TPayload>>? predicate = null,
+                    EventStreamOptions? options = null,
+                    CancellationToken cancellationToken = default) => throw new NotImplementedException();
+            }
         }
         """;
 
@@ -62,6 +76,7 @@ public sealed class AsyncEventBridgeOccurrenceGeneratorTests
         var generated = Assert.Single(Assert.Single(result.Results).GeneratedSources).SourceText.ToString();
 
         Assert.Contains("ValueChangedOccurrenceAsync", generated, StringComparison.Ordinal);
+        Assert.Contains("ValueChangedOccurrenceStream", generated, StringComparison.Ordinal);
         Assert.Contains("EventOccurrence<global::Demo.Sensor, global::System.Int32>", generated, StringComparison.Ordinal);
         Assert.Contains("EventOccurrenceAwaiter.WaitAsync<global::Demo.Sensor, global::System.Int32>", generated, StringComparison.Ordinal);
     }
@@ -166,7 +181,7 @@ public sealed class AsyncEventBridgeOccurrenceGeneratorTests
 
         return trustedPlatformAssemblies
             .Split(Path.PathSeparator)
-            .Select(MetadataReference.CreateFromFile)
+            .Select(path => (MetadataReference)MetadataReference.CreateFromFile(path))
             .ToImmutableArray();
     }
 }

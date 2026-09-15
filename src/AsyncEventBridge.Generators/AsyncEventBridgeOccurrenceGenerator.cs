@@ -136,6 +136,8 @@ public sealed class AsyncEventBridgeOccurrenceGenerator : IIncrementalGenerator
         {
             AppendOccurrenceWait(source, typeSymbol, item, typeParameters, includeTimeout: false);
             AppendOccurrenceWait(source, typeSymbol, item, typeParameters, includeTimeout: true);
+            AppendOccurrenceStream(source, typeSymbol, item, typeParameters, includeOptions: false);
+            AppendOccurrenceStream(source, typeSymbol, item, typeParameters, includeOptions: true);
         }
 
         source.AppendLine("}")
@@ -243,6 +245,96 @@ public sealed class AsyncEventBridgeOccurrenceGenerator : IIncrementalGenerator
             .AppendLine();
     }
 
+    private static void AppendOccurrenceStream(
+        StringBuilder source,
+        INamedTypeSymbol typeSymbol,
+        EventInfo item,
+        TypeParameterContext typeParameters,
+        bool includeOptions)
+    {
+        var sourceType = RenderType(typeSymbol, typeParameters);
+        var eventName = EscapeIdentifier(item.EventSymbol.Name);
+        var methodName = eventName.TrimStart('@') + "OccurrenceStream";
+        var occurrenceType = $"global::AsyncEventBridge.EventOccurrence<{item.SenderType}, {item.PayloadType}>";
+
+        source.Append("    ")
+            .Append(item.Accessibility)
+            .Append(" static global::System.Collections.Generic.IAsyncEnumerable<")
+            .Append(occurrenceType)
+            .Append("> ")
+            .Append(methodName);
+        AppendMethodTypeParameters(source, typeParameters);
+        source.Append("(this ")
+            .Append(sourceType)
+            .Append(" source, ");
+
+        if (includeOptions)
+        {
+            source.Append("global::AsyncEventBridge.EventStreamOptions options, ");
+        }
+
+        source.Append("global::System.Threading.CancellationToken cancellationToken = default)");
+        AppendMethodConstraints(source, typeParameters);
+        source.AppendLine()
+            .AppendLine("    {")
+            .AppendLine("        if (source is null)")
+            .AppendLine("        {")
+            .AppendLine("            throw new global::System.ArgumentNullException(nameof(source));")
+            .AppendLine("        }")
+            .AppendLine();
+
+        if (includeOptions)
+        {
+            source.AppendLine("        if (options is null)")
+                .AppendLine("        {")
+                .AppendLine("            throw new global::System.ArgumentNullException(nameof(options));")
+                .AppendLine("        }")
+                .AppendLine();
+        }
+
+        source.Append("        ")
+            .Append(item.HandlerType)
+            .AppendLine("? adaptedHandler = null;")
+            .AppendLine()
+            .Append("        return global::AsyncEventBridge.EventOccurrenceStream.Create<")
+            .Append(item.SenderType)
+            .Append(", ")
+            .Append(item.PayloadType)
+            .AppendLine(">(")
+            .Append("            (global::System.EventHandler<")
+            .Append(item.SenderType)
+            .Append(", ")
+            .Append(item.PayloadType)
+            .AppendLine("> handler) =>")
+            .AppendLine("            {")
+            .Append("                adaptedHandler = new ")
+            .Append(item.HandlerType)
+            .AppendLine("((sender, payload) => handler(sender, payload));")
+            .Append("                source.")
+            .Append(eventName)
+            .AppendLine(" += adaptedHandler;")
+            .AppendLine("            },")
+            .Append("            (global::System.EventHandler<")
+            .Append(item.SenderType)
+            .Append(", ")
+            .Append(item.PayloadType)
+            .AppendLine("> _) =>")
+            .AppendLine("            {")
+            .AppendLine("                if (adaptedHandler != null)")
+            .AppendLine("                {")
+            .Append("                    source.")
+            .Append(eventName)
+            .AppendLine(" -= adaptedHandler;")
+            .AppendLine("                }")
+            .AppendLine("            },")
+            .AppendLine("            null,")
+            .Append("            ")
+            .AppendLine(includeOptions ? "options," : "null,")
+            .AppendLine("            cancellationToken);")
+            .AppendLine("    }")
+            .AppendLine();
+    }
+
     private static bool TryDescribeEvent(
         IEventSymbol eventSymbol,
         TypeParameterContext typeParameters,
@@ -265,7 +357,7 @@ public sealed class AsyncEventBridgeOccurrenceGenerator : IIncrementalGenerator
 
         eventInfo = new EventInfo(
             eventSymbol,
-            RenderType(delegateType, typeParameters),
+            RenderType(delegateType.WithNullableAnnotation(NullableAnnotation.NotAnnotated), typeParameters),
             RenderType(invokeMethod.Parameters[0].Type, typeParameters),
             RenderType(invokeMethod.Parameters[1].Type, typeParameters),
             string.Empty);

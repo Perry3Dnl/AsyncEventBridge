@@ -58,6 +58,38 @@ if (await strongSenderWait != 321)
     throw new InvalidOperationException("The packaged EventHandler<TSender, TPayload> bridge returned the wrong value.");
 }
 
+var occurrenceWait = strongSenderSensor.ValueChangedOccurrenceAsync();
+strongSenderSensor.Raise(322);
+var occurrence = await occurrenceWait;
+if (!ReferenceEquals(occurrence.Sender, strongSenderSensor) || occurrence.Payload != 322)
+{
+    throw new InvalidOperationException("The packaged sender-aware generated wait lost sender or payload information.");
+}
+
+await using (var occurrenceStream = strongSenderSensor.ValueChangedOccurrenceStream().GetAsyncEnumerator())
+{
+    var occurrenceMove = occurrenceStream.MoveNextAsync().AsTask();
+    strongSenderSensor.Raise(323);
+    if (!await occurrenceMove ||
+        !ReferenceEquals(occurrenceStream.Current.Sender, strongSenderSensor) ||
+        occurrenceStream.Current.Payload != 323)
+    {
+        throw new InvalidOperationException("The packaged sender-aware generated stream lost sender or payload information.");
+    }
+}
+
+var choiceSensor = new ChoiceSensor();
+var choiceWait = EventComposition.WaitAnyAsync(
+    token => choiceSensor.NumberAsync(token),
+    token => choiceSensor.TextAsync(token));
+choiceSensor.RaiseText("ready");
+var choice = await choiceWait;
+if (!choice.IsSecond || choice.Second != "ready" ||
+    choiceSensor.NumberHandlerCount != 0 || choiceSensor.TextHandlerCount != 0)
+{
+    throw new InvalidOperationException("The packaged WaitAny composition did not return the winner and clean up the loser.");
+}
+
 var droppedCounts = new List<long>();
 var dropOptions = new EventStreamOptions
 {
@@ -195,4 +227,29 @@ public sealed class StrongSenderSensor
     public event EventHandler<StrongSenderSensor, int>? ValueChanged;
 
     public void Raise(int value) => ValueChanged?.Invoke(this, value);
+}
+
+
+[GenerateAsyncEvents]
+public sealed class ChoiceSensor
+{
+    private EventHandler<int>? _number;
+    private EventHandler<string>? _text;
+
+    public event EventHandler<int>? Number
+    {
+        add => _number += value;
+        remove => _number -= value;
+    }
+
+    public event EventHandler<string>? Text
+    {
+        add => _text += value;
+        remove => _text -= value;
+    }
+
+    public int NumberHandlerCount => _number?.GetInvocationList().Length ?? 0;
+    public int TextHandlerCount => _text?.GetInvocationList().Length ?? 0;
+
+    public void RaiseText(string value) => _text?.Invoke(this, value);
 }

@@ -10,6 +10,24 @@ if (await wait != 42)
     throw new InvalidOperationException("Native AOT generated Event -> Task bridge returned the wrong value.");
 }
 
+var occurrenceWait = sensor.ValueChangedOccurrenceAsync();
+sensor.Raise(46);
+var occurrence = await occurrenceWait;
+if (!ReferenceEquals(occurrence.Sender, sensor) || occurrence.Payload != 46)
+{
+    throw new InvalidOperationException("Native AOT sender-aware occurrence wait returned the wrong sender or payload.");
+}
+
+await using (var occurrenceStream = sensor.ValueChangedOccurrenceStream().GetAsyncEnumerator())
+{
+    var moveNext = occurrenceStream.MoveNextAsync().AsTask();
+    sensor.Raise(47);
+    if (!await moveNext || !ReferenceEquals(occurrenceStream.Current.Sender, sensor) || occurrenceStream.Current.Payload != 47)
+    {
+        throw new InvalidOperationException("Native AOT sender-aware occurrence stream returned the wrong sender or payload.");
+    }
+}
+
 await using (var stream = sensor.ValueChangedStream().GetAsyncEnumerator())
 {
     var moveNext = stream.MoveNextAsync().AsTask();

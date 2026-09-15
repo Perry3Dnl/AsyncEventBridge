@@ -11,54 +11,54 @@ using System.Threading.Tasks;
 namespace AsyncEventBridge
 {
 
-internal static class EventHandlerDispatcher
-{
-    internal static void Invoke(EventHandler? handlers, object sender)
+    internal static class EventHandlerDispatcher
     {
-        if (handlers is null)
+        internal static void Invoke(EventHandler? handlers, object sender)
         {
-            return;
+            if (handlers is null)
+            {
+                return;
+            }
+
+            foreach (EventHandler handler in handlers.GetInvocationList())
+            {
+                try
+                {
+                    handler(sender, EventArgs.Empty);
+                }
+                catch (Exception exception)
+                {
+                    System.Diagnostics.Trace.TraceError(
+                        "AsyncEventBridge event handler threw an exception: {0}",
+                        exception);
+                }
+            }
         }
 
-        foreach (EventHandler handler in handlers.GetInvocationList())
+        internal static void Invoke<TEventArgs>(
+            EventHandler<TEventArgs>? handlers,
+            object sender,
+            TEventArgs eventArgs)
+            where TEventArgs : EventArgs
         {
-            try
+            if (handlers is null)
             {
-                handler(sender, EventArgs.Empty);
+                return;
             }
-            catch (Exception exception)
+
+            foreach (EventHandler<TEventArgs> handler in handlers.GetInvocationList())
             {
-                System.Diagnostics.Trace.TraceError(
-                    "AsyncEventBridge event handler threw an exception: {0}",
-                    exception);
+                try
+                {
+                    handler(sender, eventArgs);
+                }
+                catch (Exception exception)
+                {
+                    System.Diagnostics.Trace.TraceError(
+                        "AsyncEventBridge event handler threw an exception: {0}",
+                        exception);
+                }
             }
         }
     }
-
-    internal static void Invoke<TEventArgs>(
-        EventHandler<TEventArgs>? handlers,
-        object sender,
-        TEventArgs eventArgs)
-        where TEventArgs : EventArgs
-    {
-        if (handlers is null)
-        {
-            return;
-        }
-
-        foreach (EventHandler<TEventArgs> handler in handlers.GetInvocationList())
-        {
-            try
-            {
-                handler(sender, eventArgs);
-            }
-            catch (Exception exception)
-            {
-                System.Diagnostics.Trace.TraceError(
-                    "AsyncEventBridge event handler threw an exception: {0}",
-                    exception);
-            }
-        }
-    }
-}
 }

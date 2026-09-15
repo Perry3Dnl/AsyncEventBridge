@@ -16,6 +16,8 @@ All notable changes to the native modern-.NET line of AsyncEventBridge are docum
 
 ### Modern event waits
 
+- Add `EventOccurrence<TSender, TPayload>` plus low-level and generated sender-aware wait/stream facades for code where sender identity is part of the event semantics. Existing payload-only generated APIs remain unchanged.
+- Add `EventComposition.WaitAnyAsync` with heterogeneous result types and deterministic loser cancellation/observation so racing event waits do not leak losing subscriptions.
 - Add an optional `TimeProvider` to `EventAwaiter.WaitAsync(...)` so timeout behavior can use virtual/test time.
 - Replace the runtime-specific timeout scheduler abstraction with `TimeProvider.CreateTimer(...)`.
 - Use `CancellationToken.UnsafeRegister(...)` for the internal cancellation callback to avoid unnecessary execution-context capture on the hot wait path.
