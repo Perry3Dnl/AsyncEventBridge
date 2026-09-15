@@ -11,7 +11,7 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
@@ -78,6 +78,29 @@ jobs:
 
       - name: Run packaged runtime consumer
         run: timeout 15s dotnet run --project tests/AsyncEventBridge.PackageRuntimeSmoke/AsyncEventBridge.PackageRuntimeSmoke.csproj --configuration Release --no-restore -p:AsyncEventBridgePackageVersion="$VERSION"
+
+      - name: Restore packaged Native AOT consumer
+        run: dotnet restore tests/AsyncEventBridge.PackageAotSmoke/AsyncEventBridge.PackageAotSmoke.csproj --runtime linux-x64 --source "$PWD/artifacts/packages" --source https://api.nuget.org/v3/index.json -p:AsyncEventBridgePackageVersion="$VERSION"
+
+      - name: Publish packaged Native AOT consumer
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/native-aot
+          dotnet publish tests/AsyncEventBridge.PackageAotSmoke/AsyncEventBridge.PackageAotSmoke.csproj \
+            --configuration Release \
+            --runtime linux-x64 \
+            --no-restore \
+            -p:AsyncEventBridgePackageVersion="$VERSION" \
+            -o artifacts/native-aot 2>&1 | tee artifacts/native-aot-publish.log
+          if grep -E 'warning IL[0-9]{4}' artifacts/native-aot-publish.log; then
+            echo "Native AOT/trimming warnings are not allowed."
+            exit 1
+          fi
+          test -x artifacts/native-aot/AsyncEventBridge.PackageAotSmoke
+
+      - name: Run packaged Native AOT consumer
+        run: timeout 15s ./artifacts/native-aot/AsyncEventBridge.PackageAotSmoke
 
       - name: Upload development packages
         uses: actions/upload-artifact@v4

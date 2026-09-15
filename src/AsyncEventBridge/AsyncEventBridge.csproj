@@ -4,11 +4,13 @@
     <AssemblyName>AsyncEventBridge</AssemblyName>
     <RootNamespace>AsyncEventBridge</RootNamespace>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <IsAotCompatible>true</IsAotCompatible>
+    <VerifyReferenceAotCompatibility>true</VerifyReferenceAotCompatibility>
 
     <PackageId>AsyncEventBridge</PackageId>
     <Authors>Perry3Dnl</Authors>
     <Description>Bridge event-driven and async .NET code in both directions with a native modern .NET runtime.</Description>
-    <PackageTags>async;events;task;valuetask;iasyncenumerable;channels;source-generator;net10</PackageTags>
+    <PackageTags>async;events;task;valuetask;iasyncenumerable;channels;source-generator;net10;nativeaot;trimming</PackageTags>
     <PackageProjectUrl>https://github.com/Perry3Dnl/AsyncEventBridge</PackageProjectUrl>
     <RepositoryUrl>https://github.com/Perry3Dnl/AsyncEventBridge.git</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
