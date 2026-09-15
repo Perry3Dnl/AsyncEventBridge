@@ -39,7 +39,9 @@ if (customSensor.HandlerCount != 0)
 }
 
 var modernSensor = new ModernPayloadSensor();
-var modernWait = modernSensor.ValueChangedAsync();
+var modernWait = modernSensor.ValueChangedAsync(
+    TimeSpan.FromSeconds(1),
+    timeProvider: TimeProvider.System);
 modernSensor.Raise(123);
 if (await modernWait != 123)
 {
@@ -47,7 +49,9 @@ if (await modernWait != 123)
 }
 
 var strongSenderSensor = new StrongSenderSensor();
-var strongSenderWait = strongSenderSensor.ValueChangedAsync();
+var strongSenderWait = strongSenderSensor.ValueChangedAsync(
+    TimeSpan.FromSeconds(1),
+    timeProvider: TimeProvider.System);
 strongSenderSensor.Raise(321);
 if (await strongSenderWait != 321)
 {

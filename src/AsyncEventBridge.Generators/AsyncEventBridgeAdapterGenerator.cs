@@ -281,7 +281,14 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
             source.Append("global::System.TimeSpan timeout, ");
         }
 
-        source.Append("global::System.Threading.CancellationToken cancellationToken = default)");
+        source.Append("global::System.Threading.CancellationToken cancellationToken = default");
+
+        if (includeTimeout)
+        {
+            source.Append(", global::System.TimeProvider? timeProvider = null");
+        }
+
+        source.Append(')');
         AppendMethodConstraints(source, typeParameters);
         source.AppendLine()
             .AppendLine("    {")
@@ -342,7 +349,8 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
         if (includeTimeout)
         {
             source.AppendLine(",")
-                .AppendLine("            timeout);");
+                .AppendLine("            timeout,")
+                .AppendLine("            timeProvider);");
         }
         else
         {
@@ -393,7 +401,8 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
         if (includeTimeout)
         {
             source.AppendLine(",")
-                .AppendLine("            timeout);");
+                .AppendLine("            timeout,")
+                .AppendLine("            timeProvider);");
         }
         else
         {

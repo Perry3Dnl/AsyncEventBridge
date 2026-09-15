@@ -40,14 +40,16 @@ public sealed class AsyncEventBridgeAdapterGeneratorTests
                     Action<EventHandler> unsubscribe,
                     Predicate<EventArgs>? predicate = null,
                     CancellationToken cancellationToken = default,
-                    TimeSpan? timeout = null) => throw new NotImplementedException();
+                    TimeSpan? timeout = null,
+                    TimeProvider? timeProvider = null) => throw new NotImplementedException();
 
                 public static Task<TEventArgs> WaitAsync<TEventArgs>(
                     Action<EventHandler<TEventArgs>> subscribe,
                     Action<EventHandler<TEventArgs>> unsubscribe,
                     Predicate<TEventArgs>? predicate = null,
                     CancellationToken cancellationToken = default,
-                    TimeSpan? timeout = null) => throw new NotImplementedException();
+                    TimeSpan? timeout = null,
+                    TimeProvider? timeProvider = null) => throw new NotImplementedException();
             }
 
             public static class EventStream
@@ -95,6 +97,8 @@ public sealed class AsyncEventBridgeAdapterGeneratorTests
 
         Assert.Contains("Task<global::Demo.SensorEventArgs> ChangedAsync", generatedSource, StringComparison.Ordinal);
         Assert.Contains("IAsyncEnumerable<global::Demo.SensorEventArgs> ChangedStream", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("global::System.TimeProvider? timeProvider = null", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("timeProvider);", generatedSource, StringComparison.Ordinal);
         Assert.Contains("new global::Demo.SensorChangedHandler", generatedSource, StringComparison.Ordinal);
         Assert.Contains("ConcurrentDictionary", generatedSource, StringComparison.Ordinal);
         Assert.DoesNotContain(result.Diagnostics, diagnostic => diagnostic.Id == "AEB001");

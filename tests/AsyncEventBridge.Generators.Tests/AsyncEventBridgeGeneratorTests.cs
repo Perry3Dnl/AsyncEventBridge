@@ -31,14 +31,16 @@ public sealed class AsyncEventBridgeGeneratorTests
                     Action<EventHandler> unsubscribe,
                     Predicate<EventArgs>? predicate = null,
                     CancellationToken cancellationToken = default,
-                    TimeSpan? timeout = null) => throw new NotImplementedException();
+                    TimeSpan? timeout = null,
+                    TimeProvider? timeProvider = null) => throw new NotImplementedException();
 
                 public static Task<TEventArgs> WaitAsync<TEventArgs>(
                     Action<EventHandler<TEventArgs>> subscribe,
                     Action<EventHandler<TEventArgs>> unsubscribe,
                     Predicate<TEventArgs>? predicate = null,
                     CancellationToken cancellationToken = default,
-                    TimeSpan? timeout = null) => throw new NotImplementedException();
+                    TimeSpan? timeout = null,
+                    TimeProvider? timeProvider = null) => throw new NotImplementedException();
             }
 
             public static class EventStream
@@ -94,6 +96,8 @@ public sealed class AsyncEventBridgeGeneratorTests
         Assert.Contains("global::System.Predicate<global::Demo.SensorEventArgs> predicate", generatedSource, StringComparison.Ordinal);
         Assert.Contains("global::AsyncEventBridge.EventStreamOptions options", generatedSource, StringComparison.Ordinal);
         Assert.Contains("global::System.TimeSpan timeout", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("global::System.TimeProvider? timeProvider = null", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("timeProvider);", generatedSource, StringComparison.Ordinal);
         Assert.Contains("global::AsyncEventBridge.EventStream.Create<global::Demo.SensorEventArgs>", generatedSource, StringComparison.Ordinal);
         Assert.Contains("(global::System.EventHandler handler) => source.Tick += handler", generatedSource, StringComparison.Ordinal);
         Assert.Empty(result.Diagnostics.Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
