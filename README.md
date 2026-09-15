@@ -17,6 +17,8 @@ Event                -> Task
 Event                -> IAsyncEnumerable<T>
 Task                 -> EventBridge
 Task<T>              -> EventBridge<T>
+ValueTask            -> EventBridge
+ValueTask<T>         -> EventBridge<T>
 IAsyncEnumerable<T>  -> EventStreamBridge<T>
 ```
 
@@ -31,6 +33,7 @@ The modern line currently uses:
 - `TimeProvider` for injectable/testable timeout scheduling;
 - `CancellationToken.UnsafeRegister` on the internal one-shot wait cancellation path;
 - native `IAsyncEnumerable<T>` / `IAsyncDisposable` support without `Microsoft.Bcl.AsyncInterfaces`;
+- modern event payloads that do not need to derive from `EventArgs`;
 - BenchmarkDotNet performance baselines maintained under `benchmarks/`.
 
 The source generator itself remains a `netstandard2.0` analyzer because compiler-host compatibility is a different concern from the runtime target.
@@ -62,6 +65,14 @@ SensorEventArgs value = await EventAwaiter.WaitAsync<SensorEventArgs>(
 
 Normal callers can omit `timeProvider`; `TimeProvider.System` is used automatically.
 
+The modern runtime is not restricted to `EventArgs` payloads. Value types, records, structs, DTOs, and other ordinary payload types can be awaited directly:
+
+```csharp
+Task<int> nextValue = EventAwaiter.WaitAsync<int>(
+    handler => sensor.ValueChanged += handler,
+    handler => sensor.ValueChanged -= handler);
+```
+
 ## Generated async APIs
 
 For a type you own, add `[GenerateAsyncEvents]`:
@@ -84,13 +95,54 @@ SensorEventArgs value = await sensor.ValueChangedAsync();
 
 Filtering, timeout, cancellation, and async-stream facades remain available.
 
+### Modern event payloads
+
+On the modern .NET line, generated APIs also support payloads that do not derive from `EventArgs`:
+
+```csharp
+[GenerateAsyncEvents]
+public sealed class Counter
+{
+    public event EventHandler<int>? ValueChanged;
+}
+
+int value = await counter.ValueChangedAsync();
+
+await foreach (int item in counter.ValueChangedStream(cancellationToken))
+{
+    Console.WriteLine(item);
+}
+```
+
+.NET 10 strongly typed sender events are supported as well:
+
+```csharp
+[GenerateAsyncEvents]
+public sealed class Sensor
+{
+    public event EventHandler<Sensor, Reading>? ReadingChanged;
+}
+
+Reading reading = await sensor.ReadingChangedAsync();
+```
+
+AsyncEventBridge remains payload-centric: the generated task/stream carries the second event parameter. A strongly typed sender is used for event subscription but is not added to the async result.
+
+Custom two-parameter `void` delegates receive the same treatment when the second parameter is a normal non-ref-like type:
+
+```csharp
+public delegate void ProgressChangedHandler(Worker sender, int percent);
+```
+
+Ref-like payloads such as `Span<T>` cannot safely cross the lifetime boundary into `Task<T>` or `IAsyncEnumerable<T>`. Those event shapes are rejected by the generator with `AEB001` instead of producing unsafe or unusable APIs.
+
 For a public type you do not own:
 
 ```csharp
 [assembly: GenerateAsyncEventsFor(typeof(System.Timers.Timer))]
 ```
 
-Common event-handler-shaped delegates such as `ElapsedEventHandler`, `PropertyChangedEventHandler`, and `NotifyCollectionChangedEventHandler` are supported. Unsupported delegate shapes produce the `AEB001` diagnostic rather than disappearing silently.
+Common framework delegates such as `ElapsedEventHandler`, `PropertyChangedEventHandler`, and `NotifyCollectionChangedEventHandler` remain supported. Unsupported delegate shapes produce the `AEB001` diagnostic rather than disappearing silently.
 
 ## Event streams
 
@@ -125,7 +177,7 @@ There is deliberately no blocking producer mode: blocking a synchronous event ca
 
 ## Async work back to events
 
-`Task`, `Task<T>`, and `IAsyncEnumerable<T>` can be exposed through event bridges:
+`Task`, `Task<T>`, `ValueTask`, `ValueTask<T>`, and `IAsyncEnumerable<T>` can be exposed through event bridges:
 
 ```csharp
 using EventBridge<SensorConfiguration> bridge =
@@ -136,6 +188,15 @@ bridge.Faulted += (_, e) => Console.Error.WriteLine(e.Exception);
 bridge.Cancelled += (_, _) => Console.WriteLine("Cancelled");
 bridge.Connect();
 ```
+
+A `ValueTask<T>` can be bridged directly:
+
+```csharp
+using EventBridge<SensorConfiguration> bridge =
+    LoadSensorConfigurationValueAsync().ToEventBridge();
+```
+
+The bridge takes ownership of observing the supplied `ValueTask`. Do not independently await the same value task after handing it to the bridge unless its producer explicitly supports multiple consumption.
 
 For async streams:
 
@@ -175,7 +236,7 @@ CI on `dotnet-latest`:
 - produces the NuGet package;
 - verifies `lib/net10.0` runtime assets and analyzer contents;
 - restores a clean consumer from the generated `.nupkg` and compiles generated APIs;
-- executes a separate packaged runtime smoke consumer.
+- executes a separate packaged runtime smoke consumer, including modern event-payload and `ValueTask<T>` paths.
 
 ## Branch model
 
