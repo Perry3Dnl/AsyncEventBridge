@@ -52,14 +52,20 @@ jobs:
         run: |
           set -euo pipefail
           PACKAGE="artifacts/packages/AsyncEventBridge.${VERSION}.nupkg"
+          SYMBOL_PACKAGE="artifacts/packages/AsyncEventBridge.${VERSION}.snupkg"
           test -f "$PACKAGE"
+          test -f "$SYMBOL_PACKAGE"
           unzip -l "$PACKAGE" | tee artifacts/package-contents.txt
           unzip -l "$PACKAGE" | grep -q "lib/net10.0/AsyncEventBridge.dll"
           unzip -l "$PACKAGE" | grep -q "lib/net10.0/AsyncEventBridge.xml"
           unzip -l "$PACKAGE" | grep -q "analyzers/dotnet/cs/AsyncEventBridge.Generators.dll"
           unzip -l "$PACKAGE" | grep -q "assets/AsyncEventBridge.png"
           unzip -l "$PACKAGE" | grep -q "README.md"
-          unzip -p "$PACKAGE" AsyncEventBridge.nuspec | grep -q '<license type="expression">MPL-2.0</license>'
+          unzip -l "$SYMBOL_PACKAGE" | grep -q "lib/net10.0/AsyncEventBridge.pdb"
+          unzip -p "$PACKAGE" AsyncEventBridge.nuspec | tee artifacts/package-nuspec.xml
+          grep -q '<license type="expression">MPL-2.0</license>' artifacts/package-nuspec.xml
+          grep -q '<repository type="git"' artifacts/package-nuspec.xml
+          grep -q 'url="https://github.com/Perry3Dnl/AsyncEventBridge.git"' artifacts/package-nuspec.xml
 
       - name: Restore packaged modern consumer
         run: dotnet restore tests/AsyncEventBridge.PackageSmoke/AsyncEventBridge.PackageSmoke.csproj --source "$PWD/artifacts/packages" --source https://api.nuget.org/v3/index.json -p:AsyncEventBridgePackageVersion="$VERSION"
@@ -73,9 +79,43 @@ jobs:
       - name: Run packaged runtime consumer
         run: timeout 15s dotnet run --project tests/AsyncEventBridge.PackageRuntimeSmoke/AsyncEventBridge.PackageRuntimeSmoke.csproj --configuration Release --no-restore -p:AsyncEventBridgePackageVersion="$VERSION"
 
-      - name: Upload development package
+      - name: Upload development packages
         uses: actions/upload-artifact@v4
         with:
           name: AsyncEventBridge-dotnet-latest-${{ env.VERSION }}
-          path: artifacts/packages/AsyncEventBridge.${{ env.VERSION }}.nupkg
+          path: |
+            artifacts/packages/AsyncEventBridge.${{ env.VERSION }}.nupkg
+            artifacts/packages/AsyncEventBridge.${{ env.VERSION }}.snupkg
           if-no-files-found: error
+
+  cross-platform-build:
+    name: ${{ matrix.os }} build/test
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - windows-latest
+          - macos-latest
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup latest .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Show SDK
+        run: dotnet --info
+
+      - name: Restore
+        run: dotnet restore AsyncEventBridge.sln
+
+      - name: Build
+        run: dotnet build AsyncEventBridge.sln --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test AsyncEventBridge.sln --configuration Release --no-build --no-restore
