@@ -21,6 +21,19 @@ jobs:
           dotnet-version: 10.0.x
       - name: Apply integration patch
         run: python3 tools/finalize_occurrence_composition.py
+      - name: Fix Roslyn reference projection
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('tests/AsyncEventBridge.Generators.Tests/AsyncEventBridgeOccurrenceGeneratorTests.cs')
+          text = path.read_text()
+          old = '.Select(path => MetadataReference.CreateFromFile(path))'
+          new = '.Select(path => (MetadataReference)MetadataReference.CreateFromFile(path))'
+          if old not in text:
+              raise SystemExit('Roslyn reference projection marker was not found')
+          path.write_text(text.replace(old, new, 1))
+          PY
       - name: Restore
         run: dotnet restore AsyncEventBridge.sln
       - name: Format
