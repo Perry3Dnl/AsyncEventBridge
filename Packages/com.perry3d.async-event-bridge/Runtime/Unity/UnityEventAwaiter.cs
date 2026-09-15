@@ -373,7 +373,8 @@ public static class UnityEventAwaiter
 
             if (cleanupErrors is not null)
             {
-                if (completion.Kind is CompletionKind.Faulted or CompletionKind.TimedOut && completion.Exception is not null)
+                if ((completion.Kind is CompletionKind.Faulted or CompletionKind.TimedOut) &&
+                    completion.Exception is not null)
                 {
                     cleanupErrors.Insert(0, completion.Exception);
                 }
