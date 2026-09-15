@@ -32,6 +32,7 @@ The modern line currently uses:
 - `System.Threading.Channels` for event-stream buffering;
 - bounded-stream drop observability through the channel's real dropped-item callback;
 - built-in `System.Diagnostics.Metrics` counters for wait outcomes and bounded-stream drops;
+- lifecycle-safe event-wait composition for heterogeneous pairs and indexed N-way wait sets;
 - `TimeProvider` for injectable/testable timeout scheduling;
 - `CancellationToken.UnsafeRegister` on the internal one-shot wait cancellation path;
 - native `IAsyncEnumerable<T>` / `IAsyncDisposable` support without `Microsoft.Bcl.AsyncInterfaces`;
@@ -244,7 +245,9 @@ See [`docs/metrics.md`](docs/metrics.md) for the stable metric contract and sema
 
 ## Compose event waits
 
-`EventComposition.WaitAnyAsync` races two cancellable event waits and cancels/observes the loser before returning. This avoids leaving a hidden event subscription behind, which is the lifecycle problem with wrapping event waits in a plain `Task.WhenAny` and ignoring the losing task.
+`EventComposition` provides event-aware any/all composition. Unlike plain `Task.WhenAny` / `Task.WhenAll`, the composition helpers own a linked coordination token and deterministically cancel and observe sibling event waits when a race ends, a member faults, or startup fails. That prevents hidden event subscriptions from surviving the composition operation.
+
+Two heterogeneous waits can race with `WaitAnyAsync`:
 
 ```csharp
 EventWaitAnyResult<ConnectedEventArgs, ErrorEventArgs> result =
@@ -263,7 +266,38 @@ else
 }
 ```
 
-Wait factories are expected to honor the supplied cancellation token. Winner faults and losing cleanup faults remain observable; losing cancellation used for cleanup is not treated as an error.
+Two heterogeneous waits can also both be required:
+
+```csharp
+EventWaitAllResult<ConnectedEventArgs, ReadyEventArgs> result =
+    await EventComposition.WaitAllAsync(
+        token => client.ConnectedAsync(token),
+        token => client.ReadyAsync(token),
+        cancellationToken);
+
+UseConnection(result.First, result.Second);
+```
+
+For three or more waits with the same result type, use the indexed overloads:
+
+```csharp
+Func<CancellationToken, Task<SensorReading>>[] waits =
+[
+    token => left.ReadingChangedAsync(token),
+    token => center.ReadingChangedAsync(token),
+    token => right.ReadingChangedAsync(token),
+];
+
+EventWaitAnyResult<SensorReading> first =
+    await EventComposition.WaitAnyAsync(waits, cancellationToken);
+
+Console.WriteLine($"Sensor {first.Index} won with {first.Value}");
+
+SensorReading[] all =
+    await EventComposition.WaitAllAsync(waits, cancellationToken);
+```
+
+Indexed `WaitAllAsync` preserves input ordering. All composition factories are started transactionally: if a later factory throws or returns `null`, already-started waits are cancelled and observed first. Wait factories are expected to honor the supplied cancellation token. Primary faults and cleanup faults remain observable; cancellation that exists only to clean up sibling waits is not reported as an additional error.
 
 ## Async work back to events
 
@@ -324,12 +358,14 @@ CI on `dotnet-latest`:
 
 - restores and builds the full .NET 10 solution;
 - builds the benchmark project;
-- runs runtime, generator, race, lifecycle, drop-observability, metrics, and stress tests;
+- runs runtime, generator, race, lifecycle, drop-observability, metrics, composition, and stress tests;
 - runs the sensor sample;
 - produces the NuGet package;
 - verifies `lib/net10.0` runtime assets and analyzer contents;
 - restores a clean consumer from the generated `.nupkg` and compiles generated APIs;
-- executes a separate packaged runtime smoke consumer, including modern event-payload, generated `TimeProvider`, bounded-stream drop telemetry, and `ValueTask<T>` paths.
+- executes a packaged runtime smoke consumer covering modern payloads, generated `TimeProvider`, sender-aware occurrences, any/all event composition, bounded-stream drop telemetry, and `ValueTask<T>` paths;
+- publishes and executes a Native AOT consumer from the packed package, including sender-aware occurrence and event-composition paths;
+- independently restores, builds, and tests the solution on Windows and macOS.
 
 ## Branch model
 
