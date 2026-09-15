@@ -10,6 +10,7 @@ All notable changes to the native modern-.NET line of AsyncEventBridge are docum
 - Remove the `Microsoft.Bcl.AsyncInterfaces` compatibility dependency from the modern runtime.
 - Keep the Roslyn source generator on `netstandard2.0` so it remains broadly compatible with compiler hosts.
 - Remove the .NET Standard compatibility consumer from the modern solution; compatibility remains the responsibility of `base/netstandard2.0`.
+- Remove the `EventArgs` generic constraint from modern one-shot event waits and event streams so ordinary value, record, struct, DTO, and reference payloads can cross the event-to-async boundary.
 
 ### Modern event waits
 
@@ -17,12 +18,14 @@ All notable changes to the native modern-.NET line of AsyncEventBridge are docum
 - Replace the runtime-specific timeout scheduler abstraction with `TimeProvider.CreateTimer(...)`.
 - Use `CancellationToken.UnsafeRegister(...)` for the internal cancellation callback to avoid unnecessary execution-context capture on the hot wait path.
 - Preserve timeout, cancellation, event, subscription, cleanup, and race semantics through the existing test suite plus virtual-time tests.
+- Make completion-state storage valid for both reference and value-type event payloads.
 
 ### Modern event streams
 
 - Replace the compatibility queue / signal / cancellation implementation with `System.Threading.Channels`.
 - Preserve `Grow`, `DropOldest`, and `DropNewest` public buffering semantics; `DropNewest` maps to the channel `DropWrite` behavior so the incoming event is discarded at capacity.
 - Keep subscription, predicate-fault, cancellation, ordering, reentrancy, and cleanup behavior covered by runtime and stress tests.
+- Support non-`EventArgs` payloads in the generic stream runtime.
 
 ### Async -> events
 
@@ -36,10 +39,15 @@ All notable changes to the native modern-.NET line of AsyncEventBridge are docum
 - Build the benchmark project in normal CI without executing benchmarks on every push.
 - Require the generated NuGet package to contain native `net10.0` assets.
 - Restore, compile, and execute isolated `net10.0` consumers from the generated `.nupkg` in CI.
+- Exercise generated `EventHandler<int>` and `EventHandler<TSender, int>` APIs through the packaged runtime smoke test.
 
 ### Source generator
 
 - Retain `[assembly: GenerateAsyncEventsFor(typeof(...))]`, custom event-handler-shaped delegate support, and `AEB001` diagnostics from the stable base.
+- Generate async waits and streams for modern `EventHandler<TPayload>` events where `TPayload` does not need to derive from `EventArgs`.
+- Generate adapters for .NET 10 `EventHandler<TSender, TPayload>` events while keeping AsyncEventBridge's async contract payload-centric: the second event parameter becomes the task/stream result.
+- Allow custom two-parameter `void` delegates whose second parameter is a normal non-ref-like payload type.
+- Reject ref-like payloads such as `Span<T>` with `AEB001`, because they cannot safely escape an event callback into `Task<T>` or `IAsyncEnumerable<T>`.
 - Continue packaging the source generator with the runtime package.
 
 ## 0.1.0
