@@ -152,6 +152,53 @@ public sealed class AsyncEventBridgeAdapterGeneratorTests
     }
 
     [Fact]
+    public void ReportsAeb001ForPayloadTypeParameterThatAllowsRefStruct()
+    {
+        var source = RuntimeStubs + """
+            namespace Demo
+            {
+                [AsyncEventBridge.GenerateAsyncEvents]
+                public sealed class Sensor<TPayload>
+                    where TPayload : allows ref struct
+                {
+                    public event EventHandler<Sensor<TPayload>, TPayload>? Changed;
+                }
+            }
+            """;
+
+        var result = RunGenerator(
+            source,
+            allowGeneratorWarnings: true,
+            languageVersion: LanguageVersion.CSharp13);
+        var diagnostic = Assert.Single(result.Diagnostics.Where(diagnostic => diagnostic.Id == "AEB001"));
+
+        Assert.Contains("Changed", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Empty(Assert.Single(result.Results).GeneratedSources);
+    }
+
+    [Fact]
+    public void CopiesAllowsRefStructConstraintForStrongSenderSourceType()
+    {
+        var source = RuntimeStubs + """
+            namespace Demo
+            {
+                [AsyncEventBridge.GenerateAsyncEvents]
+                public sealed class Sensor<TState>
+                    where TState : allows ref struct
+                {
+                    public event EventHandler<Sensor<TState>, int>? Changed;
+                }
+            }
+            """;
+
+        var result = RunGenerator(source, languageVersion: LanguageVersion.CSharp13);
+        var generatedSource = Assert.Single(Assert.Single(result.Results).GeneratedSources).SourceText.ToString();
+
+        Assert.Contains("where TSource0 : allows ref struct", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("ChangedAsync", generatedSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ReportsAeb001ForRefLikePayload()
     {
         var source = RuntimeStubs + """
@@ -302,9 +349,10 @@ public sealed class AsyncEventBridgeAdapterGeneratorTests
     private static GeneratorDriverRunResult RunGenerator(
         string source,
         bool allowGeneratorWarnings = false,
-        IReadOnlyList<MetadataReference>? additionalReferences = null)
+        IReadOnlyList<MetadataReference>? additionalReferences = null,
+        LanguageVersion languageVersion = LanguageVersion.CSharp8)
     {
-        var parseOptions = new CSharpParseOptions(LanguageVersion.CSharp8);
+        var parseOptions = new CSharpParseOptions(languageVersion);
         var syntaxTree = CSharpSyntaxTree.ParseText(source, parseOptions);
         var references = GetPlatformReferences().ToBuilder();
 

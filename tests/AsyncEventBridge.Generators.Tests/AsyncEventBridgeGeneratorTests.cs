@@ -126,6 +126,49 @@ public sealed class AsyncEventBridgeGeneratorTests
     }
 
     [Fact]
+    public void DoesNotGenerateForPayloadTypeParameterThatAllowsRefStruct()
+    {
+        var source = RuntimeStubs + """
+            namespace Demo
+            {
+                [AsyncEventBridge.GenerateAsyncEvents]
+                public sealed class Sensor<TPayload>
+                    where TPayload : allows ref struct
+                {
+                    public event EventHandler<TPayload>? Changed;
+                }
+            }
+            """;
+
+        var result = RunGenerator(source, LanguageVersion.CSharp13);
+
+        Assert.Empty(Assert.Single(result.Results).GeneratedSources);
+        Assert.Empty(result.Diagnostics.Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+    }
+
+    [Fact]
+    public void CopiesAllowsRefStructConstraintForGenericSourceType()
+    {
+        var source = RuntimeStubs + """
+            namespace Demo
+            {
+                [AsyncEventBridge.GenerateAsyncEvents]
+                public sealed class Sensor<TState>
+                    where TState : allows ref struct
+                {
+                    public event EventHandler<int>? Changed;
+                }
+            }
+            """;
+
+        var result = RunGenerator(source, LanguageVersion.CSharp13);
+        var generatedSource = Assert.Single(Assert.Single(result.Results).GeneratedSources).SourceText.ToString();
+
+        Assert.Contains("where TSource0 : allows ref struct", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("ChangedAsync", generatedSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void GeneratedSourceCompilesWithCSharp8()
     {
         var source = RuntimeStubs + """

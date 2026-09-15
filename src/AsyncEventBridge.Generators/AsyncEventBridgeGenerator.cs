@@ -511,7 +511,8 @@ public sealed class AsyncEventBridgeGenerator : IIncrementalGenerator
     }
 
     private static bool IsAsyncPayloadCompatible(ITypeSymbol typeSymbol) =>
-        !typeSymbol.IsRefLikeType;
+        !typeSymbol.IsRefLikeType &&
+        (typeSymbol is not ITypeParameterSymbol typeParameter || !typeParameter.AllowsRefLikeType);
 
     private static bool CanAccessEvent(IEventSymbol eventSymbol, INamedTypeSymbol targetType)
     {
@@ -727,6 +728,11 @@ public sealed class AsyncEventBridgeGenerator : IIncrementalGenerator
             !parameter.HasUnmanagedTypeConstraint)
         {
             constraints.Add("new()");
+        }
+
+        if (parameter.AllowsRefLikeType)
+        {
+            constraints.Add("allows ref struct");
         }
 
         return constraints;
