@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   finalize:
-    if: github.event.head_commit.message == 'Add generator diagnostics finalizer'
+    if: github.event.head_commit.message == 'Fix generator diagnostics finalizer'
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -34,22 +34,17 @@ jobs:
           generator = Path('src/AsyncEventBridge.Generators/AsyncEventBridgeAdapterGenerator.cs')
           text = generator.read_text()
 
-          descriptor_anchor = '''    private static readonly DiagnosticDescriptor UnsupportedEventDelegate = new(
-              id: "AEB001",
-              title: "Unsupported event delegate",
-              messageFormat: "Event '{0}.{1}' uses unsupported delegate type '{2}'. Generated event APIs require EventHandler, EventHandler<TPayload>, EventHandler<TSender, TPayload>, or a void delegate with two non-ref parameters and a non-ref-like second parameter.",
+          initialize_marker = '    public void Initialize(IncrementalGeneratorInitializationContext context)\n'
+          if initialize_marker not in text:
+              raise SystemExit('initialize marker not found')
+
+          descriptors = '''    private static readonly DiagnosticDescriptor InvalidGenerationTarget = new(
+              id: "AEB002",
+              title: "Invalid async-event generation target",
+              messageFormat: "Type '{0}' cannot be targeted by GenerateAsyncEventsFor. Generated async-event adapters require a supported class type.",
               category: "AsyncEventBridge",
               defaultSeverity: DiagnosticSeverity.Warning,
               isEnabledByDefault: true);
-          '''
-          descriptors = descriptor_anchor + '''
-              private static readonly DiagnosticDescriptor InvalidGenerationTarget = new(
-                  id: "AEB002",
-                  title: "Invalid async-event generation target",
-                  messageFormat: "Type '{0}' cannot be targeted by GenerateAsyncEventsFor. Generated async-event adapters require a supported class type.",
-                  category: "AsyncEventBridge",
-                  defaultSeverity: DiagnosticSeverity.Warning,
-                  isEnabledByDefault: true);
 
               private static readonly DiagnosticDescriptor RedundantGenerationRequest = new(
                   id: "AEB003",
@@ -58,29 +53,19 @@ jobs:
                   category: "AsyncEventBridge",
                   defaultSeverity: DiagnosticSeverity.Warning,
                   isEnabledByDefault: true);
+
           '''
-          if descriptor_anchor not in text:
-              raise SystemExit('descriptor anchor not found')
-          text = text.replace(descriptor_anchor, descriptors, 1)
+          text = text.replace(initialize_marker, descriptors + initialize_marker, 1)
 
-          request_anchor = '''            var targetType = requestedType.IsUnboundGenericType
-                  ? requestedType.OriginalDefinition
-                  : requestedType;
-
-              if (!CanGenerateForType(targetType))
-              {
-                  continue;
-              }
-
-              var location = request.ApplicationSyntaxReference?.GetSyntax(context.CancellationToken).GetLocation()
-                  ?? Location.None;
-
-              if (!targets.ContainsKey(targetType))
+          target_start = text.index('            var targetType = requestedType.IsUnboundGenericType')
+          target_end_marker = '''            if (!targets.ContainsKey(targetType))
               {
                   targets.Add(targetType, location);
               }
           '''
-          request_replacement = '''            var targetType = requestedType.IsUnboundGenericType
+          target_end_start = text.index(target_end_marker, target_start)
+          target_end = target_end_start + len(target_end_marker)
+          replacement = '''            var targetType = requestedType.IsUnboundGenericType
                   ? requestedType.OriginalDefinition
                   : requestedType;
               var location = request.ApplicationSyntaxReference?.GetSyntax(context.CancellationToken).GetLocation()
@@ -106,9 +91,7 @@ jobs:
 
               targets.Add(targetType, location);
           '''
-          if request_anchor not in text:
-              raise SystemExit('request anchor not found')
-          text = text.replace(request_anchor, request_replacement, 1)
+          text = text[:target_start] + replacement + text[target_end:]
 
           direct_anchor = '''            if (!isExternalTarget && HasGenerateAsyncEventsAttribute(typeSymbol))
               {
@@ -125,7 +108,7 @@ jobs:
               }
           '''
           if direct_anchor not in text:
-              raise SystemExit('direct target anchor not found')
+              raise SystemExit('direct target marker not found')
           text = text.replace(direct_anchor, direct_replacement, 1)
           generator.write_text(text)
 
@@ -210,19 +193,20 @@ jobs:
               public void TargetedExternalTypeDoesNotExposeNonPublicEvents()
           '''
           if insert_anchor not in text:
-              raise SystemExit('test insertion anchor not found')
-          text = text.replace(insert_anchor, new_tests, 1)
-          tests.write_text(text)
+              raise SystemExit('test insertion marker not found')
+          tests.write_text(text.replace(insert_anchor, new_tests, 1))
 
           releases = Path('src/AsyncEventBridge.Generators/AnalyzerReleases.Unshipped.md')
           text = releases.read_text()
           release_anchor = 'AEB001 | AsyncEventBridge | Warning | Reports event delegates that cannot be bridged by generated APIs.\n'
-          release_replacement = release_anchor + \
-              'AEB002 | AsyncEventBridge | Warning | Reports invalid `GenerateAsyncEventsFor` target types.\n' + \
-              'AEB003 | AsyncEventBridge | Warning | Reports duplicate or redundant async-event generation requests.\n'
           if release_anchor not in text:
-              raise SystemExit('release tracking anchor not found')
-          releases.write_text(text.replace(release_anchor, release_replacement, 1))
+              raise SystemExit('release tracking marker not found')
+          releases.write_text(text.replace(
+              release_anchor,
+              release_anchor +
+              'AEB002 | AsyncEventBridge | Warning | Reports invalid `GenerateAsyncEventsFor` target types.\n' +
+              'AEB003 | AsyncEventBridge | Warning | Reports duplicate or redundant async-event generation requests.\n',
+              1))
           PY
 
       - name: Restore generator tests
