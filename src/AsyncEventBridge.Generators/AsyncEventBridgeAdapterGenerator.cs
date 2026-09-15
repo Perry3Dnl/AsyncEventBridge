@@ -19,6 +19,22 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true);
 
+    private static readonly DiagnosticDescriptor InvalidGenerationTarget = new(
+    id: "AEB002",
+    title: "Invalid async-event generation target",
+    messageFormat: "Type '{0}' cannot be targeted by GenerateAsyncEventsFor. Generated async-event adapters require a supported class type.",
+    category: "AsyncEventBridge",
+    defaultSeverity: DiagnosticSeverity.Warning,
+    isEnabledByDefault: true);
+
+    private static readonly DiagnosticDescriptor RedundantGenerationRequest = new(
+        id: "AEB003",
+        title: "Redundant async-event generation request",
+        messageFormat: "Async-event generation for type '{0}' was requested more than once. The redundant request is ignored.",
+        category: "AsyncEventBridge",
+        defaultSeverity: DiagnosticSeverity.Warning,
+        isEnabledByDefault: true);
+
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
         var directlyAnnotatedTypes = context.SyntaxProvider.ForAttributeWithMetadataName(
@@ -108,21 +124,31 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
             }
 
             var targetType = requestedType.IsUnboundGenericType
-                ? requestedType.OriginalDefinition
-                : requestedType;
+        ? requestedType.OriginalDefinition
+        : requestedType;
+    var location = request.ApplicationSyntaxReference?.GetSyntax(context.CancellationToken).GetLocation()
+        ?? Location.None;
 
-            if (!CanGenerateForType(targetType))
-            {
-                continue;
-            }
+    if (!CanGenerateForType(targetType))
+    {
+        context.ReportDiagnostic(Diagnostic.Create(
+            InvalidGenerationTarget,
+            location,
+            targetType.ToDisplayString()));
+        continue;
+    }
 
-            var location = request.ApplicationSyntaxReference?.GetSyntax(context.CancellationToken).GetLocation()
-                ?? Location.None;
+    if (targets.ContainsKey(targetType))
+    {
+        context.ReportDiagnostic(Diagnostic.Create(
+            RedundantGenerationRequest,
+            location,
+            targetType.ToDisplayString()));
+        continue;
+    }
 
-            if (!targets.ContainsKey(targetType))
-            {
-                targets.Add(targetType, location);
-            }
+    targets.Add(targetType, location);
+
         }
 
         if (targets.Count == 0)
@@ -141,9 +167,13 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
                 compilation.Assembly);
 
             if (!isExternalTarget && HasGenerateAsyncEventsAttribute(typeSymbol))
-            {
-                continue;
-            }
+    {
+        context.ReportDiagnostic(Diagnostic.Create(
+            RedundantGenerationRequest,
+            requestLocation,
+            typeSymbol.ToDisplayString()));
+        continue;
+    }
 
             var typeParameters = CreateTypeParameterContext(typeSymbol);
             var supportedEvents = new List<EventGenerationInfo>();

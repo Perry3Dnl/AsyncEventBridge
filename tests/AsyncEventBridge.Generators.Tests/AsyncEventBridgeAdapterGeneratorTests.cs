@@ -312,6 +312,78 @@ public sealed class AsyncEventBridgeAdapterGeneratorTests
     }
 
     [Fact]
+    public void ReportsAeb002ForInvalidAssemblyTarget()
+    {
+        var source = RuntimeWithAssemblyAttribute(
+            "[assembly: AsyncEventBridge.GenerateAsyncEventsFor(typeof(Demo.Sensor))]") + """
+
+            namespace Demo
+            {
+                public struct Sensor
+                {
+                }
+            }
+            """;
+
+        var result = RunGenerator(source, allowGeneratorWarnings: true);
+        var diagnostic = Assert.Single(result.Diagnostics.Where(diagnostic => diagnostic.Id == "AEB002"));
+
+        Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
+        Assert.Contains("Demo.Sensor", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Empty(Assert.Single(result.Results).GeneratedSources);
+    }
+
+    [Fact]
+    public void ReportsAeb003ForDuplicateAssemblyTarget()
+    {
+        var source = RuntimeWithAssemblyAttribute(
+            """
+            [assembly: AsyncEventBridge.GenerateAsyncEventsFor(typeof(Demo.Sensor))]
+            [assembly: AsyncEventBridge.GenerateAsyncEventsFor(typeof(Demo.Sensor))]
+            """) + """
+
+            namespace Demo
+            {
+                public sealed class Sensor
+                {
+                    public event EventHandler? Changed;
+                }
+            }
+            """;
+
+        var result = RunGenerator(source, allowGeneratorWarnings: true);
+        var diagnostic = Assert.Single(result.Diagnostics.Where(diagnostic => diagnostic.Id == "AEB003"));
+
+        Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
+        Assert.Contains("Demo.Sensor", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Single(Assert.Single(result.Results).GeneratedSources);
+    }
+
+    [Fact]
+    public void ReportsAeb003WhenAssemblyTargetIsAlreadyDirectlyAnnotated()
+    {
+        var source = RuntimeWithAssemblyAttribute(
+            "[assembly: AsyncEventBridge.GenerateAsyncEventsFor(typeof(Demo.Sensor))]") + """
+
+            namespace Demo
+            {
+                [AsyncEventBridge.GenerateAsyncEvents]
+                public sealed class Sensor
+                {
+                    public event EventHandler? Changed;
+                }
+            }
+            """;
+
+        var result = RunGenerator(source, allowGeneratorWarnings: true);
+        var diagnostic = Assert.Single(result.Diagnostics.Where(diagnostic => diagnostic.Id == "AEB003"));
+
+        Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
+        Assert.Contains("Demo.Sensor", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Empty(Assert.Single(result.Results).GeneratedSources);
+    }
+
+    [Fact]
     public void TargetedExternalTypeDoesNotExposeNonPublicEvents()
     {
         var thirdPartyReference = CompileReference(
