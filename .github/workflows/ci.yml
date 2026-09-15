@@ -48,24 +48,38 @@ jobs:
             cmp "$source" "$unity_copy"
           done
 
-      - name: Verify Unity runtime asset metadata
+      - name: Verify Unity package asset metadata
         shell: bash
         run: |
           set -euo pipefail
           UNITY_PACKAGE="Packages/com.perry3d.async-event-bridge"
-          UNITY_RUNTIME="$UNITY_PACKAGE/Runtime"
 
-          test -f "$UNITY_PACKAGE/Runtime.meta"
-          while IFS= read -r asset; do
-            [[ "$asset" == *.meta ]] && continue
-            test -f "${asset}.meta"
-          done < <(find "$UNITY_RUNTIME" -mindepth 1 -print | sort)
+          for root in Runtime Analyzers Tests; do
+            test -f "$UNITY_PACKAGE/${root}.meta"
+            while IFS= read -r asset; do
+              [[ "$asset" == *.meta ]] && continue
+              test -f "${asset}.meta"
+            done < <(find "$UNITY_PACKAGE/$root" -mindepth 1 -print | sort)
+          done
+
+          grep -q '^labels:$' "$UNITY_PACKAGE/Analyzers/AsyncEventBridge.Unity.Generators.dll.meta"
+          grep -q '^- RoslynAnalyzer$' "$UNITY_PACKAGE/Analyzers/AsyncEventBridge.Unity.Generators.dll.meta"
 
       - name: Restore
         run: dotnet restore AsyncEventBridge.sln
 
       - name: Build
         run: dotnet build AsyncEventBridge.sln --configuration Release --no-restore
+
+      - name: Compile Unity runtime against Unity API stubs
+        run: dotnet build tests/AsyncEventBridge.UnityCompileSmoke/AsyncEventBridge.UnityCompileSmoke.csproj --configuration Release
+
+      - name: Verify bundled Unity generator matches build
+        shell: bash
+        run: |
+          cmp \
+            Packages/com.perry3d.async-event-bridge/Analyzers/AsyncEventBridge.Unity.Generators.dll \
+            src/AsyncEventBridge.Unity.Generators/bin/Release/netstandard2.0/AsyncEventBridge.Unity.Generators.dll
 
       - name: Test
         run: dotnet test AsyncEventBridge.sln --configuration Release --no-build --logger "trx;LogFileName=test-results.trx"
