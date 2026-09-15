@@ -1,0 +1,159 @@
+name: Modern event payload finalizer
+
+on:
+  push:
+    branches:
+      - dotnet-latest
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Patch modern event generators and tests
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          def replace_once(text, old, new, label):
+              if old not in text:
+                  raise SystemExit(f"missing replacement target: {label}")
+              return text.replace(old, new, 1)
+
+          def replace_all(text, old, new, label):
+              if old not in text:
+                  raise SystemExit(f"missing replacement target: {label}")
+              return text.replace(old, new)
+
+          base = Path("src/AsyncEventBridge.Generators/AsyncEventBridgeGenerator.cs")
+          text = base.read_text()
+          text = replace_once(
+              text,
+              "!IsEventArgsCompatible(delegateType.TypeArguments[0])",
+              "!IsAsyncPayloadCompatible(delegateType.TypeArguments[0])",
+              "base payload classification")
+          old_compat = '''    private static bool IsEventArgsCompatible(ITypeSymbol typeSymbol)\n    {\n        if (typeSymbol is ITypeParameterSymbol typeParameter)\n        {\n            return typeParameter.ConstraintTypes.Any(IsEventArgsCompatible);\n        }\n\n        if (typeSymbol is not INamedTypeSymbol namedType)\n        {\n            return false;\n        }\n\n        INamedTypeSymbol? current = namedType;\n\n        while (current is not null)\n        {\n            if (current.Name == "EventArgs" &&\n                current.ContainingNamespace.ToDisplayString() == "System")\n            {\n                return true;\n            }\n\n            current = current.BaseType;\n        }\n\n        return false;\n    }'''
+          new_compat = '''    private static bool IsAsyncPayloadCompatible(ITypeSymbol typeSymbol) =>\n        !typeSymbol.IsRefLikeType;'''
+          text = replace_once(text, old_compat, new_compat, "base compatibility helper")
+          base.write_text(text)
+
+          adapter = Path("src/AsyncEventBridge.Generators/AsyncEventBridgeAdapterGenerator.cs")
+          text = adapter.read_text()
+          text = replace_once(
+              text,
+              "Generated event APIs require EventHandler, EventHandler<TEventArgs>, or a void delegate with two non-ref parameters whose second parameter derives from EventArgs.",
+              "Generated event APIs require EventHandler, EventHandler<TPayload>, EventHandler<TSender, TPayload>, or a void delegate with two non-ref parameters and a non-ref-like second parameter.",
+              "AEB001 modern message")
+
+          pattern = re.compile(r'''        if \(delegateType\.Name == "EventHandler" &&\n            delegateType\.ContainingNamespace\.ToDisplayString\(\) == "System"\)\n        \{.*?\n        \}\n\n        var invokeMethod = delegateType\.DelegateInvokeMethod;''', re.S)
+          replacement = '''        if (delegateType.Name == "EventHandler" &&\n            delegateType.ContainingNamespace.ToDisplayString() == "System")\n        {\n            if (delegateType.TypeArguments.Length == 0)\n            {\n                return new EventClassification(\n                    EventKind.StandardUntyped,\n                    "global::System.EventArgs",\n                    "global::System.EventHandler");\n            }\n\n            if (delegateType.TypeArguments.Length == 1 &&\n                IsAsyncPayloadCompatible(delegateType.TypeArguments[0]))\n            {\n                var payloadType = RenderType(delegateType.TypeArguments[0], typeParameters);\n                return new EventClassification(\n                    EventKind.StandardTyped,\n                    payloadType,\n                    $"global::System.EventHandler<{payloadType}>");\n            }\n\n            if (delegateType.TypeArguments.Length == 2 &&\n                IsAsyncPayloadCompatible(delegateType.TypeArguments[1]))\n            {\n                return new EventClassification(\n                    EventKind.Custom,\n                    RenderType(delegateType.TypeArguments[1], typeParameters),\n                    RenderType(delegateType, typeParameters));\n            }\n\n            return EventClassification.Unsupported(RenderType(delegateType, typeParameters));\n        }\n\n        var invokeMethod = delegateType.DelegateInvokeMethod;'''
+          text, count = pattern.subn(replacement, text, count=1)
+          if count != 1:
+              raise SystemExit("failed to patch System.EventHandler classification")
+
+          text = replace_all(
+              text,
+              "invokeMethod.Parameters[0].Type.IsRefLikeType ||\n            !IsEventArgsCompatible(invokeMethod.Parameters[1].Type)",
+              "!IsAsyncPayloadCompatible(invokeMethod.Parameters[1].Type)",
+              "custom payload classification")
+
+          pattern = re.compile(r'''    private static bool IsEventArgsCompatible\(ITypeSymbol typeSymbol\)\n    \{.*?\n    \}\n\n    private static bool CanAccessEvent''', re.S)
+          replacement = '''    private static bool IsAsyncPayloadCompatible(ITypeSymbol typeSymbol) =>\n        !typeSymbol.IsRefLikeType;\n\n    private static bool CanAccessEvent'''
+          text, count = pattern.subn(replacement, text, count=1)
+          if count != 1:
+              raise SystemExit("failed to patch adapter compatibility helper")
+
+          text = replace_all(
+              text,
+              '.AppendLine("((sender, eventArgs) => handler(sender, eventArgs));")',
+              '.AppendLine("((_, eventArgs) => handler(null, eventArgs));")',
+              "custom sender adapter")
+          adapter.write_text(text)
+
+          for path_text in [
+              "tests/AsyncEventBridge.Generators.Tests/AsyncEventBridgeGeneratorTests.cs",
+              "tests/AsyncEventBridge.Generators.Tests/AsyncEventBridgeAdapterGeneratorTests.cs",
+          ]:
+              path = Path(path_text)
+              text = path.read_text()
+              text = text.replace(
+                  ")\n                    where TEventArgs : EventArgs => throw new NotImplementedException();",
+                  ") => throw new NotImplementedException();")
+              path.write_text(text)
+
+          generator_tests = Path("tests/AsyncEventBridge.Generators.Tests/AsyncEventBridgeGeneratorTests.cs")
+          text = generator_tests.read_text()
+          marker = "    [Fact]\n    public void GeneratedSourceCompilesWithCSharp8()"
+          addition = '''    [Fact]\n    public void GeneratesForModernNonEventArgsPayload()\n    {\n        var source = RuntimeStubs + """\n            namespace Demo\n            {\n                [AsyncEventBridge.GenerateAsyncEvents]\n                public sealed class Sensor\n                {\n                    public event EventHandler<int>? ValueChanged;\n                }\n            }\n            """;\n\n        var result = RunGenerator(source);\n        var generatedSource = Assert.Single(Assert.Single(result.Results).GeneratedSources).SourceText.ToString();\n\n        Assert.Contains("ValueChangedAsync", generatedSource, StringComparison.Ordinal);\n        Assert.Contains("ValueChangedStream", generatedSource, StringComparison.Ordinal);\n        Assert.Empty(result.Diagnostics.Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));\n    }\n\n'''
+          text = replace_once(text, marker, addition + marker, "modern base generator test")
+          generator_tests.write_text(text)
+
+          adapter_tests = Path("tests/AsyncEventBridge.Generators.Tests/AsyncEventBridgeAdapterGeneratorTests.cs")
+          text = adapter_tests.read_text()
+          marker = "    [Fact]\n    public void ReportsAeb001ForUnsupportedDelegateShape()"
+          addition = '''    [Fact]\n    public void GeneratesForStronglyTypedSenderAndValuePayload()\n    {\n        var source = RuntimeStubs + """\n            namespace Demo\n            {\n                [AsyncEventBridge.GenerateAsyncEvents]\n                public sealed class Sensor\n                {\n                    public event EventHandler<Sensor, int>? ValueChanged;\n                }\n            }\n            """;\n\n        var result = RunGenerator(source);\n        var generatedSource = Assert.Single(Assert.Single(result.Results).GeneratedSources).SourceText.ToString();\n\n        Assert.Contains("ValueChangedAsync", generatedSource, StringComparison.Ordinal);\n        Assert.Contains("ValueChangedStream", generatedSource, StringComparison.Ordinal);\n        Assert.Contains("handler(null, eventArgs)", generatedSource, StringComparison.Ordinal);\n        Assert.DoesNotContain(result.Diagnostics, diagnostic => diagnostic.Id == "AEB001");\n    }\n\n    [Fact]\n    public void GeneratesForCustomDelegateWithValuePayload()\n    {\n        var source = RuntimeStubs + """\n            namespace Demo\n            {\n                public delegate void ValueChangedHandler(Sensor sender, int value);\n\n                [AsyncEventBridge.GenerateAsyncEvents]\n                public sealed class Sensor\n                {\n                    public event ValueChangedHandler? ValueChanged;\n                }\n            }\n            """;\n\n        var result = RunGenerator(source);\n        var generatedSource = Assert.Single(Assert.Single(result.Results).GeneratedSources).SourceText.ToString();\n\n        Assert.Contains("ValueChangedAsync", generatedSource, StringComparison.Ordinal);\n        Assert.Contains("ValueChangedStream", generatedSource, StringComparison.Ordinal);\n        Assert.DoesNotContain(result.Diagnostics, diagnostic => diagnostic.Id == "AEB001");\n    }\n\n    [Fact]\n    public void ReportsAeb001ForRefLikePayload()\n    {\n        var source = RuntimeStubs + """\n            namespace Demo\n            {\n                public delegate void BufferChangedHandler(object sender, Span<int> value);\n\n                [AsyncEventBridge.GenerateAsyncEvents]\n                public sealed class Sensor\n                {\n                    public event BufferChangedHandler? Changed;\n                }\n            }\n            """;\n\n        var result = RunGenerator(source, allowGeneratorWarnings: true);\n        var diagnostic = Assert.Single(result.Diagnostics.Where(diagnostic => diagnostic.Id == "AEB001"));\n\n        Assert.Contains("Changed", diagnostic.GetMessage(), StringComparison.Ordinal);\n        Assert.Empty(Assert.Single(result.Results).GeneratedSources);\n    }\n\n'''
+          text = replace_once(text, marker, addition + marker, "modern adapter tests")
+          adapter_tests.write_text(text)
+
+          smoke = Path("tests/AsyncEventBridge.PackageRuntimeSmoke/Program.cs")
+          text = smoke.read_text()
+          marker = '''var taskValue = 0;'''
+          addition = '''var modernSensor = new ModernPayloadSensor();\nvar modernWait = modernSensor.ValueChangedAsync();\nmodernSensor.Raise(123);\nif (await modernWait != 123)\n{\n    throw new InvalidOperationException("The packaged EventHandler<int> bridge returned the wrong value.");\n}\n\nvar strongSenderSensor = new StrongSenderSensor();\nvar strongSenderWait = strongSenderSensor.ValueChangedAsync();\nstrongSenderSensor.Raise(321);\nif (await strongSenderWait != 321)\n{\n    throw new InvalidOperationException("The packaged EventHandler<TSender, TPayload> bridge returned the wrong value.");\n}\n\n'''
+          text = replace_once(text, marker, addition + marker, "package modern payload smoke")
+          text += '''\n\n[GenerateAsyncEvents]\npublic sealed class ModernPayloadSensor\n{\n    public event EventHandler<int>? ValueChanged;\n\n    public void Raise(int value) => ValueChanged?.Invoke(this, value);\n}\n\n[GenerateAsyncEvents]\npublic sealed class StrongSenderSensor\n{\n    public event EventHandler<StrongSenderSensor, int>? ValueChanged;\n\n    public void Raise(int value) => ValueChanged?.Invoke(this, value);\n}\n'''
+          smoke.write_text(text)
+          PY
+
+          git diff --check
+
+      - name: Restore
+        run: dotnet restore AsyncEventBridge.sln
+
+      - name: Build
+        run: dotnet build AsyncEventBridge.sln --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test AsyncEventBridge.sln --configuration Release --no-build --no-restore
+
+      - name: Pack and exercise package
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' Directory.Build.props | head -n 1)
+          mkdir -p artifacts/packages
+          dotnet pack src/AsyncEventBridge/AsyncEventBridge.csproj --configuration Release --no-build --no-restore -o artifacts/packages
+          dotnet restore tests/AsyncEventBridge.PackageRuntimeSmoke/AsyncEventBridge.PackageRuntimeSmoke.csproj \
+            --source "$PWD/artifacts/packages" \
+            --source https://api.nuget.org/v3/index.json \
+            -p:AsyncEventBridgePackageVersion="$VERSION"
+          dotnet run --project tests/AsyncEventBridge.PackageRuntimeSmoke/AsyncEventBridge.PackageRuntimeSmoke.csproj \
+            --configuration Release \
+            --no-restore \
+            -p:AsyncEventBridgePackageVersion="$VERSION"
+
+      - name: Commit finalized implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/AsyncEventBridge.Generators tests/AsyncEventBridge.Generators.Tests tests/AsyncEventBridge.PackageRuntimeSmoke
+          if git diff --cached --quiet; then
+            echo "No generator changes to commit."
+            exit 0
+          fi
+          git commit -m "Add modern .NET event payload support"
+          git push origin HEAD:dotnet-latest
