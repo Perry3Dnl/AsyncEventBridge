@@ -44,7 +44,6 @@ public static class EventAwaiter
         CancellationToken cancellationToken = default,
         TimeSpan? timeout = null,
         TimeProvider? timeProvider = null)
-        where TEventArgs : EventArgs
     {
         ArgumentNullException.ThrowIfNull(subscribe);
         ArgumentNullException.ThrowIfNull(unsubscribe);
@@ -85,7 +84,6 @@ public static class EventAwaiter
 }
 
 internal sealed class EventWaitState<TEventArgs>
-    where TEventArgs : EventArgs
 {
     private readonly Action<EventHandler<TEventArgs>> _subscribe;
     private readonly Action<EventHandler<TEventArgs>> _unsubscribe;
