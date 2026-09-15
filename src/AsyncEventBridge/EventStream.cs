@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 
@@ -183,12 +184,37 @@ public static class EventStream
             _ => throw new InvalidOperationException($"Unsupported stream full mode: {settings.FullMode}."),
         };
 
-        return Channel.CreateBounded<T>(new BoundedChannelOptions(settings.Capacity)
+        var channelOptions = new BoundedChannelOptions(settings.Capacity)
         {
             FullMode = fullMode,
             SingleReader = true,
             SingleWriter = false,
             AllowSynchronousContinuations = false,
+        };
+
+        if (settings.Options is null)
+        {
+            return Channel.CreateBounded<T>(channelOptions);
+        }
+
+        return Channel.CreateBounded<T>(channelOptions, _ =>
+        {
+            var droppedCount = settings.Options.RecordDrop();
+            var observer = settings.DropObserver;
+
+            if (observer is null)
+            {
+                return;
+            }
+
+            try
+            {
+                observer(droppedCount);
+            }
+            catch (Exception exception)
+            {
+                Trace.TraceError("AsyncEventBridge event-stream drop observer threw: {0}", exception);
+            }
         });
     }
 
@@ -207,7 +233,11 @@ public static class EventStream
                 "Unknown event stream full mode.");
         }
 
-        return new EventStreamSettings(capacity, fullMode);
+        return new EventStreamSettings(
+            capacity,
+            fullMode,
+            options,
+            options?.DropObserver);
     }
 
     private static CancellationTokenSource? CreateLinkedCancellation(
@@ -222,5 +252,9 @@ public static class EventStream
         return CancellationTokenSource.CreateLinkedTokenSource(first, second);
     }
 
-    private readonly record struct EventStreamSettings(int Capacity, EventStreamFullMode FullMode);
+    private readonly record struct EventStreamSettings(
+        int Capacity,
+        EventStreamFullMode FullMode,
+        EventStreamOptions? Options,
+        Action<long>? DropObserver);
 }
