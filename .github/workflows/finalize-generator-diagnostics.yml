@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   finalize:
-    if: github.event.head_commit.message == 'Fix generator diagnostics finalizer'
+    if: github.event.head_commit.message == 'Harden generator diagnostics finalizer'
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -35,9 +35,6 @@ jobs:
           text = generator.read_text()
 
           initialize_marker = '    public void Initialize(IncrementalGeneratorInitializationContext context)\n'
-          if initialize_marker not in text:
-              raise SystemExit('initialize marker not found')
-
           descriptors = '''    private static readonly DiagnosticDescriptor InvalidGenerationTarget = new(
               id: "AEB002",
               title: "Invalid async-event generation target",
@@ -55,17 +52,13 @@ jobs:
                   isEnabledByDefault: true);
 
           '''
+          if initialize_marker not in text:
+              raise SystemExit('initialize marker not found')
           text = text.replace(initialize_marker, descriptors + initialize_marker, 1)
 
-          target_start = text.index('            var targetType = requestedType.IsUnboundGenericType')
-          target_end_marker = '''            if (!targets.ContainsKey(targetType))
-              {
-                  targets.Add(targetType, location);
-              }
-          '''
-          target_end_start = text.index(target_end_marker, target_start)
-          target_end = target_end_start + len(target_end_marker)
-          replacement = '''            var targetType = requestedType.IsUnboundGenericType
+          start = text.index('            var targetType = requestedType.IsUnboundGenericType')
+          end = text.index('\n        }\n\n        if (targets.Count == 0)', start)
+          target_replacement = '''            var targetType = requestedType.IsUnboundGenericType
                   ? requestedType.OriginalDefinition
                   : requestedType;
               var location = request.ApplicationSyntaxReference?.GetSyntax(context.CancellationToken).GetLocation()
@@ -91,13 +84,10 @@ jobs:
 
               targets.Add(targetType, location);
           '''
-          text = text[:target_start] + replacement + text[target_end:]
+          text = text[:start] + target_replacement + text[end:]
 
-          direct_anchor = '''            if (!isExternalTarget && HasGenerateAsyncEventsAttribute(typeSymbol))
-              {
-                  continue;
-              }
-          '''
+          direct_start = text.index('            if (!isExternalTarget && HasGenerateAsyncEventsAttribute(typeSymbol))')
+          direct_end = text.index('\n\n            var typeParameters = CreateTypeParameterContext(typeSymbol);', direct_start)
           direct_replacement = '''            if (!isExternalTarget && HasGenerateAsyncEventsAttribute(typeSymbol))
               {
                   context.ReportDiagnostic(Diagnostic.Create(
@@ -105,18 +95,18 @@ jobs:
                       requestLocation,
                       typeSymbol.ToDisplayString()));
                   continue;
-              }
-          '''
-          if direct_anchor not in text:
-              raise SystemExit('direct target marker not found')
-          text = text.replace(direct_anchor, direct_replacement, 1)
+              }'''
+          text = text[:direct_start] + direct_replacement + text[direct_end:]
           generator.write_text(text)
 
           tests = Path('tests/AsyncEventBridge.Generators.Tests/AsyncEventBridgeAdapterGeneratorTests.cs')
           text = tests.read_text()
-          insert_anchor = '''    [Fact]
-              public void TargetedExternalTypeDoesNotExposeNonPublicEvents()
-          '''
+          insert_marker = '    public void TargetedExternalTypeDoesNotExposeNonPublicEvents()\n'
+          marker_index = text.index(insert_marker)
+          fact_index = text.rfind('    [Fact]\n', 0, marker_index)
+          if fact_index < 0:
+              raise SystemExit('test insertion marker not found')
+
           new_tests = '''    [Fact]
               public void ReportsAeb002ForInvalidAssemblyTarget()
               {
@@ -189,12 +179,9 @@ jobs:
                   Assert.Empty(Assert.Single(result.Results).GeneratedSources);
               }
 
-              [Fact]
-              public void TargetedExternalTypeDoesNotExposeNonPublicEvents()
           '''
-          if insert_anchor not in text:
-              raise SystemExit('test insertion marker not found')
-          tests.write_text(text.replace(insert_anchor, new_tests, 1))
+          text = text[:fact_index] + new_tests + text[fact_index:]
+          tests.write_text(text)
 
           releases = Path('src/AsyncEventBridge.Generators/AnalyzerReleases.Unshipped.md')
           text = releases.read_text()
