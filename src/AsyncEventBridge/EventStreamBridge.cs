@@ -34,6 +34,7 @@ namespace AsyncEventBridge
         private bool _connected;
         private bool _terminalPublished;
         private bool _disposed;
+        private bool _asyncDisposeRequested;
 
         internal EventStreamBridge(IAsyncEnumerable<T> source)
         {
@@ -152,6 +153,7 @@ namespace AsyncEventBridge
                     ClearHandlers();
                 }
 
+                _asyncDisposeRequested = true;
                 lifetimeCts = _lifetimeCts;
                 completionTask = _completion?.Task;
             }
@@ -168,35 +170,73 @@ namespace AsyncEventBridge
             CancellationTokenSource lifetimeCts,
             TaskCompletionSource<bool> completion)
         {
+            Exception? primaryException = null;
+            Exception? cleanupException = null;
+
             try
             {
                 var cancellationToken = lifetimeCts.Token;
-                cancellationToken.ThrowIfCancellationRequested();
+                IAsyncEnumerator<T>? enumerator = null;
 
-                await foreach (var value in _source.WithCancellation(cancellationToken).ConfigureAwait(false))
+                try
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    PublishValue(value);
+                    enumerator = _source.GetAsyncEnumerator(cancellationToken);
+
+                    while (await enumerator.MoveNextAsync().ConfigureAwait(false))
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        PublishValue(enumerator.Current);
+                    }
+
+                    cancellationToken.ThrowIfCancellationRequested();
+                }
+                catch (Exception exception)
+                {
+                    primaryException = exception;
                 }
 
-                cancellationToken.ThrowIfCancellationRequested();
-                PublishCompleted();
-            }
-            catch (OperationCanceledException) when (lifetimeCts.IsCancellationRequested)
-            {
-                PublishCancelled();
-            }
-            catch (Exception exception)
-            {
-                PublishFaulted(exception);
+                if (enumerator is not null)
+                {
+                    try
+                    {
+                        await enumerator.DisposeAsync().ConfigureAwait(false);
+                    }
+                    catch (Exception exception)
+                    {
+                        cleanupException = exception;
+                    }
+                }
+
+                var terminalException = cleanupException is null
+                    ? primaryException
+                    : CleanupExceptionPolicy.Combine(primaryException, cleanupException);
+
+                if (terminalException is null)
+                {
+                    PublishCompleted();
+                }
+                else if (cleanupException is null &&
+                         terminalException is OperationCanceledException &&
+                         lifetimeCts.IsCancellationRequested)
+                {
+                    PublishCancelled();
+                }
+                else
+                {
+                    PublishFaulted(terminalException);
+                }
             }
             finally
             {
                 lifetimeCts.Dispose();
-                completion.TrySetResult(true);
+
+                bool asyncDisposeRequested;
 
                 lock (_gate)
                 {
+                    asyncDisposeRequested = _asyncDisposeRequested;
+
                     if (ReferenceEquals(_lifetimeCts, lifetimeCts))
                     {
                         _lifetimeCts = null;
@@ -206,6 +246,22 @@ namespace AsyncEventBridge
                     {
                         _completion = null;
                     }
+                }
+
+                if (cleanupException is not null && asyncDisposeRequested)
+                {
+                    completion.TrySetException(CleanupExceptionPolicy.Combine(primaryException, cleanupException));
+                }
+                else
+                {
+                    if (cleanupException is not null && _disposed)
+                    {
+                        Trace.TraceError(
+                            "AsyncEventBridge stream bridge cleanup failed after synchronous disposal: {0}",
+                            cleanupException);
+                    }
+
+                    completion.TrySetResult(true);
                 }
             }
         }
