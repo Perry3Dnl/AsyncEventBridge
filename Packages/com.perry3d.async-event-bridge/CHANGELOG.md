@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.0 - In progress
+
+- Move Unity development onto the shared `main` release line.
+- Align the UPM package version with the repository-wide `0.3.0` version.
+- Make Unity release-readiness part of the same gate as modern .NET and .NET Standard compatibility.
+- Preserve Unity-specific APIs and host requirements without requiring feature-for-feature parity with modern .NET.
+
+
 ## 0.2.0 - Unreleased
 
 - Add the first Unity Package Manager distribution.
