@@ -24,6 +24,10 @@ All notable changes across the supported AsyncEventBridge release tracks are doc
 - Define `Capacity` as a bounded-mode setting only: it is ignored by `Unbounded` and validated only for `DropOldest` / `DropNewest`.
 - Normalize unbounded buffering semantics across modern .NET, .NET Standard 2.0, and Unity instead of using `Capacity` as an allocation hint only on compatibility runtimes.
 - Keep the unbounded default to avoid silent event loss; document the operational memory-growth tradeoff and explicit bounded alternatives in `docs/0.4-stream-buffering.md`.
+- Add `EventBridgeOptions` and `EventBridgeSubscriberExceptionPolicy` so async-to-event bridges can explicitly trace, report, or ignore subscriber failures while always continuing remaining subscribers.
+- Preserve `TraceAndContinue` as the default subscriber behavior; add `ReportAndContinue` with a required observer callback and `IgnoreAndContinue` for deliberate silent isolation.
+- Snapshot subscriber policy options when a bridge is created, and isolate/report observer failures without destabilizing bridge processing.
+- Deliberately omit a subscriber-exception propagation mode because bridge publication is async-driven and lacks a reliable synchronous caller; document the contract in `docs/0.4-subscriber-exceptions.md`.
 
 ### 0.3 convergence
 
