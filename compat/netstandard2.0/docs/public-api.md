@@ -183,6 +183,14 @@ Async -> events publication always isolates subscriber exceptions and continues 
 
 No propagation policy is provided because async bridge publication normally has no synchronous application caller that can usefully receive the subscriber exception.
 
+## Bridge lifecycle
+
+Bridge publication uses subscriber snapshots. Adding or removing a handler while a publication is already in flight affects future publication only. Late subscribers receive no replay.
+
+Handlers should be attached before `Connect()`; an already-completed task or synchronously advancing async source may publish before `Connect()` returns.
+
+`EventBridge.Dispose()` and `EventStreamBridge.Dispose()` suppress future publication but allow an already-captured subscriber snapshot to finish. `EventStreamBridge.DisposeAsync()` additionally waits for bridge-owned async enumeration cleanup and in-flight publication.
+
 ## Generated API rules
 
 The generator follows these rules:
