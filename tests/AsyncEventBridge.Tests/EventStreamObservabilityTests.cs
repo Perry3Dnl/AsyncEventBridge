@@ -101,14 +101,14 @@ public sealed class EventStreamObservabilityTests
     }
 
     [Fact]
-    public async Task GrowModeDoesNotReportDrops()
+    public async Task UnboundedModeDoesNotReportDrops()
     {
         var source = new TestEventSource<TestEventArgs>();
         var observerCalls = 0;
         var options = new EventStreamOptions
         {
             Capacity = 1,
-            FullMode = EventStreamFullMode.Grow,
+            FullMode = EventStreamFullMode.Unbounded,
             DropObserver = _ => observerCalls++,
         };
         var stream = EventStream.Create<TestEventArgs>(
