@@ -117,12 +117,11 @@ The fixed `EventStreamFullMode` values are:
 
 ```text
 Unbounded = 0
-Grow = Unbounded
 DropOldest = 1
 DropNewest = 2
 ```
 
-`Unbounded` is lossless but can grow memory usage without a fixed upper bound when producers permanently outrun consumers. `Grow` remains a compatibility alias. `Capacity` is ignored in unbounded mode and is used only as the hard bound for `DropOldest` and `DropNewest`.
+`Unbounded` is lossless but can grow memory usage without a fixed upper bound when producers permanently outrun consumers. In 0.4 it replaces the earlier `Grow` name before the 1.0 API freeze. `Capacity` is ignored in unbounded mode and is used only as the hard bound for `DropOldest` and `DropNewest`.
 
 `EventStream` is the low-level runtime API for manual integration.
 
