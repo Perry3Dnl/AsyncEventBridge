@@ -19,6 +19,7 @@ namespace AsyncEventBridge
         private readonly Task? _task;
         private readonly ValueTask _valueTask;
         private readonly object _gate = new();
+        private readonly EventHandlerDispatchSettings _dispatchSettings;
 
         private EventHandler? _completed;
         private EventHandler<AsyncFaultedEventArgs>? _faulted;
@@ -28,13 +29,25 @@ namespace AsyncEventBridge
         private bool _disposed;
 
         internal EventBridge(Task task)
+            : this(task, EventHandlerDispatchSettings.Default)
+        {
+        }
+
+        internal EventBridge(Task task, EventHandlerDispatchSettings dispatchSettings)
         {
             _task = task;
+            _dispatchSettings = dispatchSettings;
         }
 
         internal EventBridge(ValueTask task)
+            : this(task, EventHandlerDispatchSettings.Default)
+        {
+        }
+
+        internal EventBridge(ValueTask task, EventHandlerDispatchSettings dispatchSettings)
         {
             _valueTask = task;
+            _dispatchSettings = dispatchSettings;
         }
 
         /// <summary>
@@ -146,7 +159,7 @@ namespace AsyncEventBridge
                 ClearHandlers();
             }
 
-            EventHandlerDispatcher.Invoke(handlers, this);
+            EventHandlerDispatcher.Invoke(handlers, this, _dispatchSettings);
         }
 
         private void PublishFaulted(Exception exception)
@@ -164,7 +177,7 @@ namespace AsyncEventBridge
                 ClearHandlers();
             }
 
-            EventHandlerDispatcher.Invoke(handlers, this, new AsyncFaultedEventArgs(exception));
+            EventHandlerDispatcher.Invoke(handlers, this, new AsyncFaultedEventArgs(exception), _dispatchSettings);
         }
 
         private void PublishCancelled()
@@ -182,7 +195,7 @@ namespace AsyncEventBridge
                 ClearHandlers();
             }
 
-            EventHandlerDispatcher.Invoke(handlers, this);
+            EventHandlerDispatcher.Invoke(handlers, this, _dispatchSettings);
         }
 
         private bool TryBeginPublication()
@@ -291,6 +304,7 @@ namespace AsyncEventBridge
         private readonly Task<T>? _task;
         private readonly ValueTask<T> _valueTask;
         private readonly object _gate = new();
+        private readonly EventHandlerDispatchSettings _dispatchSettings;
 
         private EventHandler<AsyncValueEventArgs<T>>? _completed;
         private EventHandler<AsyncFaultedEventArgs>? _faulted;
@@ -300,13 +314,25 @@ namespace AsyncEventBridge
         private bool _disposed;
 
         internal EventBridge(Task<T> task)
+            : this(task, EventHandlerDispatchSettings.Default)
+        {
+        }
+
+        internal EventBridge(Task<T> task, EventHandlerDispatchSettings dispatchSettings)
         {
             _task = task;
+            _dispatchSettings = dispatchSettings;
         }
 
         internal EventBridge(ValueTask<T> task)
+            : this(task, EventHandlerDispatchSettings.Default)
+        {
+        }
+
+        internal EventBridge(ValueTask<T> task, EventHandlerDispatchSettings dispatchSettings)
         {
             _valueTask = task;
+            _dispatchSettings = dispatchSettings;
         }
 
         /// <summary>
@@ -420,7 +446,7 @@ namespace AsyncEventBridge
                 ClearHandlers();
             }
 
-            EventHandlerDispatcher.Invoke(handlers, this, new AsyncValueEventArgs<T>(result));
+            EventHandlerDispatcher.Invoke(handlers, this, new AsyncValueEventArgs<T>(result), _dispatchSettings);
         }
 
         private void PublishFaulted(Exception exception)
@@ -438,7 +464,7 @@ namespace AsyncEventBridge
                 ClearHandlers();
             }
 
-            EventHandlerDispatcher.Invoke(handlers, this, new AsyncFaultedEventArgs(exception));
+            EventHandlerDispatcher.Invoke(handlers, this, new AsyncFaultedEventArgs(exception), _dispatchSettings);
         }
 
         private void PublishCancelled()
@@ -456,7 +482,7 @@ namespace AsyncEventBridge
                 ClearHandlers();
             }
 
-            EventHandlerDispatcher.Invoke(handlers, this);
+            EventHandlerDispatcher.Invoke(handlers, this, _dispatchSettings);
         }
 
         private bool TryBeginPublication()
