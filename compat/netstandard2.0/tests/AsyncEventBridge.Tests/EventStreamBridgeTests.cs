@@ -139,7 +139,11 @@ public sealed class EventStreamBridgeTests
         Assert.True(channel.Writer.TryWrite(1));
         await handlerEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
-        var disposeTask = Task.Run(bridge.Dispose);
+        var disposeTask = Task.Factory.StartNew(
+            bridge.Dispose,
+            CancellationToken.None,
+            TaskCreationOptions.LongRunning,
+            TaskScheduler.Default);
         await disposeTask.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.False(handlerFinished.Task.IsCompleted);
