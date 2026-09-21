@@ -28,6 +28,10 @@ All notable changes across the supported AsyncEventBridge release tracks are doc
 - Preserve `TraceAndContinue` as the default subscriber behavior; add `ReportAndContinue` with a required observer callback and `IgnoreAndContinue` for deliberate silent isolation.
 - Snapshot subscriber policy options when a bridge is created, and isolate/report observer failures without destabilizing bridge processing.
 - Deliberately omit a subscriber-exception propagation mode because bridge publication is async-driven and lacks a reliable synchronous caller; document the contract in `docs/0.4-subscriber-exceptions.md`.
+- Lock bridge publication to subscriber-snapshot semantics: add/remove/dispose during an in-flight publication affects future publication but does not rewrite the captured invocation list.
+- Clarify `Dispose()` as a non-waiting suppression boundary and `EventStreamBridge.DisposeAsync()` as the completion boundary after which no bridge handlers remain in flight.
+- Add deterministic lifecycle coverage for terminal publication mutation, value-publication mutation, disposal from handlers, late subscribers, and in-flight terminal disposal.
+- Document the bridge lifecycle contract in `docs/0.4-bridge-lifecycle.md`.
 
 ### 0.3 convergence
 
