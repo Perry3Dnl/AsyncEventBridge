@@ -35,7 +35,9 @@ public sealed class AsyncEventBridgeGenerator : IIncrementalGenerator
         var typeParameters = CreateTypeParameterContext(typeSymbol);
         var supportedEvents = new List<EventGenerationInfo>();
 
-        foreach (var eventSymbol in GetEventsForGeneration(\n            typeSymbol,\n            static current => HasGenerateAsyncEventsAttribute(current) && CanGenerateForType(current)))
+        foreach (var eventSymbol in GetEventsForGeneration(
+            typeSymbol,
+            static current => HasGenerateAsyncEventsAttribute(current) && CanGenerateForType(current)))
         {
             if (eventSymbol.IsStatic || !CanAccessEvent(eventSymbol, typeSymbol))
             {
