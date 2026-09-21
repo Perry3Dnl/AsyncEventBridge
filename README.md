@@ -6,9 +6,9 @@
 
 <p align="center"><strong>Bridge classic .NET events and modern async code in both directions.</strong></p>
 
-`main` is the native modern-.NET edition of AsyncEventBridge and targets **.NET 10 (`net10.0`)**. The package contains both the runtime and source generator and is designed for applications that want event-to-async and async-to-event interoperability without taking a dependency on Rx or a logging/telemetry framework.
+`main` is the single development and release line for AsyncEventBridge starting with **0.3.0**. The modern .NET 10 implementation remains at the repository root, the .NET Standard 2.0 compatibility implementation lives under `compat/netstandard2.0`, and the Unity UPM package lives under `Packages/com.perry3d.async-event-bridge`.
 
-> Need the broad compatibility line? Use `base/netstandard2.0`. Need the Unity package? Use `unity`.
+The 0.3 release is a convergence release: all supported editions share one version and one release process, while runtime-specific APIs may remain different where the platform capabilities differ.
 
 ## What it bridges
 
@@ -32,10 +32,10 @@ Package ID:
 AsyncEventBridge
 ```
 
-For a project consuming the `0.2.0` package:
+For a project consuming the `0.3.0` package:
 
 ```xml
-<PackageReference Include="AsyncEventBridge" Version="0.2.0" />
+<PackageReference Include="AsyncEventBridge" Version="0.3.0" />
 ```
 
 The source generator ships in the same NuGet package; there is no separate analyzer package to install.
@@ -312,20 +312,15 @@ Every push/PR to `main` or `dotnet-latest` runs the release gate:
 
 See [`docs/release-readiness.md`](docs/release-readiness.md) for the complete release contract and [`docs/public-api.md`](docs/public-api.md) for the public surface.
 
-## Branch model
+## Release model
 
-```text
-base/netstandard2.0
-├── unity
-└── main / dotnet-latest
-```
+Starting with `0.3.0`, all supported editions are developed from `main`:
 
-- `main`: primary native .NET 10 product line.
-- `dotnet-latest`: modern development/integration line when work is staged before `main`.
-- `base/netstandard2.0`: broad compatibility baseline.
-- `unity`: Unity-specific package and host integration.
+- modern .NET 10 runtime and NuGet work at the repository root;
+- .NET Standard 2.0 compatibility work under `compat/netstandard2.0`;
+- Unity UPM work under `Packages/com.perry3d.async-event-bridge` plus the Unity-specific generator/test projects.
 
-Shared fixes should normally land in the compatibility base first when they genuinely apply to all editions. Modern-only APIs, AOT work, metrics, composition, and modern performance changes belong on the modern line.
+The historical `dotnet-latest`, `base/netstandard2.0`, and `unity` branches are migration/reference lines rather than independent release trains. A release is ready only when every supported edition reaches the same release-readiness gate. Feature parity is not required when a feature depends on runtime-specific capabilities.
 
 ## Build from source
 
