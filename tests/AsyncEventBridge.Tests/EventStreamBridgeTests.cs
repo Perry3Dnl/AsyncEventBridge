@@ -336,11 +336,12 @@ public sealed class EventStreamBridgeTests
         var bridge = EmptyValues().ToEventBridge();
         var currentSnapshotFinished = NewCompletionSource();
         Task? disposeTask = null;
+        var disposeCompletedInsideHandler = true;
 
         bridge.Completed += (_, _) =>
         {
             disposeTask = bridge.DisposeAsync().AsTask();
-            Assert.False(disposeTask.IsCompleted);
+            disposeCompletedInsideHandler = disposeTask.IsCompleted;
         };
         bridge.Completed += (_, _) => currentSnapshotFinished.TrySetResult(true);
 
@@ -348,6 +349,7 @@ public sealed class EventStreamBridgeTests
 
         await currentSnapshotFinished.Task.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.NotNull(disposeTask);
+        Assert.False(disposeCompletedInsideHandler);
         await disposeTask.WaitAsync(TimeSpan.FromSeconds(5));
     }
 
