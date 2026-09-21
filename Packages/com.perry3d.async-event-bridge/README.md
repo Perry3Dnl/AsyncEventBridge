@@ -136,6 +136,12 @@ private async Awaitable Start()
 
 The owner overload suppresses publication after the owning `MonoBehaviour` is destroyed or the application exits. Task cancellation can be published through the cancellation UnityEvent; faults are published as strings so they are straightforward to bind in the Inspector.
 
+## Portable bridge subscriber exceptions
+
+The portable `Task` / `IAsyncEnumerable<T>` event bridges support `EventBridgeOptions`. Subscriber failures are isolated by default and traced. Applications can instead choose `ReportAndContinue` with an observer callback or `IgnoreAndContinue`; remaining subscribers always continue.
+
+This policy applies to the portable core bridges. Unity-specific `UnityAsyncBridge` publication remains a separate Unity-facing API surface.
+
 ## Interactive sample
 
 The package includes **Interactive Dialogue + Live Code** under `Samples~`. Import it from Unity Package Manager to see a real `UnityEvent<bool>` drive an awaited dialogue flow while the active `WaitAsync` line is highlighted in the scene.
