@@ -40,7 +40,7 @@ public class EventBridgeBenchmarks
             options: new EventStreamOptions
             {
                 Capacity = BurstSize,
-                FullMode = EventStreamFullMode.Grow,
+                FullMode = EventStreamFullMode.Unbounded,
             });
 
         await using var enumerator = stream.GetAsyncEnumerator();
