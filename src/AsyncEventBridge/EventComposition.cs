@@ -404,6 +404,17 @@ public static class EventComposition
         {
             return null;
         }
+        catch (AggregateException exception)
+            when (exception.InnerExceptions.Count > 1 &&
+                  exception.InnerExceptions[0] is OperationCanceledException)
+        {
+            if (exception.InnerExceptions.Count == 2)
+            {
+                return exception.InnerExceptions[1];
+            }
+
+            return new AggregateException(exception.InnerExceptions.Skip(1));
+        }
         catch (Exception exception)
         {
             return exception;
