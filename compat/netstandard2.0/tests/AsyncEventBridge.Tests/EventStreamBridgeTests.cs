@@ -108,6 +108,39 @@ public sealed class EventStreamBridgeTests
     }
 
     [Fact]
+    public async Task CancellationAfterCompletionDoesNotPublishSecondTerminalOutcome()
+    {
+        var channel = Channel.CreateUnbounded<int>();
+        using var cancellation = new CancellationTokenSource();
+        await using EventStreamBridge<int> bridge = channel.Reader.ReadAllAsync().ToEventBridge();
+        var completed = NewCompletionSource();
+        var completedCount = 0;
+        var faulted = 0;
+        var cancelled = 0;
+
+        bridge.Completed += (_, _) =>
+        {
+            Interlocked.Increment(ref completedCount);
+            completed.TrySetResult(true);
+        };
+        bridge.Faulted += (_, _) => Interlocked.Increment(ref faulted);
+        bridge.Cancelled += (_, _) => Interlocked.Increment(ref cancelled);
+
+        bridge.Connect(cancellation.Token);
+        channel.Writer.TryComplete();
+
+        await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        cancellation.Cancel();
+        await bridge.DisposeAsync();
+
+        Assert.Equal(1, Volatile.Read(ref completedCount));
+        Assert.Equal(0, Volatile.Read(ref faulted));
+        Assert.Equal(0, Volatile.Read(ref cancelled));
+    }
+
+
+    [Fact]
     public async Task DisposeAsyncStopsEnumerationWithoutPublishingCancelled()
     {
         var channel = Channel.CreateUnbounded<int>();
