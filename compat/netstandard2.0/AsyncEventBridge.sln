@@ -1,0 +1,54 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AsyncEventBridge", "src\AsyncEventBridge\AsyncEventBridge.csproj", "{B643E7A4-8227-4766-82A0-10A8E6FB3695}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AsyncEventBridge.Generators", "src\AsyncEventBridge.Generators\AsyncEventBridge.Generators.csproj", "{0E368096-64C7-41CF-BC92-578B2385B468}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AsyncEventBridge.Tests", "tests\AsyncEventBridge.Tests\AsyncEventBridge.Tests.csproj", "{B2E196A4-5A53-451E-A8C7-3F8DF060D328}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AsyncEventBridge.Generators.Tests", "tests\AsyncEventBridge.Generators.Tests\AsyncEventBridge.Generators.Tests.csproj", "{58A85A8D-E14E-46C6-95BC-84A5B5D4077B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AsyncEventBridge.StressTests", "tests\AsyncEventBridge.StressTests\AsyncEventBridge.StressTests.csproj", "{3D8DC946-1167-4C15-A213-1331329C9C57}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AsyncEventBridge.Compatibility", "tests\AsyncEventBridge.Compatibility\AsyncEventBridge.Compatibility.csproj", "{F6A2B355-0C6B-4D65-A7B3-1744F985BC9C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SensorMonitoring", "samples\SensorMonitoring\SensorMonitoring.csproj", "{A39D593E-9F26-4D29-BF44-4BA9B9195B31}"
+EndProject
+Global
+    GlobalSection(SolutionConfigurationPlatforms) = preSolution
+        Debug|Any CPU = Debug|Any CPU
+        Release|Any CPU = Release|Any CPU
+    EndGlobalSection
+    GlobalSection(ProjectConfigurationPlatforms) = postSolution
+        {B643E7A4-8227-4766-82A0-10A8E6FB3695}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {B643E7A4-8227-4766-82A0-10A8E6FB3695}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {B643E7A4-8227-4766-82A0-10A8E6FB3695}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {B643E7A4-8227-4766-82A0-10A8E6FB3695}.Release|Any CPU.Build.0 = Release|Any CPU
+        {0E368096-64C7-41CF-BC92-578B2385B468}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {0E368096-64C7-41CF-BC92-578B2385B468}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {0E368096-64C7-41CF-BC92-578B2385B468}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {0E368096-64C7-41CF-BC92-578B2385B468}.Release|Any CPU.Build.0 = Release|Any CPU
+        {B2E196A4-5A53-451E-A8C7-3F8DF060D328}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {B2E196A4-5A53-451E-A8C7-3F8DF060D328}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {B2E196A4-5A53-451E-A8C7-3F8DF060D328}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {B2E196A4-5A53-451E-A8C7-3F8DF060D328}.Release|Any CPU.Build.0 = Release|Any CPU
+        {58A85A8D-E14E-46C6-95BC-84A5B5D4077B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {58A85A8D-E14E-46C6-95BC-84A5B5D4077B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {58A85A8D-E14E-46C6-95BC-84A5B5D4077B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {58A85A8D-E14E-46C6-95BC-84A5B5D4077B}.Release|Any CPU.Build.0 = Release|Any CPU
+        {3D8DC946-1167-4C15-A213-1331329C9C57}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {3D8DC946-1167-4C15-A213-1331329C9C57}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {3D8DC946-1167-4C15-A213-1331329C9C57}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {3D8DC946-1167-4C15-A213-1331329C9C57}.Release|Any CPU.Build.0 = Release|Any CPU
+        {F6A2B355-0C6B-4D65-A7B3-1744F985BC9C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {F6A2B355-0C6B-4D65-A7B3-1744F985BC9C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {F6A2B355-0C6B-4D65-A7B3-1744F985BC9C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {F6A2B355-0C6B-4D65-A7B3-1744F985BC9C}.Release|Any CPU.Build.0 = Release|Any CPU
+        {A39D593E-9F26-4D29-BF44-4BA9B9195B31}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {A39D593E-9F26-4D29-BF44-4BA9B9195B31}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {A39D593E-9F26-4D29-BF44-4BA9B9195B31}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {A39D593E-9F26-4D29-BF44-4BA9B9195B31}.Release|Any CPU.Build.0 = Release|Any CPU
+    EndGlobalSection
+EndGlobal
