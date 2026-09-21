@@ -112,7 +112,7 @@ await foreach (var score in scoreChanged.AsAsyncEnumerable(this, score => score 
 }
 ```
 
-The normal `EventStreamOptions` buffer modes (`Grow`, `DropOldest`, and `DropNewest`) apply.
+The normal `EventStreamOptions` buffer modes apply. `Unbounded` is the lossless default and ignores `Capacity`; `Grow` remains its compatibility alias. `DropOldest` and `DropNewest` are bounded by `Capacity`.
 
 ## Async work -> Inspector events
 
