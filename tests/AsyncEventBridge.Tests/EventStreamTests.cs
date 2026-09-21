@@ -154,13 +154,13 @@ public sealed class EventStreamTests
     }
 
     [Fact]
-    public async Task GrowPreservesValuesBeyondInitialCapacity()
+    public async Task UnboundedIgnoresCapacityAndPreservesValues()
     {
         var source = new TestEventSource<TestEventArgs>();
         var options = new EventStreamOptions
         {
-            Capacity = 2,
-            FullMode = EventStreamFullMode.Grow,
+            Capacity = -1,
+            FullMode = EventStreamFullMode.Unbounded,
         };
         var stream = EventStream.Create<TestEventArgs>(
             handler => source.Changed += handler,
@@ -184,6 +184,35 @@ public sealed class EventStreamTests
             Assert.Equal(2, enumerator.Current.Value);
             Assert.True(await enumerator.MoveNextAsync());
             Assert.Equal(3, enumerator.Current.Value);
+        }
+        finally
+        {
+            await enumerator.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task GrowAliasUsesUnboundedSemantics()
+    {
+        var source = new TestEventSource<TestEventArgs>();
+        var options = new EventStreamOptions
+        {
+            Capacity = -1,
+            FullMode = EventStreamFullMode.Grow,
+        };
+        var stream = EventStream.Create<TestEventArgs>(
+            handler => source.Changed += handler,
+            handler => source.Changed -= handler,
+            options: options);
+        var enumerator = stream.GetAsyncEnumerator();
+
+        try
+        {
+            var move = enumerator.MoveNextAsync().AsTask();
+            source.Raise(new TestEventArgs(7));
+
+            Assert.True(await move);
+            Assert.Equal(7, enumerator.Current.Value);
         }
         finally
         {
@@ -328,10 +357,14 @@ public sealed class EventStreamTests
 
 
     [Fact]
-    public void RejectsNonPositiveCapacity()
+    public void RejectsNonPositiveCapacityForBoundedModes()
     {
         var source = new TestEventSource<TestEventArgs>();
-        var options = new EventStreamOptions { Capacity = 0 };
+        var options = new EventStreamOptions
+        {
+            Capacity = 0,
+            FullMode = EventStreamFullMode.DropOldest,
+        };
 
         Assert.Throws<ArgumentOutOfRangeException>(() => EventStream.Create<TestEventArgs>(
             handler => source.Changed += handler,
