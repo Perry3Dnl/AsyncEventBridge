@@ -8,7 +8,7 @@
 
 `main` is the single development and release line for AsyncEventBridge starting with **0.3.0**. The modern .NET 10 implementation remains at the repository root, the .NET Standard 2.0 compatibility implementation lives under `compat/netstandard2.0`, and the Unity UPM package lives under `Packages/com.perry3d.async-event-bridge`.
 
-The 0.3 release is a convergence release: all supported editions share one version and one release process, while runtime-specific APIs may remain different where the platform capabilities differ.
+The `0.4.0` release candidate builds on that convergence model: all supported editions still share one version and one release process, while 0.4 hardens the generator architecture, cleanup/lifecycle semantics, stream buffering, subscriber exception handling, packaging, and cross-platform verification.
 
 ## What it bridges
 
@@ -32,10 +32,10 @@ Package ID:
 AsyncEventBridge
 ```
 
-For a project consuming the `0.3.0` package:
+For a project consuming the `0.4.0` package:
 
 ```xml
-<PackageReference Include="AsyncEventBridge" Version="0.3.0" />
+<PackageReference Include="AsyncEventBridge" Version="0.4.0" />
 ```
 
 The source generator ships in the same NuGet package; there is no separate analyzer package to install.
@@ -315,16 +315,18 @@ Benchmarks are intentionally not executed on every CI run so normal verification
 
 ## Verification
 
-Every push/PR to `main` or `dotnet-latest` runs the release gate:
+CI runs the release gate on pushes to `main` and `release/**`, and on pull requests targeting `main`:
 
-- restore/build the full .NET 10 solution;
-- run runtime, generator, lifecycle, race, stress, metrics, and API-lock tests;
-- run the sensor sample;
-- create and inspect `.nupkg` and `.snupkg` artifacts;
-- compile a clean consumer against the packed package;
-- execute a separate packaged runtime consumer;
+- restore/build/test the full .NET 10 solution, including runtime, generator, lifecycle, race, stress, metrics, and API-lock coverage;
+- restore/build/test the .NET Standard 2.0 compatibility solution independently;
+- run the modern and compatibility sensor samples;
+- create and inspect the modern, compatibility, and unified NuGet package layouts;
+- compile and execute clean modern and compatibility consumers from the packed artifacts;
 - publish and execute the packaged Native AOT consumer with no `ILxxxx` warnings;
-- independently restore/build/test on Windows and macOS.
+- independently restore/build/test modern and compatibility code on Windows and macOS;
+- validate the Unity manifest/version, portable-core parity, asset metadata, Unity generator build, and runtime compilation against Unity API stubs.
+
+The automated Unity job is a repository/compile gate, not a substitute for a real Unity Editor. Unity Test Framework execution, IL2CPP acceptance, and sample validation in a supported Unity Editor remain manual release checks.
 
 See [`docs/release-readiness.md`](docs/release-readiness.md) for the complete release contract and [`docs/public-api.md`](docs/public-api.md) for the public surface.
 

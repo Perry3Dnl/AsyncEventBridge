@@ -1,14 +1,14 @@
 # Release readiness
 
-This document records the release contract for AsyncEventBridge `0.3.0`.
+This document records the release contract for AsyncEventBridge `0.4.0`.
 
-Version 0.3.0 is a convergence release. Modern .NET, .NET Standard 2.0 compatibility, and Unity are developed from one release line and must reach the same applicable readiness gate before the version is released.
+Version 0.4.0 continues the convergence release model established in 0.3. Modern .NET, .NET Standard 2.0 compatibility, and Unity are developed from one release line and must reach the same applicable readiness gate before the version is released.
 
-See [0.3-convergence.md](0.3-convergence.md) for the working convergence checklist.
+See [0.3-convergence.md](0.3-convergence.md) for the historical convergence checklist; the 0.4-specific behavioral contracts are documented in the `0.4-*` documents in this directory.
 
 ## Release identity
 
-- Version: `0.3.0`
+- Version: `0.4.0`
 - NuGet package ID: `AsyncEventBridge`
 - Modern runtime target: `.NET 10` (`net10.0`)
 - Compatibility runtime target: `.NET Standard 2.0` (`netstandard2.0`)
@@ -21,13 +21,13 @@ The release version comes from the root `Directory.Build.props`. The Unity manif
 
 ## Branch policy
 
-Starting with 0.3.0, `main` is the only product release line.
+Starting with 0.3.0, `main` is the product release line; `release/**` branches are temporary release-integration lines and are covered by CI.
 
 The compatibility implementation lives under `compat/netstandard2.0`; the Unity package lives under `Packages/com.perry3d.async-event-bridge`. Historical split branches may remain available for reference, but fixes and release work should converge on `main`.
 
 ## NuGet release target
 
-The intended final NuGet artifact is one `AsyncEventBridge.0.3.0.nupkg` containing both runtime assets:
+The intended final NuGet artifact is one `AsyncEventBridge.0.4.0.nupkg` containing both runtime assets:
 
 ```text
 lib/net10.0/AsyncEventBridge.dll
@@ -86,7 +86,7 @@ CI/release validation must:
 3. verify Unity asset metadata;
 4. build the Unity generator source;
 5. compile the package runtime against Unity API stubs;
-6. verify the bundled Unity generator is reproduced byte-for-byte from the 0.3 source;
+6. verify the bundled Unity generator is reproduced from the current 0.4 source;
 7. run Runtime and Editor Unity Test Framework tests in an actual supported Unity Editor;
 8. run an IL2CPP acceptance build;
 9. validate the importable package sample.
@@ -111,4 +111,4 @@ Repository-side implementation and verification can be automated. These remain o
 - Unity Asset Store submission and commercial metadata;
 - external certification claims.
 
-Moving validated 0.3 source to `main` does not itself publish any package.
+Merging validated 0.4 release source to `main` does not itself publish any package.

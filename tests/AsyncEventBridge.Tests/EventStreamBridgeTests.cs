@@ -348,9 +348,9 @@ public sealed class EventStreamBridgeTests
         bridge.Connect();
 
         await currentSnapshotFinished.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        var capturedDisposeTask = Assert.IsType<Task>(disposeTask);
+        Assert.NotNull(disposeTask);
         Assert.Equal(0, Volatile.Read(ref disposeCompletedInsideHandler));
-        await capturedDisposeTask.WaitAsync(TimeSpan.FromSeconds(5));
+        await disposeTask.WaitAsync(TimeSpan.FromSeconds(5));
     }
 
     [Fact]

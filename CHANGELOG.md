@@ -33,6 +33,7 @@ All notable changes across the supported AsyncEventBridge release tracks are doc
 - Add deterministic lifecycle coverage for terminal publication mutation, value-publication mutation, disposal from handlers, late subscribers, and in-flight terminal disposal.
 - Lock exactly-once stream terminal behavior when source completion and cancellation occur on opposite sides of the terminal-publication boundary.
 - Remove thread-pool scheduling dependence from the two timing-sensitive disposal tests that had intermittently failed on Windows convergence runners.
+- Run the blocked terminal-snapshot subscriber test on a dedicated long-running worker and avoid exact runtime `Task` implementation assertions, keeping lifecycle tests deterministic across .NET 8/10 and Linux/macOS/Windows runners.
 - Document the bridge lifecycle contract in `docs/0.4-bridge-lifecycle.md`.
 
 ### 0.3 convergence

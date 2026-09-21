@@ -42,9 +42,7 @@ public sealed class EventBridgeLifecycleTests
     [Fact]
     public async Task SubscriberAddedDuringTerminalPublicationIsNotInvoked()
     {
-        var taskCompletion = new TaskCompletionSource<int>(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        EventBridge<int> bridge = taskCompletion.Task.ToEventBridge();
+        EventBridge<int> bridge = Task.FromResult(42).ToEventBridge();
         var firstHandlerEntered = new TaskCompletionSource<bool>(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var publicationFinished = new TaskCompletionSource<bool>(
@@ -58,15 +56,20 @@ public sealed class EventBridgeLifecycleTests
             releaseFirstHandler.Wait();
         };
         bridge.Completed += (_, _) => publicationFinished.TrySetResult(true);
-        bridge.Connect();
 
-        taskCompletion.SetResult(42);
+        var connectTask = Task.Factory.StartNew(
+            bridge.Connect,
+            CancellationToken.None,
+            TaskCreationOptions.LongRunning,
+            TaskScheduler.Default);
+
         await firstHandlerEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         bridge.Completed += (_, _) => Interlocked.Increment(ref lateHandlerCalls);
         releaseFirstHandler.Set();
 
         await publicationFinished.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await connectTask.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.Equal(0, Volatile.Read(ref lateHandlerCalls));
     }
