@@ -1,5 +1,6 @@
 using System.Text;
 using static AsyncEventBridge.Generators.GeneratorTypeSystem;
+using static AsyncEventBridge.Generators.GeneratorSymbolAnalysis;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Text;
@@ -66,7 +67,7 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
         var typeParameters = CreateTypeParameterContext(typeSymbol);
         var supportedEvents = new List<EventGenerationInfo>();
 
-        foreach (var eventSymbol in GetEventsForGeneration(typeSymbol, stopAtTargetTypes: null))
+        foreach (var eventSymbol in GetEventsForGeneration(\n            typeSymbol,\n            static current => HasGenerateAsyncEventsAttribute(current) && CanGenerateForType(current)))
         {
             if (eventSymbol.IsStatic || !CanAccessEvent(eventSymbol, typeSymbol, isExternalTarget: false))
             {
@@ -179,7 +180,7 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
             var typeParameters = CreateTypeParameterContext(typeSymbol);
             var supportedEvents = new List<EventGenerationInfo>();
 
-            foreach (var eventSymbol in GetEventsForGeneration(typeSymbol, targetedTypes))
+            foreach (var eventSymbol in GetEventsForGeneration(\n                typeSymbol,\n                current => targetedTypes.Contains(current) ||\n                    (HasGenerateAsyncEventsAttribute(current) && CanGenerateForType(current))))
             {
                 if (eventSymbol.IsStatic || !CanAccessEvent(eventSymbol, typeSymbol, isExternalTarget))
                 {
@@ -643,130 +644,6 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
             EventKind.Custom,
             payloadType,
             RenderType(shape.DelegateType!, typeParameters));
-    }
-
-    private static IEnumerable<IEventSymbol> GetEventsForGeneration(
-        INamedTypeSymbol typeSymbol,
-        ISet<INamedTypeSymbol>? stopAtTargetTypes)
-    {
-        var hiddenNames = new HashSet<string>(StringComparer.Ordinal);
-        INamedTypeSymbol? current = typeSymbol;
-        var isTargetType = true;
-
-        while (current is not null)
-        {
-            if (!isTargetType &&
-                ((stopAtTargetTypes is not null && stopAtTargetTypes.Contains(current)) ||
-                 (HasGenerateAsyncEventsAttribute(current) && CanGenerateForType(current))))
-            {
-                yield break;
-            }
-
-            foreach (var eventSymbol in current.GetMembers().OfType<IEventSymbol>())
-            {
-                if (!hiddenNames.Contains(eventSymbol.Name))
-                {
-                    yield return eventSymbol;
-                }
-            }
-
-            foreach (var member in current.GetMembers())
-            {
-                hiddenNames.Add(member.Name);
-            }
-
-            isTargetType = false;
-            current = current.BaseType;
-        }
-    }
-
-
-
-    private static bool CanAccessEvent(
-        IEventSymbol eventSymbol,
-        INamedTypeSymbol targetType,
-        bool isExternalTarget)
-    {
-        if (eventSymbol.DeclaredAccessibility == Accessibility.Public)
-        {
-            return true;
-        }
-
-        if (isExternalTarget)
-        {
-            return false;
-        }
-
-        var sameAssembly = SymbolEqualityComparer.Default.Equals(
-            eventSymbol.ContainingAssembly,
-            targetType.ContainingAssembly);
-
-        return sameAssembly &&
-            eventSymbol.DeclaredAccessibility is Accessibility.Internal or Accessibility.ProtectedOrInternal;
-    }
-
-    private static string GetMethodAccessibility(INamedTypeSymbol typeSymbol, IEventSymbol eventSymbol)
-    {
-        return IsPubliclyAccessible(typeSymbol) &&
-               eventSymbol.DeclaredAccessibility == Accessibility.Public &&
-               IsPubliclyAccessible(eventSymbol.Type)
-            ? "public"
-            : "internal";
-    }
-
-    private static bool IsPubliclyAccessible(ITypeSymbol typeSymbol)
-    {
-        if (typeSymbol is ITypeParameterSymbol)
-        {
-            return true;
-        }
-
-        if (typeSymbol is IArrayTypeSymbol arrayType)
-        {
-            return IsPubliclyAccessible(arrayType.ElementType);
-        }
-
-        if (typeSymbol is not INamedTypeSymbol namedType)
-        {
-            return true;
-        }
-
-        if (namedType.DeclaredAccessibility != Accessibility.Public)
-        {
-            return false;
-        }
-
-        if (namedType.ContainingType is not null && !IsPubliclyAccessible(namedType.ContainingType))
-        {
-            return false;
-        }
-
-        return namedType.TypeArguments.All(IsPubliclyAccessible);
-    }
-
-    private static bool CanGenerateForType(INamedTypeSymbol typeSymbol)
-    {
-        if (typeSymbol.TypeKind != TypeKind.Class)
-        {
-            return false;
-        }
-
-        INamedTypeSymbol? current = typeSymbol;
-
-        while (current is not null)
-        {
-            if (current.DeclaredAccessibility is not (
-                Accessibility.Public or
-                Accessibility.Internal or
-                Accessibility.ProtectedOrInternal))
-            {
-                return false;
-            }
-
-            current = current.ContainingType;
-        }
-
-        return true;
     }
 
     private static bool HasGenerateAsyncEventsAttribute(INamedTypeSymbol typeSymbol) =>
