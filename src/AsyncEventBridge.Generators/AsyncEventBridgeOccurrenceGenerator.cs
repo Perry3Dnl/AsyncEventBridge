@@ -156,7 +156,7 @@ public sealed class AsyncEventBridgeOccurrenceGenerator : IIncrementalGenerator
         TypeParameterContext typeParameters,
         bool includeTimeout)
     {
-        var sourceType = RenderType(typeSymbol, typeParameters);
+        var sourceType = RenderType(typeSymbol, typeParameters, preserveNullableAnnotations: true);
         var eventName = EscapeIdentifier(item.EventSymbol.Name);
         var methodName = eventName.TrimStart('@') + "OccurrenceAsync";
         var occurrenceType = $"global::AsyncEventBridge.EventOccurrence<{item.SenderType}, {item.PayloadType}>";
@@ -185,7 +185,7 @@ public sealed class AsyncEventBridgeOccurrenceGenerator : IIncrementalGenerator
         }
 
         source.Append(')');
-        AppendMethodConstraints(source, typeParameters);
+        AppendMethodConstraints(source, typeParameters, preserveNullableAnnotations: true);
         source.AppendLine()
             .AppendLine("    {")
             .AppendLine("        if (source is null)")
@@ -253,7 +253,7 @@ public sealed class AsyncEventBridgeOccurrenceGenerator : IIncrementalGenerator
         TypeParameterContext typeParameters,
         bool includeOptions)
     {
-        var sourceType = RenderType(typeSymbol, typeParameters);
+        var sourceType = RenderType(typeSymbol, typeParameters, preserveNullableAnnotations: true);
         var eventName = EscapeIdentifier(item.EventSymbol.Name);
         var methodName = eventName.TrimStart('@') + "OccurrenceStream";
         var occurrenceType = $"global::AsyncEventBridge.EventOccurrence<{item.SenderType}, {item.PayloadType}>";
@@ -275,7 +275,7 @@ public sealed class AsyncEventBridgeOccurrenceGenerator : IIncrementalGenerator
         }
 
         source.Append("global::System.Threading.CancellationToken cancellationToken = default)");
-        AppendMethodConstraints(source, typeParameters);
+        AppendMethodConstraints(source, typeParameters, preserveNullableAnnotations: true);
         source.AppendLine()
             .AppendLine("    {")
             .AppendLine("        if (source is null)")
@@ -354,9 +354,9 @@ public sealed class AsyncEventBridgeOccurrenceGenerator : IIncrementalGenerator
 
         eventInfo = new EventInfo(
             eventSymbol,
-            RenderType(shape.DelegateType!.WithNullableAnnotation(NullableAnnotation.NotAnnotated), typeParameters),
-            RenderType(shape.SenderType!, typeParameters),
-            RenderType(shape.PayloadType!, typeParameters),
+            RenderType(shape.DelegateType!.WithNullableAnnotation(NullableAnnotation.NotAnnotated), typeParameters, preserveNullableAnnotations: true),
+            RenderType(shape.SenderType!, typeParameters, preserveNullableAnnotations: true),
+            RenderType(shape.PayloadType!, typeParameters, preserveNullableAnnotations: true),
             string.Empty);
         return true;
     }
