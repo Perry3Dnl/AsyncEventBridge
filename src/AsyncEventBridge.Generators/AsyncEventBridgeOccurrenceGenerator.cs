@@ -342,66 +342,25 @@ public sealed class AsyncEventBridgeOccurrenceGenerator : IIncrementalGenerator
     {
         eventInfo = default;
 
-        if (eventSymbol.Type is not INamedTypeSymbol delegateType ||
-            delegateType.TypeKind != TypeKind.Delegate ||
-            delegateType.DelegateInvokeMethod is not { } invokeMethod ||
-            !invokeMethod.ReturnsVoid ||
-            invokeMethod.Parameters.Length != 2 ||
-            invokeMethod.Parameters[0].RefKind != RefKind.None ||
-            invokeMethod.Parameters[1].RefKind != RefKind.None ||
-            !IsAsyncLifetimeCompatible(invokeMethod.Parameters[0].Type) ||
-            !IsAsyncLifetimeCompatible(invokeMethod.Parameters[1].Type))
+        var shape = EventShapeClassifier.Classify(eventSymbol);
+
+        if (shape.Kind == EventShapeKind.Unsupported ||
+            !shape.IsSenderAsyncCompatible ||
+            !shape.IsPayloadAsyncCompatible)
         {
             return false;
         }
 
         eventInfo = new EventInfo(
             eventSymbol,
-            RenderType(delegateType.WithNullableAnnotation(NullableAnnotation.NotAnnotated), typeParameters),
-            RenderType(invokeMethod.Parameters[0].Type, typeParameters),
-            RenderType(invokeMethod.Parameters[1].Type, typeParameters),
+            RenderType(shape.DelegateType!.WithNullableAnnotation(NullableAnnotation.NotAnnotated), typeParameters),
+            RenderType(shape.SenderType!, typeParameters),
+            RenderType(shape.PayloadType!, typeParameters),
             string.Empty);
         return true;
     }
 
-    private static bool IsAsyncLifetimeCompatible(ITypeSymbol typeSymbol) =>
-        !typeSymbol.IsRefLikeType &&
-        (typeSymbol is not ITypeParameterSymbol typeParameter || !typeParameter.AllowsRefLikeType);
 
-    private static IEnumerable<IEventSymbol> GetEventsForGeneration(
-        INamedTypeSymbol typeSymbol,
-        HashSet<INamedTypeSymbol>? stopAtTargetTypes)
-    {
-        var hiddenNames = new HashSet<string>(StringComparer.Ordinal);
-        INamedTypeSymbol? current = typeSymbol;
-        var isTargetType = true;
-
-        while (current is not null)
-        {
-            if (!isTargetType &&
-                ((stopAtTargetTypes is not null && stopAtTargetTypes.Contains(current)) ||
-                 HasDirectAttribute(current)))
-            {
-                yield break;
-            }
-
-            foreach (var eventSymbol in current.GetMembers().OfType<IEventSymbol>())
-            {
-                if (!hiddenNames.Contains(eventSymbol.Name))
-                {
-                    yield return eventSymbol;
-                }
-            }
-
-            foreach (var member in current.GetMembers())
-            {
-                hiddenNames.Add(member.Name);
-            }
-
-            isTargetType = false;
-            current = current.BaseType;
-        }
-    }
 
     private static bool CanAccessEvent(
         IEventSymbol eventSymbol,
