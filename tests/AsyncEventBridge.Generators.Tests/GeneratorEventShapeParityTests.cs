@@ -140,6 +140,64 @@ public sealed class GeneratorEventShapeParityTests
             sourceText.Contains("InvalidOccurrenceAsync", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public void SharedTypeSystemPreservesNestedGenericsConstraintsNullabilityAndKeywords()
+    {
+        var source = RuntimeStubs + """
+            namespace Demo
+            {
+                public delegate void CustomHandler<TPayload>(object? sender, TPayload payload);
+
+                public sealed class Payload<TLeft, TRight>
+                {
+                }
+
+                public sealed class Outer<TOuter>
+                    where TOuter : class?
+                {
+                    [AsyncEventBridge.GenerateAsyncEvents]
+                    public sealed class Sensor<TState>
+                        where TState : class, new()
+                    {
+                        public event EventHandler<Payload<TOuter, TState>?>? @event;
+                        public event CustomHandler<Payload<TOuter, TState>?>? Custom;
+                    }
+                }
+            }
+            """;
+
+        var result = RunGenerators(source);
+        var generated = result.Results
+            .SelectMany(item => item.GeneratedSources)
+            .Select(item => item.SourceText.ToString())
+            .ToArray();
+
+        Assert.Equal(3, generated.Length);
+
+        foreach (var generatedSource in generated)
+        {
+            Assert.Contains(
+                "global::Demo.Outer<TSource0>.Sensor<TSource1>",
+                generatedSource,
+                StringComparison.Ordinal);
+            Assert.Contains("where TSource0 : class?", generatedSource, StringComparison.Ordinal);
+            Assert.Contains("where TSource1 : class, new()", generatedSource, StringComparison.Ordinal);
+        }
+
+        var standard = Assert.Single(generated.Where(sourceText =>
+            sourceText.Contains("AsyncEventExtensions", StringComparison.Ordinal) &&
+            !sourceText.Contains("CustomAsyncEventExtensions", StringComparison.Ordinal) &&
+            !sourceText.Contains("OccurrenceAsyncEventExtensions", StringComparison.Ordinal)));
+        Assert.Contains("source.@event", standard, StringComparison.Ordinal);
+
+        var occurrence = Assert.Single(generated.Where(sourceText =>
+            sourceText.Contains("OccurrenceAsyncEventExtensions", StringComparison.Ordinal)));
+        Assert.Contains(
+            "EventOccurrence<global::System.Object?, global::Demo.Payload<TSource0, TSource1>?>",
+            occurrence,
+            StringComparison.Ordinal);
+    }
+
     private static GeneratorDriverRunResult RunGenerators(string source)
     {
         var parseOptions = new CSharpParseOptions(LanguageVersion.CSharp13);
