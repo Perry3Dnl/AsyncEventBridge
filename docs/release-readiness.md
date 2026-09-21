@@ -34,12 +34,14 @@ lib/net10.0/AsyncEventBridge.dll
 lib/net10.0/AsyncEventBridge.xml
 lib/netstandard2.0/AsyncEventBridge.dll
 lib/netstandard2.0/AsyncEventBridge.xml
-analyzers/dotnet/cs/AsyncEventBridge.Generators.dll
+tools/generators/modern/AsyncEventBridge.Generators.dll
+tools/generators/compat/AsyncEventBridge.Generators.dll
+buildTransitive/AsyncEventBridge.targets
 README.md
 assets/AsyncEventBridge.png
 ```
 
-During convergence, CI may build the modern and compatibility packages separately to validate each asset in isolation. The release is not complete until those assets are consolidated into one publishable NuGet package with one package ID/version.
+CI still builds the modern and compatibility packages separately to validate each asset in isolation, then builds a unified package through `packaging/AsyncEventBridge.Package`. The unified package is consumed by modern and compatibility smoke/runtime consumers and by the modern Native AOT consumer. Release closure still requires the final symbol/source-metadata shape to cover both runtime assets.
 
 A matching symbol package must cover the shipped runtime assets and repository/source metadata.
 
