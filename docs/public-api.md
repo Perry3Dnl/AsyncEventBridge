@@ -1,6 +1,6 @@
-# Public API — v0.2.0
+# Public API — v0.4.0
 
-AsyncEventBridge `0.2.0` is the native .NET 10 line and the primary product contract on `main`.
+AsyncEventBridge `0.4.0` keeps the native .NET 10 runtime on the unified release line and hardens behavioral contracts before 1.0.
 
 The normal Event -> async entry points are generated APIs such as `<EventName>Async(...)`, `<EventName>Stream(...)`, and sender-aware `<EventName>OccurrenceAsync(...)` / `<EventName>OccurrenceStream(...)`. The normal async -> events entry point is `ToEventBridge()`.
 
@@ -94,7 +94,7 @@ Sender-aware streams are available through `<EventName>OccurrenceStream(...)` an
 
 ```text
 Capacity = 100
-FullMode = Grow
+FullMode = Unbounded
 DroppedCount = 0
 DropObserver = null
 ```
@@ -102,12 +102,15 @@ DropObserver = null
 The fixed enum values are:
 
 ```text
-Grow = 0
+Unbounded = 0
+Grow = Unbounded
 DropOldest = 1
 DropNewest = 2
 ```
 
-`Grow` is unbounded. `DropOldest` and `DropNewest` use `Capacity` as the buffer bound. Bounded drop telemetry comes from the underlying channel's real dropped-item callback.
+`Unbounded` is the canonical lossless mode. `Grow` remains a source-compatible alias for the same numeric value. In this mode, `Capacity` is ignored completely; the default value of `100` is only the default hard limit used if a caller selects `DropOldest` or `DropNewest`.
+
+The unbounded default deliberately avoids silent event loss, but sustained producer throughput above consumer throughput can grow memory usage without a fixed upper bound. Applications that require a memory bound must opt into one of the two explicit drop policies. Bounded drop telemetry comes from the underlying channel's real dropped-item callback.
 
 ## Event composition
 
