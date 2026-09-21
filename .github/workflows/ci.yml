@@ -4,14 +4,14 @@ on:
   push:
     branches:
       - main
-      - dotnet-latest
+      - release/0.3.0-convergence
   pull_request:
     branches:
       - main
-      - dotnet-latest
 
 jobs:
-  build-and-test:
+  modern:
+    name: Modern .NET
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -19,7 +19,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup latest .NET
+      - name: Setup .NET 10
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
@@ -34,13 +34,13 @@ jobs:
       - name: Show SDK
         run: dotnet --info
 
-      - name: Restore
+      - name: Restore modern solution
         run: dotnet restore AsyncEventBridge.sln
 
-      - name: Build
+      - name: Build modern solution
         run: dotnet build AsyncEventBridge.sln --configuration Release --no-restore
 
-      - name: Test
+      - name: Test modern solution
         run: dotnet test AsyncEventBridge.sln --configuration Release --no-build --logger "trx;LogFileName=test-results.trx"
 
       - name: Run sensor sample
@@ -104,17 +104,191 @@ jobs:
       - name: Run packaged Native AOT consumer
         run: timeout 15s ./artifacts/native-aot/AsyncEventBridge.PackageAotSmoke
 
-      - name: Upload development packages
+      - name: Upload modern packages
         uses: actions/upload-artifact@v4
         with:
-          name: AsyncEventBridge-${{ github.ref_name }}-${{ env.VERSION }}
+          name: AsyncEventBridge-modern-${{ env.VERSION }}
           path: |
             artifacts/packages/AsyncEventBridge.${{ env.VERSION }}.nupkg
             artifacts/packages/AsyncEventBridge.${{ env.VERSION }}.snupkg
           if-no-files-found: error
 
-  cross-platform-build:
-    name: ${{ matrix.os }} build/test
+  compatibility:
+    name: .NET Standard 2.0 compatibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8 and 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Resolve shared version
+        shell: bash
+        run: |
+          VERSION="$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' Directory.Build.props | head -n 1)"
+          test -n "$VERSION"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Restore compatibility solution
+        run: dotnet restore compat/netstandard2.0/AsyncEventBridge.sln
+
+      - name: Build compatibility solution
+        run: dotnet build compat/netstandard2.0/AsyncEventBridge.sln --configuration Release --no-restore
+
+      - name: Test compatibility solution
+        run: dotnet test compat/netstandard2.0/AsyncEventBridge.sln --configuration Release --no-build --no-restore
+
+      - name: Run compatibility sensor sample
+        run: timeout 15s dotnet run --project compat/netstandard2.0/samples/SensorMonitoring/SensorMonitoring.csproj --configuration Release --no-build
+
+      - name: Pack compatibility asset
+        run: dotnet pack compat/netstandard2.0/src/AsyncEventBridge/AsyncEventBridge.csproj --configuration Release --no-build --no-restore -o artifacts/compat-packages
+
+      - name: Verify compatibility package contents
+        shell: bash
+        run: |
+          set -euo pipefail
+          PACKAGE="artifacts/compat-packages/AsyncEventBridge.${VERSION}.nupkg"
+          test -f "$PACKAGE"
+          unzip -l "$PACKAGE" | tee artifacts/compat-package-contents.txt
+          unzip -l "$PACKAGE" | grep -q "lib/netstandard2.0/AsyncEventBridge.dll"
+          unzip -l "$PACKAGE" | grep -q "lib/netstandard2.0/AsyncEventBridge.xml"
+          unzip -l "$PACKAGE" | grep -q "analyzers/dotnet/cs/AsyncEventBridge.Generators.dll"
+          unzip -l "$PACKAGE" | grep -q "assets/AsyncEventBridge.png"
+          unzip -l "$PACKAGE" | grep -q "README.md"
+
+      - name: Restore packaged compatibility consumer
+        run: dotnet restore compat/netstandard2.0/tests/AsyncEventBridge.PackageSmoke/AsyncEventBridge.PackageSmoke.csproj --source "$PWD/artifacts/compat-packages" --source https://api.nuget.org/v3/index.json -p:AsyncEventBridgePackageVersion="$VERSION"
+
+      - name: Build packaged compatibility consumer
+        run: dotnet build compat/netstandard2.0/tests/AsyncEventBridge.PackageSmoke/AsyncEventBridge.PackageSmoke.csproj --configuration Release --no-restore -p:AsyncEventBridgePackageVersion="$VERSION"
+
+      - name: Restore packaged compatibility runtime consumer
+        run: dotnet restore compat/netstandard2.0/tests/AsyncEventBridge.PackageRuntimeSmoke/AsyncEventBridge.PackageRuntimeSmoke.csproj --source "$PWD/artifacts/compat-packages" --source https://api.nuget.org/v3/index.json -p:AsyncEventBridgePackageVersion="$VERSION"
+
+      - name: Run packaged compatibility runtime consumer
+        run: timeout 15s dotnet run --project compat/netstandard2.0/tests/AsyncEventBridge.PackageRuntimeSmoke/AsyncEventBridge.PackageRuntimeSmoke.csproj --configuration Release --no-restore -p:AsyncEventBridgePackageVersion="$VERSION"
+
+      - name: Upload compatibility package
+        uses: actions/upload-artifact@v4
+        with:
+          name: AsyncEventBridge-netstandard2.0-${{ env.VERSION }}
+          path: artifacts/compat-packages/AsyncEventBridge.${{ env.VERSION }}.nupkg
+          if-no-files-found: error
+
+  unity:
+    name: Unity package
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8 and 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Resolve shared version
+        shell: bash
+        run: |
+          VERSION="$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' Directory.Build.props | head -n 1)"
+          test -n "$VERSION"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Verify Unity package manifest and shared version
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          package_dir = Path("Packages/com.perry3d.async-event-bridge")
+          manifest = json.loads((package_dir / "package.json").read_text(encoding="utf-8"))
+
+          required = ("name", "displayName", "version", "unity", "unityRelease", "author", "description")
+          missing = [field for field in required if not manifest.get(field)]
+          if missing:
+              raise SystemExit(f"Unity package manifest is missing required fields: {', '.join(missing)}")
+
+          if manifest["name"] != package_dir.name:
+              raise SystemExit(f"Package folder '{package_dir.name}' does not match manifest name '{manifest['name']}'")
+
+          if manifest["version"] != os.environ["VERSION"]:
+              raise SystemExit(f"Unity package version {manifest['version']} does not match shared version {os.environ['VERSION']}")
+
+          if not re.fullmatch(r"\d{4}\.\d+", manifest["unity"]):
+              raise SystemExit(f"Invalid Unity compatibility version: {manifest['unity']}")
+
+          if not re.fullmatch(r"\d+[abfp]\d+", manifest["unityRelease"]):
+              raise SystemExit(f"Invalid unityRelease value: {manifest['unityRelease']}")
+          PY
+
+      - name: Verify Unity core matches compatibility baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          for source in compat/netstandard2.0/src/AsyncEventBridge/*.cs; do
+            name="$(basename "$source")"
+            if [[ "$name" == "AssemblyInfo.cs" ]]; then
+              continue
+            fi
+            unity_copy="Packages/com.perry3d.async-event-bridge/Runtime/Core/$name"
+            test -f "$unity_copy"
+            cmp "$source" "$unity_copy"
+          done
+
+      - name: Verify Unity package asset metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          UNITY_PACKAGE="Packages/com.perry3d.async-event-bridge"
+
+          for root in Runtime Analyzers Tests; do
+            test -f "$UNITY_PACKAGE/${root}.meta"
+            while IFS= read -r asset; do
+              [[ "$asset" == *.meta ]] && continue
+              test -f "${asset}.meta"
+            done < <(find "$UNITY_PACKAGE/$root" -mindepth 1 -print | sort)
+          done
+
+          SAMPLE_ROOT="$UNITY_PACKAGE/Samples~/Interactive Dialogue"
+          test -f "$UNITY_PACKAGE/Samples~/Interactive Dialogue.meta"
+          while IFS= read -r asset; do
+            [[ "$asset" == *.meta ]] && continue
+            test -f "${asset}.meta"
+          done < <(find "$SAMPLE_ROOT" -mindepth 1 -print | sort)
+
+          grep -q '^labels:$' "$UNITY_PACKAGE/Analyzers/AsyncEventBridge.Unity.Generators.dll.meta"
+          grep -q '^- RoslynAnalyzer$' "$UNITY_PACKAGE/Analyzers/AsyncEventBridge.Unity.Generators.dll.meta"
+
+      - name: Build Unity generator
+        run: dotnet build src/AsyncEventBridge.Unity.Generators/AsyncEventBridge.Unity.Generators.csproj --configuration Release
+
+      - name: Compile Unity runtime against Unity API stubs
+        run: dotnet build tests/AsyncEventBridge.UnityCompileSmoke/AsyncEventBridge.UnityCompileSmoke.csproj --configuration Release
+
+      - name: Upload Unity generator build
+        uses: actions/upload-artifact@v4
+        with:
+          name: AsyncEventBridge-Unity-generator-${{ env.VERSION }}
+          path: src/AsyncEventBridge.Unity.Generators/bin/Release/netstandard2.0/AsyncEventBridge.Unity.Generators.dll
+          if-no-files-found: error
+
+  cross-platform:
+    name: ${{ matrix.os }} convergence
     strategy:
       fail-fast: false
       matrix:
@@ -122,25 +296,36 @@ jobs:
           - windows-latest
           - macos-latest
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup latest .NET
+      - name: Setup .NET 8 and 10
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 10.0.x
+          dotnet-version: |
+            8.0.x
+            10.0.x
 
-      - name: Show SDK
-        run: dotnet --info
-
-      - name: Restore
+      - name: Restore modern solution
         run: dotnet restore AsyncEventBridge.sln
 
-      - name: Build
+      - name: Build modern solution
         run: dotnet build AsyncEventBridge.sln --configuration Release --no-restore
 
-      - name: Test
+      - name: Test modern solution
         run: dotnet test AsyncEventBridge.sln --configuration Release --no-build --no-restore
+
+      - name: Restore compatibility solution
+        run: dotnet restore compat/netstandard2.0/AsyncEventBridge.sln
+
+      - name: Build compatibility solution
+        run: dotnet build compat/netstandard2.0/AsyncEventBridge.sln --configuration Release --no-restore
+
+      - name: Test compatibility solution
+        run: dotnet test compat/netstandard2.0/AsyncEventBridge.sln --configuration Release --no-build --no-restore
+
+      - name: Compile Unity runtime against Unity API stubs
+        run: dotnet build tests/AsyncEventBridge.UnityCompileSmoke/AsyncEventBridge.UnityCompileSmoke.csproj --configuration Release
