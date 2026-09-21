@@ -177,9 +177,11 @@ Values are published in enumeration order. There is no replay buffer in this dir
 
 ## Subscriber exception policy
 
-Async -> events publication isolates subscribers. If a bridge event handler throws, the bridge catches the exception, writes it through `System.Diagnostics.Trace.TraceError`, and continues with the remaining subscribers.
+Async -> events publication always isolates subscriber exceptions and continues with remaining subscribers.
 
-The exception is not propagated through the bridge. This differs from ordinary synchronous event invocation and is part of the v0.1.0 bridge contract.
+`EventBridgeOptions.SubscriberExceptionPolicy` supports `TraceAndContinue` (default), `ReportAndContinue`, and `IgnoreAndContinue`. Reporting mode requires `SubscriberExceptionObserver`. Options are snapshotted when the bridge is created, and observer failures are isolated and traced.
+
+No propagation policy is provided because async bridge publication normally has no synchronous application caller that can usefully receive the subscriber exception.
 
 ## Generated API rules
 
@@ -211,6 +213,8 @@ EventStreamFullMode
 AsyncEventBridgeExtensions
 EventBridge
 EventBridge<T>
+EventBridgeOptions
+EventBridgeSubscriberExceptionPolicy
 EventStreamBridge<T>
 AsyncValueEventArgs<T>
 AsyncFaultedEventArgs
