@@ -153,6 +153,20 @@ public sealed class EventBridgeTests
     }
 
     [Fact]
+    public void NullBridgeOptionsAreRejected()
+    {
+        EventBridgeOptions? options = null;
+        var stream = EmptyValues();
+
+        Assert.Throws<ArgumentNullException>(() => Task.CompletedTask.ToEventBridge(options!));
+        Assert.Throws<ArgumentNullException>(() => Task.FromResult(1).ToEventBridge(options!));
+        Assert.Throws<ArgumentNullException>(() => new ValueTask().ToEventBridge(options!));
+        Assert.Throws<ArgumentNullException>(() => new ValueTask<int>(1).ToEventBridge(options!));
+        Assert.Throws<ArgumentNullException>(() => stream.ToEventBridge(options!));
+    }
+
+
+    [Fact]
     public void ReportPolicyReportsSubscriberFailureAndContinuesDispatch()
     {
         var subscriberFailure = new InvalidOperationException("subscriber failed");
