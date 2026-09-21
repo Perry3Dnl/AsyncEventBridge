@@ -263,7 +263,7 @@ public static class EventStream
 
     private static Channel<T> CreateChannel<T>(EventStreamSettings settings)
     {
-        if (settings.FullMode == EventStreamFullMode.Grow)
+        if (settings.FullMode == EventStreamFullMode.Unbounded)
         {
             return Channel.CreateUnbounded<T>(new UnboundedChannelOptions
             {
@@ -319,9 +319,7 @@ public static class EventStream
     private static EventStreamSettings GetSettings(EventStreamOptions? options)
     {
         var capacity = options?.Capacity ?? EventStreamOptions.DefaultCapacity;
-        var fullMode = options?.FullMode ?? EventStreamFullMode.Grow;
-
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(capacity, 0, nameof(options));
+        var fullMode = options?.FullMode ?? EventStreamFullMode.Unbounded;
 
         if (!Enum.IsDefined(fullMode))
         {
@@ -329,6 +327,11 @@ public static class EventStream
                 nameof(options),
                 fullMode,
                 "Unknown event stream full mode.");
+        }
+
+        if (fullMode != EventStreamFullMode.Unbounded)
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(capacity, 0, nameof(options));
         }
 
         return new EventStreamSettings(
