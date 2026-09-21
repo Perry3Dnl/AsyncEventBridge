@@ -357,6 +357,63 @@ public sealed class EventAwaiterTests
         Assert.Equal(1, source.RemoveCount);
     }
 
+    [Fact]
+    public async Task SuccessfulWaitWithUnsubscribeFailureFaultsWithCleanupException()
+    {
+        EventHandler<TestEventArgs>? handler = null;
+        var cleanupFailure = new InvalidOperationException("unsubscribe failed");
+        var wait = EventAwaiter.WaitAsync<TestEventArgs>(
+            subscribedHandler => handler = subscribedHandler,
+            _ => throw cleanupFailure);
+
+        handler!(null, new TestEventArgs(1));
+
+        var actual = await Assert.ThrowsAsync<InvalidOperationException>(() => wait);
+
+        Assert.Same(cleanupFailure, actual);
+    }
+
+    [Fact]
+    public async Task PredicateFailureAndUnsubscribeFailureAreAggregatedInOrder()
+    {
+        EventHandler<TestEventArgs>? handler = null;
+        var primaryFailure = new InvalidOperationException("predicate failed");
+        var cleanupFailure = new ApplicationException("unsubscribe failed");
+        var wait = EventAwaiter.WaitAsync<TestEventArgs>(
+            subscribedHandler => handler = subscribedHandler,
+            _ => throw cleanupFailure,
+            _ => throw primaryFailure);
+
+        handler!(null, new TestEventArgs(1));
+
+        var actual = await Assert.ThrowsAsync<AggregateException>(() => wait);
+
+        Assert.Equal(2, actual.InnerExceptions.Count);
+        Assert.Same(primaryFailure, actual.InnerExceptions[0]);
+        Assert.Same(cleanupFailure, actual.InnerExceptions[1]);
+    }
+
+    [Fact]
+    public async Task CancellationAndUnsubscribeFailureAreAggregatedInOrder()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var cleanupFailure = new InvalidOperationException("unsubscribe failed");
+        var wait = EventAwaiter.WaitAsync<TestEventArgs>(
+            _ => { },
+            _ => throw cleanupFailure,
+            cancellationToken: cancellation.Token);
+
+        cancellation.Cancel();
+
+        var actual = await Assert.ThrowsAsync<AggregateException>(() => wait);
+
+        Assert.Equal(2, actual.InnerExceptions.Count);
+        Assert.IsAssignableFrom<OperationCanceledException>(actual.InnerExceptions[0]);
+        Assert.Same(cleanupFailure, actual.InnerExceptions[1]);
+        Assert.True(wait.IsFaulted);
+    }
+
+
     private static Task<TestEventArgs> Wait(
         TestEventSource<TestEventArgs> source,
         Predicate<TestEventArgs>? predicate = null,
