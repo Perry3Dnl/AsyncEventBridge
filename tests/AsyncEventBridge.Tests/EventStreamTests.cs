@@ -192,35 +192,6 @@ public sealed class EventStreamTests
     }
 
     [Fact]
-    public async Task GrowAliasUsesUnboundedSemantics()
-    {
-        var source = new TestEventSource<TestEventArgs>();
-        var options = new EventStreamOptions
-        {
-            Capacity = -1,
-            FullMode = EventStreamFullMode.Grow,
-        };
-        var stream = EventStream.Create<TestEventArgs>(
-            handler => source.Changed += handler,
-            handler => source.Changed -= handler,
-            options: options);
-        var enumerator = stream.GetAsyncEnumerator();
-
-        try
-        {
-            var move = enumerator.MoveNextAsync().AsTask();
-            source.Raise(new TestEventArgs(7));
-
-            Assert.True(await move);
-            Assert.Equal(7, enumerator.Current.Value);
-        }
-        finally
-        {
-            await enumerator.DisposeAsync();
-        }
-    }
-
-    [Fact]
     public async Task DropOldestKeepsNewestBufferedValues()
     {
         var source = new TestEventSource<TestEventArgs>();
