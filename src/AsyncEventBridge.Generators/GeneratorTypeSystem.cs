@@ -37,27 +37,90 @@ internal static class GeneratorTypeSystem
         return new TypeParameterContext(parameters, names);
     }
 
-    internal static string RenderType(ITypeSymbol typeSymbol, TypeParameterContext typeParameters)
+    internal static string RenderType(
+        ITypeSymbol typeSymbol,
+        TypeParameterContext typeParameters,
+        bool preserveNullableAnnotations = false)
     {
-        if (typeSymbol is ITypeParameterSymbol typeParameter &&
-            typeParameters.Names.TryGetValue(typeParameter, out var parameterName))
+        if (!preserveNullableAnnotations)
         {
-            return parameterName;
+            if (typeSymbol is ITypeParameterSymbol typeParameter &&
+                typeParameters.Names.TryGetValue(typeParameter, out var parameterName))
+            {
+                return parameterName;
+            }
+
+            var displayBuilder = new StringBuilder();
+
+            foreach (var part in typeSymbol.ToDisplayParts(SymbolDisplayFormat.FullyQualifiedFormat))
+            {
+                if (part.Symbol is ITypeParameterSymbol partTypeParameter &&
+                    typeParameters.Names.TryGetValue(partTypeParameter, out var replacement))
+                {
+                    displayBuilder.Append(replacement);
+                }
+                else
+                {
+                    displayBuilder.Append(part.ToString());
+                }
+            }
+
+            return displayBuilder.ToString();
+        }
+
+        if (typeSymbol is ITypeParameterSymbol nullableTypeParameter &&
+            typeParameters.Names.TryGetValue(nullableTypeParameter, out var mappedName))
+        {
+            return mappedName;
+        }
+
+        if (typeSymbol is IArrayTypeSymbol arrayType)
+        {
+            var array = RenderType(arrayType.ElementType, typeParameters, preserveNullableAnnotations: true) +
+                "[" + new string(',', arrayType.Rank - 1) + "]";
+            return arrayType.NullableAnnotation == NullableAnnotation.Annotated
+                ? array + "?"
+                : array;
+        }
+
+        if (typeSymbol is not INamedTypeSymbol namedType)
+        {
+            return typeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
         }
 
         var builder = new StringBuilder();
 
-        foreach (var part in typeSymbol.ToDisplayParts(SymbolDisplayFormat.FullyQualifiedFormat))
+        if (namedType.ContainingType is not null)
         {
-            if (part.Symbol is ITypeParameterSymbol partTypeParameter &&
-                typeParameters.Names.TryGetValue(partTypeParameter, out var replacement))
-            {
-                builder.Append(replacement);
-            }
-            else
-            {
-                builder.Append(part.ToString());
-            }
+            builder.Append(RenderType(namedType.ContainingType, typeParameters, preserveNullableAnnotations: true))
+                .Append('.');
+        }
+        else if (!namedType.ContainingNamespace.IsGlobalNamespace)
+        {
+            builder.Append("global::")
+                .Append(namedType.ContainingNamespace.ToDisplayString())
+                .Append('.');
+        }
+        else
+        {
+            builder.Append("global::");
+        }
+
+        builder.Append(EscapeTypeIdentifier(namedType.Name));
+
+        if (namedType.TypeArguments.Length > 0)
+        {
+            builder.Append('<')
+                .Append(string.Join(
+                    ", ",
+                    namedType.TypeArguments.Select(argument =>
+                        RenderType(argument, typeParameters, preserveNullableAnnotations: true))))
+                .Append('>');
+        }
+
+        if (namedType.NullableAnnotation == NullableAnnotation.Annotated && namedType.IsReferenceType)
+        {
+            builder.Append('?');
         }
 
         return builder.ToString();
@@ -89,11 +152,12 @@ internal static class GeneratorTypeSystem
 
     internal static void AppendMethodConstraints(
         StringBuilder source,
-        TypeParameterContext typeParameters)
+        TypeParameterContext typeParameters,
+        bool preserveNullableAnnotations = false)
     {
         foreach (var parameter in typeParameters.Parameters)
         {
-            var constraints = GetConstraints(parameter, typeParameters);
+            var constraints = GetConstraints(parameter, typeParameters, preserveNullableAnnotations);
 
             if (constraints.Count == 0)
             {
@@ -111,9 +175,16 @@ internal static class GeneratorTypeSystem
     internal static string EscapeIdentifier(string identifier) =>
         SyntaxFacts.GetKeywordKind(identifier) == SyntaxKind.None ? identifier : "@" + identifier;
 
+    private static string EscapeTypeIdentifier(string identifier) =>
+        SyntaxFacts.GetKeywordKind(identifier) != SyntaxKind.None ||
+        SyntaxFacts.GetContextualKeywordKind(identifier) != SyntaxKind.None
+            ? "@" + identifier
+            : identifier;
+
     private static List<string> GetConstraints(
         ITypeParameterSymbol parameter,
-        TypeParameterContext typeParameters)
+        TypeParameterContext typeParameters,
+        bool preserveNullableAnnotations)
     {
         var constraints = new List<string>();
 
@@ -139,7 +210,10 @@ internal static class GeneratorTypeSystem
 
         foreach (var constraintType in parameter.ConstraintTypes)
         {
-            constraints.Add(RenderType(constraintType, typeParameters));
+            constraints.Add(RenderType(
+                constraintType,
+                typeParameters,
+                preserveNullableAnnotations));
         }
 
         if (parameter.HasConstructorConstraint &&
