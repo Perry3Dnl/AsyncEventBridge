@@ -122,7 +122,7 @@ public sealed class EventStreamBridgeTests
         await cancelled.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         channel.Writer.TryComplete();
-        await bridge.DisposeAsync();
+        await bridge.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.Equal(0, completed);
         Assert.Equal(0, faulted);
@@ -154,7 +154,7 @@ public sealed class EventStreamBridgeTests
         await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         cancellation.Cancel();
-        await bridge.DisposeAsync();
+        await bridge.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.Equal(1, Volatile.Read(ref completedCount));
         Assert.Equal(0, Volatile.Read(ref faulted));
@@ -176,7 +176,7 @@ public sealed class EventStreamBridgeTests
         bridge.Cancelled += (_, _) => Interlocked.Increment(ref cancelled);
 
         bridge.Connect();
-        await bridge.DisposeAsync();
+        await bridge.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.Equal(0, completed);
         Assert.Equal(0, faulted);
@@ -214,7 +214,7 @@ public sealed class EventStreamBridgeTests
 
         releaseHandler.Set();
         await handlerFinished.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        await bridge.DisposeAsync();
+        await bridge.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
     }
 
     [Fact]
@@ -386,7 +386,7 @@ public sealed class EventStreamBridgeTests
         Assert.True(channel.Writer.TryWrite(1));
 
         await secondHandlerRan.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        await bridge.DisposeAsync();
+        await bridge.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.True(channel.Writer.TryWrite(2));
         Assert.Equal(new[] { 1, 1 }, observed);
@@ -437,7 +437,7 @@ public sealed class EventStreamBridgeTests
         bridge.Completed += (_, _) => Interlocked.Increment(ref lateCalls);
 
         Assert.Equal(0, Volatile.Read(ref lateCalls));
-        await bridge.DisposeAsync();
+        await bridge.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
     }
 
 
