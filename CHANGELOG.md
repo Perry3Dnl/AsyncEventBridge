@@ -1,8 +1,17 @@
 # Changelog
 
-All notable changes to the native modern-.NET line of AsyncEventBridge are documented here.
+All notable changes across the supported AsyncEventBridge release tracks are documented here.
 
 ## Unreleased
+
+### 0.3 convergence
+
+- Move the modern .NET, .NET Standard 2.0 compatibility, and Unity product sources onto one release line.
+- Set the shared repository and Unity UPM version to `0.3.0`.
+- Keep runtime-specific feature sets where platform capabilities differ; 0.3 targets release-readiness parity rather than artificial feature parity.
+- Treat modern .NET, compatibility, Unity, source generators, package verification, documentation, and CI as one release gate.
+- Preserve the historical split branches as migration/reference points instead of independent version lines.
+
 
 ### Native .NET runtime
 
