@@ -4,6 +4,13 @@ All notable changes across the supported AsyncEventBridge release tracks are doc
 
 ## Unreleased
 
+### 0.4 generator architecture
+
+- Start consolidating generator event-shape discovery behind a shared normalized classifier.
+- Add cross-generator behavioral parity coverage for standard, custom, and unsupported delegate shapes.
+- Keep wait, stream, and occurrence emitters behaviorally compatible while shared infrastructure is introduced.
+- Move the shared repository and Unity UPM development version to `0.4.0`.
+
 ### 0.3 convergence
 
 - Move the modern .NET, .NET Standard 2.0 compatibility, and Unity product sources onto one release line.
