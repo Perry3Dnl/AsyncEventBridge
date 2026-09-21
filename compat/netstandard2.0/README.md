@@ -8,7 +8,7 @@
 
 AsyncEventBridge is for boundaries where one side of an application uses traditional .NET events and the other side uses `Task`, `Task<T>`, `IAsyncEnumerable<T>`, or `async`/`await`.
 
-The complete runtime targets **.NET Standard 2.0**. The source generator ships in the same package.
+The compatibility runtime targets **.NET Standard 2.0**. Starting with 0.3.0, this implementation is developed on `main` under `compat/netstandard2.0` and participates in the same release gate as the modern and Unity editions. The source generator ships with the compatibility package.
 
 > Use AsyncEventBridge where event-driven and async code meet. If both sides are already async, use normal async code directly.
 
@@ -20,16 +20,16 @@ Package ID:
 AsyncEventBridge
 ```
 
-Version `0.1.0` is the first package version. Once the package is published to a configured NuGet feed:
+For the unified `0.3.0` release line:
 
 ```text
-dotnet add package AsyncEventBridge --version 0.1.0
+dotnet add package AsyncEventBridge --version 0.3.0
 ```
 
 or:
 
 ```xml
-<PackageReference Include="AsyncEventBridge" Version="0.1.0" />
+<PackageReference Include="AsyncEventBridge" Version="0.3.0" />
 ```
 
 Then import the namespace:
