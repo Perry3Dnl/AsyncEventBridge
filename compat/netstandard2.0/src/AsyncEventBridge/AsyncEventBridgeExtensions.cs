@@ -30,6 +30,24 @@ public static class AsyncEventBridgeExtensions
     }
 
     /// <summary>
+    /// Creates an event-facing bridge for a <see cref="Task"/> with explicit bridge options.
+    /// </summary>
+    public static EventBridge ToEventBridge(this Task task, EventBridgeOptions options)
+    {
+        if (task is null)
+        {
+            throw new ArgumentNullException(nameof(task));
+        }
+
+        if (options is null)
+        {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        return new EventBridge(task, options.CreateDispatchSettings());
+    }
+
+    /// <summary>
     /// Creates an event-facing bridge for a <see cref="Task{TResult}"/>.
     /// </summary>
     public static EventBridge<T> ToEventBridge<T>(this Task<T> task)
@@ -43,6 +61,24 @@ public static class AsyncEventBridgeExtensions
     }
 
     /// <summary>
+    /// Creates an event-facing bridge for a <see cref="Task{TResult}"/> with explicit bridge options.
+    /// </summary>
+    public static EventBridge<T> ToEventBridge<T>(this Task<T> task, EventBridgeOptions options)
+    {
+        if (task is null)
+        {
+            throw new ArgumentNullException(nameof(task));
+        }
+
+        if (options is null)
+        {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        return new EventBridge<T>(task, options.CreateDispatchSettings());
+    }
+
+    /// <summary>
     /// Creates an event-facing bridge for an <see cref="IAsyncEnumerable{T}"/>.
     /// </summary>
     public static EventStreamBridge<T> ToEventBridge<T>(this IAsyncEnumerable<T> source)
@@ -53,6 +89,26 @@ public static class AsyncEventBridgeExtensions
         }
 
         return new EventStreamBridge<T>(source);
+    }
+
+    /// <summary>
+    /// Creates an event-facing bridge for an <see cref="IAsyncEnumerable{T}"/> with explicit bridge options.
+    /// </summary>
+    public static EventStreamBridge<T> ToEventBridge<T>(
+        this IAsyncEnumerable<T> source,
+        EventBridgeOptions options)
+    {
+        if (source is null)
+        {
+            throw new ArgumentNullException(nameof(source));
+        }
+
+        if (options is null)
+        {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        return new EventStreamBridge<T>(source, options.CreateDispatchSettings());
     }
 }
 }
