@@ -11,7 +11,7 @@ All notable changes across the supported AsyncEventBridge release tracks are doc
 - Split generation into dedicated wait, stream, and occurrence emitters instead of maintaining independent `StringBuilder` pipelines in each generator entry point.
 - Remove the private `EventGenerationInfo`, `EventInfo`, `EventClassification`, and `EventKind` families that duplicated the normalized event model.
 - Add cross-generator behavioral parity coverage for standard, custom, unsupported, nested-generic, nullable, keyword-identifier, hidden-inherited-event, and annotated-base scenarios.
-- Preserve the generated public API while reducing the three generator entry-point files from roughly 84 KB combined to roughly 23 KB combined.
+- Preserve the generated public API while reducing the three generator entry-point files from roughly 87 KB combined to roughly 23.5 KB combined.
 - Move the shared repository and Unity UPM development version to `0.4.0`.
 - Document the 0.4 generator pipeline in `docs/0.4-generator-architecture.md`.
 
