@@ -186,6 +186,18 @@ Options are snapshotted when `ToEventBridge(..., options)` creates the bridge. O
 
 A propagation policy is intentionally not exposed because bridge event publication is driven by async observation and generally has no synchronous application caller to receive the exception. See `docs/0.4-subscriber-exceptions.md`.
 
+## Bridge lifecycle
+
+Portable bridge events use subscriber snapshots. A handler added or removed while one publication is already in flight changes future publications only; it does not rewrite the invocation list captured for the current event.
+
+Bridges do not replay values or terminal outcomes. Handlers should be attached before `Connect()`; already-completed tasks or synchronously advancing async sources may publish before `Connect()` returns.
+
+`EventBridge.Dispose()` suppresses terminal publication that has not started, but it does not interrupt a terminal subscriber snapshot already in flight.
+
+`EventStreamBridge.Dispose()` suppresses future values/terminal publication and requests source cancellation without waiting for a handler already in flight. `DisposeAsync()` additionally waits for bridge-owned enumeration cleanup and in-flight publication. Its completion can therefore depend on the source honoring cancellation or eventually returning from async enumeration/cleanup.
+
+See `docs/0.4-bridge-lifecycle.md`.
+
 ## Metrics
 
 The runtime exposes the `AsyncEventBridge` meter with stable low-cardinality counters:
