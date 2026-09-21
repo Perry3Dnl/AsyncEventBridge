@@ -67,7 +67,9 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
         var typeParameters = CreateTypeParameterContext(typeSymbol);
         var supportedEvents = new List<EventGenerationInfo>();
 
-        foreach (var eventSymbol in GetEventsForGeneration(\n            typeSymbol,\n            static current => HasGenerateAsyncEventsAttribute(current) && CanGenerateForType(current)))
+        foreach (var eventSymbol in GetEventsForGeneration(
+            typeSymbol,
+            static current => HasGenerateAsyncEventsAttribute(current) && CanGenerateForType(current)))
         {
             if (eventSymbol.IsStatic || !CanAccessEvent(eventSymbol, typeSymbol, isExternalTarget: false))
             {
@@ -180,7 +182,10 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
             var typeParameters = CreateTypeParameterContext(typeSymbol);
             var supportedEvents = new List<EventGenerationInfo>();
 
-            foreach (var eventSymbol in GetEventsForGeneration(\n                typeSymbol,\n                current => targetedTypes.Contains(current) ||\n                    (HasGenerateAsyncEventsAttribute(current) && CanGenerateForType(current))))
+            foreach (var eventSymbol in GetEventsForGeneration(
+                typeSymbol,
+                current => targetedTypes.Contains(current) ||
+                    (HasGenerateAsyncEventsAttribute(current) && CanGenerateForType(current))))
             {
                 if (eventSymbol.IsStatic || !CanAccessEvent(eventSymbol, typeSymbol, isExternalTarget))
                 {
