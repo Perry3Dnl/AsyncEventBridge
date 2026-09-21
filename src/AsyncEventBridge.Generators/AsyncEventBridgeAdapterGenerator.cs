@@ -65,7 +65,7 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
         }
 
         var typeParameters = CreateTypeParameterContext(typeSymbol);
-        var supportedEvents = new List<EventGenerationInfo>();
+        var supportedEvents = new List<EventGenerationModel>();
 
         foreach (var eventSymbol in GetEventsForGeneration(
             typeSymbol,
@@ -76,25 +76,25 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
                 continue;
             }
 
-            var classification = ClassifyEvent(eventSymbol, typeParameters);
+            var shape = EventShapeClassifier.Classify(eventSymbol);
 
-            if (classification.Kind == EventKind.Unsupported)
+            if (shape.Kind == EventShapeKind.Unsupported || !shape.IsPayloadAsyncCompatible)
             {
                 ReportUnsupportedEvent(context, typeSymbol, eventSymbol, GetEventLocation(eventSymbol));
                 continue;
             }
 
-            if (classification.Kind != EventKind.Custom)
+            if (shape.Kind != EventShapeKind.Custom)
             {
                 continue;
             }
 
-            supportedEvents.Add(new EventGenerationInfo(
+            supportedEvents.Add(EventGenerationModel.Create(
                 eventSymbol,
-                classification.EventArgsType,
-                classification.HandlerType,
-                classification.Kind,
-                GetMethodAccessibility(typeSymbol, eventSymbol)));
+                shape,
+                typeParameters,
+                GetMethodAccessibility(typeSymbol, eventSymbol),
+                preserveNullableAnnotations: false));
         }
 
         GenerateSource(
@@ -180,7 +180,7 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
             }
 
             var typeParameters = CreateTypeParameterContext(typeSymbol);
-            var supportedEvents = new List<EventGenerationInfo>();
+            var supportedEvents = new List<EventGenerationModel>();
 
             foreach (var eventSymbol in GetEventsForGeneration(
                 typeSymbol,
@@ -192,20 +192,20 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
                     continue;
                 }
 
-                var classification = ClassifyEvent(eventSymbol, typeParameters);
+                var shape = EventShapeClassifier.Classify(eventSymbol);
 
-                if (classification.Kind == EventKind.Unsupported)
+                if (shape.Kind == EventShapeKind.Unsupported || !shape.IsPayloadAsyncCompatible)
                 {
                     ReportUnsupportedEvent(context, typeSymbol, eventSymbol, requestLocation);
                     continue;
                 }
 
-                supportedEvents.Add(new EventGenerationInfo(
+                supportedEvents.Add(EventGenerationModel.Create(
                     eventSymbol,
-                    classification.EventArgsType,
-                    classification.HandlerType,
-                    classification.Kind,
-                    GetMethodAccessibility(typeSymbol, eventSymbol)));
+                    shape,
+                    typeParameters,
+                    GetMethodAccessibility(typeSymbol, eventSymbol),
+                    preserveNullableAnnotations: false));
             }
 
             GenerateSource(
@@ -219,7 +219,7 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
     private static void GenerateSource(
         SourceProductionContext context,
         INamedTypeSymbol typeSymbol,
-        IReadOnlyList<EventGenerationInfo> supportedEvents,
+        IReadOnlyList<EventGenerationModel> supportedEvents,
         string extensionSuffix)
     {
         if (supportedEvents.Count == 0)
@@ -263,7 +263,7 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
     private static void AppendWaitMethods(
         StringBuilder source,
         INamedTypeSymbol typeSymbol,
-        EventGenerationInfo item,
+        EventGenerationModel item,
         TypeParameterContext typeParameters)
     {
         AppendWaitMethod(source, typeSymbol, item, typeParameters, includePredicate: false, includeTimeout: false);
@@ -284,7 +284,7 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
     private static void AppendWaitMethod(
         StringBuilder source,
         INamedTypeSymbol typeSymbol,
-        EventGenerationInfo item,
+        EventGenerationModel item,
         TypeParameterContext typeParameters,
         bool includePredicate,
         bool includeTimeout)
@@ -299,7 +299,7 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
 
         if (item.IsTyped)
         {
-            source.Append('<').Append(item.EventArgsType).Append('>');
+            source.Append('<').Append(item.PayloadType).Append('>');
         }
 
         source.Append(' ').Append(methodName);
@@ -309,7 +309,7 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
         if (includePredicate)
         {
             source.Append("global::System.Predicate<")
-                .Append(item.EventArgsType)
+                .Append(item.PayloadType)
                 .Append("> predicate, ");
         }
 
@@ -344,7 +344,7 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
                 .AppendLine();
         }
 
-        if (item.Kind == EventKind.Custom)
+        if (item.IsCustom)
         {
             AppendCustomWaitBody(source, item, eventName, includePredicate, includeTimeout);
         }
@@ -359,12 +359,12 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
 
     private static void AppendStandardWaitBody(
         StringBuilder source,
-        EventGenerationInfo item,
+        EventGenerationModel item,
         string eventName,
         bool includePredicate,
         bool includeTimeout)
     {
-        var waitTypeArgument = item.IsTyped ? $"<{item.EventArgsType}>" : string.Empty;
+        var waitTypeArgument = item.IsTyped ? $"<{item.PayloadType}>" : string.Empty;
 
         source.Append("        return global::AsyncEventBridge.EventAwaiter.WaitAsync")
             .Append(waitTypeArgument)
@@ -397,7 +397,7 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
 
     private static void AppendCustomWaitBody(
         StringBuilder source,
-        EventGenerationInfo item,
+        EventGenerationModel item,
         string eventName,
         bool includePredicate,
         bool includeTimeout)
@@ -407,10 +407,10 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
             .AppendLine("? adaptedHandler = null;")
             .AppendLine()
             .Append("        return global::AsyncEventBridge.EventAwaiter.WaitAsync<")
-            .Append(item.EventArgsType)
+            .Append(item.PayloadType)
             .AppendLine(">(")
             .Append("            (global::System.EventHandler<")
-            .Append(item.EventArgsType)
+            .Append(item.PayloadType)
             .AppendLine("> handler) =>")
             .AppendLine("            {")
             .Append("                adaptedHandler = new ")
@@ -421,7 +421,7 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
             .AppendLine(" += adaptedHandler;")
             .AppendLine("            },")
             .Append("            (global::System.EventHandler<")
-            .Append(item.EventArgsType)
+            .Append(item.PayloadType)
             .AppendLine("> _) =>")
             .AppendLine("            {")
             .AppendLine("                if (adaptedHandler != null)")
@@ -450,7 +450,7 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
     private static void AppendStreamMethods(
         StringBuilder source,
         INamedTypeSymbol typeSymbol,
-        EventGenerationInfo item,
+        EventGenerationModel item,
         TypeParameterContext typeParameters)
     {
         AppendStreamMethod(source, typeSymbol, item, typeParameters, includePredicate: false, includeOptions: false);
@@ -466,7 +466,7 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
     private static void AppendStreamMethod(
         StringBuilder source,
         INamedTypeSymbol typeSymbol,
-        EventGenerationInfo item,
+        EventGenerationModel item,
         TypeParameterContext typeParameters,
         bool includePredicate,
         bool includeOptions)
@@ -478,7 +478,7 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
         source.Append("    ")
             .Append(item.Accessibility)
             .Append(" static global::System.Collections.Generic.IAsyncEnumerable<")
-            .Append(item.EventArgsType)
+            .Append(item.PayloadType)
             .Append("> ")
             .Append(methodName);
         AppendMethodTypeParameters(source, typeParameters);
@@ -487,7 +487,7 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
         if (includePredicate)
         {
             source.Append("global::System.Predicate<")
-                .Append(item.EventArgsType)
+                .Append(item.PayloadType)
                 .Append("> predicate, ");
         }
 
@@ -524,7 +524,7 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
                 .AppendLine();
         }
 
-        if (item.Kind == EventKind.Custom)
+        if (item.IsCustom)
         {
             AppendCustomStreamBody(source, item, eventName, includePredicate, includeOptions);
         }
@@ -539,13 +539,13 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
 
     private static void AppendStandardStreamBody(
         StringBuilder source,
-        EventGenerationInfo item,
+        EventGenerationModel item,
         string eventName,
         bool includePredicate,
         bool includeOptions)
     {
         source.Append("        return global::AsyncEventBridge.EventStream.Create")
-            .Append(item.IsTyped ? $"<{item.EventArgsType}>" : string.Empty)
+            .Append(item.IsTyped ? $"<{item.PayloadType}>" : string.Empty)
             .AppendLine("(")
             .Append("            (")
             .Append(item.HandlerType)
@@ -566,23 +566,23 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
 
     private static void AppendCustomStreamBody(
         StringBuilder source,
-        EventGenerationInfo item,
+        EventGenerationModel item,
         string eventName,
         bool includePredicate,
         bool includeOptions)
     {
         source.Append("        var adaptedHandlers = new global::System.Collections.Concurrent.ConcurrentDictionary<")
             .Append("global::System.EventHandler<")
-            .Append(item.EventArgsType)
+            .Append(item.PayloadType)
             .Append(">, ")
             .Append(item.HandlerType)
             .AppendLine(">();")
             .AppendLine()
             .Append("        return global::AsyncEventBridge.EventStream.Create<")
-            .Append(item.EventArgsType)
+            .Append(item.PayloadType)
             .AppendLine(">(")
             .Append("            (global::System.EventHandler<")
-            .Append(item.EventArgsType)
+            .Append(item.PayloadType)
             .AppendLine("> handler) =>")
             .AppendLine("            {")
             .Append("                var adaptedHandler = new ")
@@ -597,7 +597,7 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
             .AppendLine(" += adaptedHandler;")
             .AppendLine("            },")
             .Append("            (global::System.EventHandler<")
-            .Append(item.EventArgsType)
+            .Append(item.PayloadType)
             .AppendLine("> handler) =>")
             .AppendLine("            {")
             .Append("                if (adaptedHandlers.TryRemove(handler, out ")
@@ -614,41 +614,6 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
             .Append("            ")
             .AppendLine(includeOptions ? "options," : "null,")
             .AppendLine("            cancellationToken);");
-    }
-
-    private static EventClassification ClassifyEvent(
-        IEventSymbol eventSymbol,
-        TypeParameterContext typeParameters)
-    {
-        var shape = EventShapeClassifier.Classify(eventSymbol);
-
-        if (shape.Kind == EventShapeKind.Unsupported || !shape.IsPayloadAsyncCompatible)
-        {
-            return EventClassification.Unsupported(RenderType(eventSymbol.Type, typeParameters));
-        }
-
-        if (shape.Kind == EventShapeKind.StandardUntyped)
-        {
-            return new EventClassification(
-                EventKind.StandardUntyped,
-                "global::System.EventArgs",
-                "global::System.EventHandler");
-        }
-
-        var payloadType = RenderType(shape.PayloadType!, typeParameters);
-
-        if (shape.Kind == EventShapeKind.StandardTyped)
-        {
-            return new EventClassification(
-                EventKind.StandardTyped,
-                payloadType,
-                $"global::System.EventHandler<{payloadType}>");
-        }
-
-        return new EventClassification(
-            EventKind.Custom,
-            payloadType,
-            RenderType(shape.DelegateType!, typeParameters));
     }
 
     private static bool HasGenerateAsyncEventsAttribute(INamedTypeSymbol typeSymbol) =>
@@ -734,59 +699,4 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
         }
     }
 
-    private enum EventKind
-    {
-        Unsupported,
-        StandardUntyped,
-        StandardTyped,
-        Custom,
-    }
-
-    private readonly struct EventClassification
-    {
-        internal EventClassification(EventKind kind, string eventArgsType, string handlerType)
-        {
-            Kind = kind;
-            EventArgsType = eventArgsType;
-            HandlerType = handlerType;
-        }
-
-        internal EventKind Kind { get; }
-
-        internal string EventArgsType { get; }
-
-        internal string HandlerType { get; }
-
-        internal static EventClassification Unsupported(string handlerType) =>
-            new(EventKind.Unsupported, string.Empty, handlerType);
-    }
-
-    private sealed class EventGenerationInfo
-    {
-        internal EventGenerationInfo(
-            IEventSymbol eventSymbol,
-            string eventArgsType,
-            string handlerType,
-            EventKind kind,
-            string accessibility)
-        {
-            EventSymbol = eventSymbol;
-            EventArgsType = eventArgsType;
-            HandlerType = handlerType;
-            Kind = kind;
-            Accessibility = accessibility;
-        }
-
-        internal IEventSymbol EventSymbol { get; }
-
-        internal string EventArgsType { get; }
-
-        internal string HandlerType { get; }
-
-        internal EventKind Kind { get; }
-
-        internal bool IsTyped => Kind != EventKind.StandardUntyped;
-
-        internal string Accessibility { get; }
-    }
 }
