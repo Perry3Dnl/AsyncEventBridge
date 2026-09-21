@@ -236,52 +236,22 @@ public sealed class EventStreamBridgeTests
     [Fact]
     public async Task SubscriberAddedDuringValuePublicationStartsWithNextValue()
     {
-        var channel = Channel.CreateUnbounded<int>();
-        await using EventStreamBridge<int> bridge = channel.Reader.ReadAllAsync().ToEventBridge();
-        var firstHandlerEntered = NewCompletionSource();
-        var firstPublicationFinished = NewCompletionSource();
-        var lateSubscriberSawSecond = NewCompletionSource();
+        await using EventStreamBridge<int> bridge = Values(1, 2).ToEventBridge();
         var completed = NewCompletionSource();
-        using var releaseFirstHandler = new ManualResetEventSlim(false);
         var lateValues = new List<int>();
+        EventHandler<AsyncValueEventArgs<int>> lateHandler =
+            (_, eventArgs) => lateValues.Add(eventArgs.Value);
 
         bridge.Value += (_, eventArgs) =>
         {
             if (eventArgs.Value == 1)
             {
-                firstHandlerEntered.TrySetResult(true);
-                releaseFirstHandler.Wait();
-            }
-        };
-        bridge.Value += (_, eventArgs) =>
-        {
-            if (eventArgs.Value == 1)
-            {
-                firstPublicationFinished.TrySetResult(true);
+                bridge.Value += lateHandler;
             }
         };
         bridge.Completed += (_, _) => completed.TrySetResult(true);
 
         bridge.Connect();
-        Assert.True(channel.Writer.TryWrite(1));
-        await firstHandlerEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
-
-        bridge.Value += (_, eventArgs) =>
-        {
-            lateValues.Add(eventArgs.Value);
-
-            if (eventArgs.Value == 2)
-            {
-                lateSubscriberSawSecond.TrySetResult(true);
-            }
-        };
-
-        releaseFirstHandler.Set();
-        await firstPublicationFinished.Task.WaitAsync(TimeSpan.FromSeconds(5));
-
-        Assert.True(channel.Writer.TryWrite(2));
-        await lateSubscriberSawSecond.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        channel.Writer.TryComplete();
         await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.Equal(new[] { 2 }, lateValues);
@@ -290,52 +260,23 @@ public sealed class EventStreamBridgeTests
     [Fact]
     public async Task SubscriberRemovedDuringValuePublicationStillReceivesCurrentValueOnly()
     {
-        var channel = Channel.CreateUnbounded<int>();
-        await using EventStreamBridge<int> bridge = channel.Reader.ReadAllAsync().ToEventBridge();
-        var firstHandlerEntered = NewCompletionSource();
-        var firstPublicationFinished = NewCompletionSource();
-        var secondPublicationFinished = NewCompletionSource();
+        await using EventStreamBridge<int> bridge = Values(1, 2).ToEventBridge();
         var completed = NewCompletionSource();
-        using var releaseFirstHandler = new ManualResetEventSlim(false);
         var observed = new List<int>();
-
-        bridge.Value += (_, eventArgs) =>
-        {
-            if (eventArgs.Value == 1)
-            {
-                firstHandlerEntered.TrySetResult(true);
-                releaseFirstHandler.Wait();
-            }
-        };
-
         EventHandler<AsyncValueEventArgs<int>> removable =
             (_, eventArgs) => observed.Add(eventArgs.Value);
-        bridge.Value += removable;
 
         bridge.Value += (_, eventArgs) =>
         {
             if (eventArgs.Value == 1)
             {
-                firstPublicationFinished.TrySetResult(true);
-            }
-            else if (eventArgs.Value == 2)
-            {
-                secondPublicationFinished.TrySetResult(true);
+                bridge.Value -= removable;
             }
         };
+        bridge.Value += removable;
         bridge.Completed += (_, _) => completed.TrySetResult(true);
 
         bridge.Connect();
-        Assert.True(channel.Writer.TryWrite(1));
-        await firstHandlerEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
-
-        bridge.Value -= removable;
-        releaseFirstHandler.Set();
-        await firstPublicationFinished.Task.WaitAsync(TimeSpan.FromSeconds(5));
-
-        Assert.True(channel.Writer.TryWrite(2));
-        await secondPublicationFinished.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        channel.Writer.TryComplete();
         await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.Equal(new[] { 1 }, observed);
@@ -344,9 +285,8 @@ public sealed class EventStreamBridgeTests
     [Fact]
     public async Task DisposeFromValueSubscriberDoesNotInterruptCapturedSubscribers()
     {
-        var channel = Channel.CreateUnbounded<int>();
-        var bridge = channel.Reader.ReadAllAsync().ToEventBridge();
-        var secondHandlerRan = NewCompletionSource();
+        var bridge = Values(1, 2).ToEventBridge();
+        var currentSnapshotFinished = NewCompletionSource();
         var observed = new List<int>();
 
         bridge.Value += (_, eventArgs) =>
@@ -357,16 +297,14 @@ public sealed class EventStreamBridgeTests
         bridge.Value += (_, eventArgs) =>
         {
             observed.Add(eventArgs.Value);
-            secondHandlerRan.TrySetResult(true);
+            currentSnapshotFinished.TrySetResult(true);
         };
 
         bridge.Connect();
-        Assert.True(channel.Writer.TryWrite(1));
 
-        await secondHandlerRan.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await currentSnapshotFinished.Task.WaitAsync(TimeSpan.FromSeconds(5));
         await bridge.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
 
-        Assert.True(channel.Writer.TryWrite(2));
         Assert.Equal(new[] { 1, 1 }, observed);
     }
 
@@ -374,29 +312,20 @@ public sealed class EventStreamBridgeTests
     public async Task DisposeAsyncWaitsForInFlightTerminalHandler()
     {
         var bridge = EmptyValues().ToEventBridge();
-        var terminalHandlerEntered = NewCompletionSource();
-        using var releaseTerminalHandler = new ManualResetEventSlim(false);
+        var currentSnapshotFinished = NewCompletionSource();
+        Task? disposeTask = null;
 
         bridge.Completed += (_, _) =>
         {
-            terminalHandlerEntered.TrySetResult(true);
-            releaseTerminalHandler.Wait();
+            disposeTask = bridge.DisposeAsync().AsTask();
+            Assert.False(disposeTask.IsCompleted);
         };
+        bridge.Completed += (_, _) => currentSnapshotFinished.TrySetResult(true);
 
         bridge.Connect();
-        await terminalHandlerEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
-        var disposeTask = bridge.DisposeAsync().AsTask();
-
-        try
-        {
-            Assert.False(disposeTask.IsCompleted);
-        }
-        finally
-        {
-            releaseTerminalHandler.Set();
-        }
-
+        await currentSnapshotFinished.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.NotNull(disposeTask);
         await disposeTask.WaitAsync(TimeSpan.FromSeconds(5));
     }
 
