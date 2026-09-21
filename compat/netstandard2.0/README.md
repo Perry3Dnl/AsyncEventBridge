@@ -227,10 +227,12 @@ The default is:
 
 ```text
 Capacity = 100
-FullMode = Grow
+FullMode = Unbounded
 ```
 
-`Grow` preserves every accepted event value. `Capacity` is the initial capacity, not a hard limit. If producers continuously outrun consumers, memory usage can grow without a fixed upper bound.
+`Unbounded` preserves every accepted event value and has no fixed buffer limit. If producers continuously outrun consumers, memory usage can grow without a fixed upper bound. `Grow` remains a compatibility alias for `Unbounded`.
+
+`Capacity` is ignored by `Unbounded` / `Grow`. It is used only as the hard buffer limit for the two bounded drop modes. The default value of `100` exists so opting into a bounded mode has a useful capacity without another required setting.
 
 For bounded buffering:
 
@@ -250,7 +252,8 @@ await foreach (SensorEventArgs value in sensor.ValueChangedStream(
 The modes are:
 
 ```text
-Grow        preserve all values; buffer may grow beyond Capacity
+Unbounded   preserve all accepted values; Capacity is ignored
+Grow        compatibility alias for Unbounded
 DropOldest  keep the newest buffered values within Capacity
 DropNewest  preserve the existing buffer and drop the incoming value at Capacity
 ```
