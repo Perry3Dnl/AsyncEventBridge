@@ -20,6 +20,10 @@ All notable changes across the supported AsyncEventBridge release tracks are doc
 - Make `EventStreamBridge.DisposeAsync()` surface asynchronous enumerator cleanup failures while synchronous disposal remains non-blocking.
 - Port the cleanup contract to the .NET Standard 2.0 and Unity portable runtime sources and add compatibility regression coverage.
 - Document the cleanup contract in `docs/0.4-cleanup-semantics.md`.
+- Make the lossless stream default explicit as `EventStreamFullMode.Unbounded`; retain `Grow` as a numeric/source compatibility alias.
+- Define `Capacity` as a bounded-mode setting only: it is ignored by `Unbounded` / `Grow` and validated only for `DropOldest` / `DropNewest`.
+- Normalize unbounded buffering semantics across modern .NET, .NET Standard 2.0, and Unity instead of using `Capacity` as an allocation hint only on compatibility runtimes.
+- Keep the unbounded default to avoid silent event loss; document the operational memory-growth tradeoff and explicit bounded alternatives in `docs/0.4-stream-buffering.md`.
 
 ### 0.3 convergence
 
