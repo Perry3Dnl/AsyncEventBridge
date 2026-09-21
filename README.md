@@ -157,13 +157,18 @@ await foreach (int value in sensor.ValueChangedStream(cancellationToken))
 }
 ```
 
-The modern runtime uses `System.Threading.Channels` internally. `EventStreamOptions` exposes three buffering modes:
+The modern runtime uses `System.Threading.Channels` internally. The default is explicitly **unbounded and lossless**: accepted values are preserved, but sustained producer/consumer imbalance can grow memory usage without a fixed upper bound.
+
+`EventStreamOptions` exposes these buffering modes:
 
 ```text
-Grow        keep accepted values in an unbounded channel
-DropOldest  discard the oldest buffered value at capacity
-DropNewest  keep the existing buffer and discard the incoming value
+Unbounded   preserve accepted values with no fixed buffer limit
+Grow        compatibility alias for Unbounded
+DropOldest  discard the oldest buffered value at Capacity
+DropNewest  keep the existing buffer and discard the incoming value at Capacity
 ```
+
+`Capacity` applies only to the two bounded drop modes. It is ignored by `Unbounded` / `Grow`. The property still defaults to `100` so switching to a bounded mode has a useful default; it does not impose a 100-item limit on the default stream.
 
 Example bounded stream:
 
@@ -281,7 +286,7 @@ asynceventbridge.event_stream.dropped
 
 Tags are intentionally bounded and low-cardinality. Applications can collect these instruments with `MeterListener`, `dotnet-counters`, OpenTelemetry, or another `System.Diagnostics.Metrics` consumer.
 
-See [`docs/metrics.md`](docs/metrics.md).
+See [`docs/metrics.md`](docs/metrics.md). For the buffering tradeoff and default-policy rationale, see [`docs/0.4-stream-buffering.md`](docs/0.4-stream-buffering.md).
 
 ## Native AOT and trimming
 
