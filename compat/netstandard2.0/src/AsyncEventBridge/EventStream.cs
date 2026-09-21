@@ -288,15 +288,7 @@ public static class EventStream
     private static EventStreamSettings GetSettings(EventStreamOptions? options)
     {
         var capacity = options?.Capacity ?? EventStreamOptions.DefaultCapacity;
-        var fullMode = options?.FullMode ?? EventStreamFullMode.Grow;
-
-        if (capacity <= 0)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(options),
-                capacity,
-                "Event stream capacity must be greater than zero.");
-        }
+        var fullMode = options?.FullMode ?? EventStreamFullMode.Unbounded;
 
         if (!Enum.IsDefined(typeof(EventStreamFullMode), fullMode))
         {
@@ -304,6 +296,14 @@ public static class EventStream
                 nameof(options),
                 fullMode,
                 "Unknown event stream full mode.");
+        }
+
+        if (fullMode != EventStreamFullMode.Unbounded && capacity <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(options),
+                capacity,
+                "Bounded event stream capacity must be greater than zero.");
         }
 
         return new EventStreamSettings(capacity, fullMode);
@@ -406,7 +406,9 @@ public static class EventStream
 
         internal EventBuffer(EventStreamSettings settings)
         {
-            _queue = new Queue<T>(settings.Capacity);
+            _queue = settings.FullMode == EventStreamFullMode.Unbounded
+                ? new Queue<T>()
+                : new Queue<T>(settings.Capacity);
             _capacity = settings.Capacity;
             _fullMode = settings.FullMode;
         }
