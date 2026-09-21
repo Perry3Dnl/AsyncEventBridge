@@ -244,6 +244,15 @@ public sealed class EventStreamBridgeTests
     }
 
     [Fact]
+    public void NullBridgeOptionsAreRejected()
+    {
+        EventBridgeOptions? options = null;
+
+        Assert.Throws<ArgumentNullException>(() => Values(1).ToEventBridge(options!));
+    }
+
+
+    [Fact]
     public async Task ReportPolicyReportsValueSubscriberFailureAndContinuesStream()
     {
         var subscriberFailure = new InvalidOperationException("subscriber failed");
