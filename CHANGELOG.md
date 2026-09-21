@@ -14,6 +14,12 @@ All notable changes across the supported AsyncEventBridge release tracks are doc
 - Preserve the generated public API while reducing the three generator entry-point files from roughly 87 KB combined to roughly 23.5 KB combined.
 - Move the shared repository and Unity UPM development version to `0.4.0`.
 - Document the 0.4 generator pipeline in `docs/0.4-generator-architecture.md`.
+- Define consistent cleanup-exception ordering across waits, streams, occurrence APIs, and stream bridges: preserve the primary outcome first and aggregate cleanup failures after it.
+- Ensure event-stream unsubscribe failures cannot replace an existing predicate, cancellation, subscription, or channel failure.
+- Explicitly drive stream-bridge enumerators so source failures and enumerator-disposal failures can both be reported.
+- Make `EventStreamBridge.DisposeAsync()` surface asynchronous enumerator cleanup failures while synchronous disposal remains non-blocking.
+- Port the cleanup contract to the .NET Standard 2.0 and Unity portable runtime sources and add compatibility regression coverage.
+- Document the cleanup contract in `docs/0.4-cleanup-semantics.md`.
 
 ### 0.3 convergence
 
