@@ -24,6 +24,7 @@ namespace AsyncEventBridge
     {
         private readonly IAsyncEnumerable<T> _source;
         private readonly object _gate = new();
+        private readonly EventHandlerDispatchSettings _dispatchSettings;
 
         private EventHandler<AsyncValueEventArgs<T>>? _value;
         private EventHandler? _completed;
@@ -37,8 +38,16 @@ namespace AsyncEventBridge
         private bool _asyncDisposeRequested;
 
         internal EventStreamBridge(IAsyncEnumerable<T> source)
+            : this(source, EventHandlerDispatchSettings.Default)
+        {
+        }
+
+        internal EventStreamBridge(
+            IAsyncEnumerable<T> source,
+            EventHandlerDispatchSettings dispatchSettings)
         {
             _source = source;
+            _dispatchSettings = dispatchSettings;
         }
 
         /// <summary>
@@ -280,7 +289,7 @@ namespace AsyncEventBridge
                 handlers = _value;
             }
 
-            EventHandlerDispatcher.Invoke(handlers, this, new AsyncValueEventArgs<T>(value));
+            EventHandlerDispatcher.Invoke(handlers, this, new AsyncValueEventArgs<T>(value), _dispatchSettings);
         }
 
         private void PublishCompleted()
@@ -298,7 +307,7 @@ namespace AsyncEventBridge
                 ClearHandlers();
             }
 
-            EventHandlerDispatcher.Invoke(handlers, this);
+            EventHandlerDispatcher.Invoke(handlers, this, _dispatchSettings);
         }
 
         private void PublishFaulted(Exception exception)
@@ -316,7 +325,7 @@ namespace AsyncEventBridge
                 ClearHandlers();
             }
 
-            EventHandlerDispatcher.Invoke(handlers, this, new AsyncFaultedEventArgs(exception));
+            EventHandlerDispatcher.Invoke(handlers, this, new AsyncFaultedEventArgs(exception), _dispatchSettings);
         }
 
         private void PublishCancelled()
@@ -334,7 +343,7 @@ namespace AsyncEventBridge
                 ClearHandlers();
             }
 
-            EventHandlerDispatcher.Invoke(handlers, this);
+            EventHandlerDispatcher.Invoke(handlers, this, _dispatchSettings);
         }
 
         private bool TryBeginTerminalPublication()
