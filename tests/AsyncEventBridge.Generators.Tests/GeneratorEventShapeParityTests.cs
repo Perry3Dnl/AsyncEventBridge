@@ -198,6 +198,68 @@ public sealed class GeneratorEventShapeParityTests
             StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void DerivedMembersHideInheritedEventsAcrossAllEmitters()
+    {
+        var source = RuntimeStubs + """
+            namespace Demo
+            {
+                public delegate void CustomHandler(object? sender, int payload);
+
+                public class SensorBase
+                {
+                    public event EventHandler<int>? Standard;
+                    public event CustomHandler? Custom;
+                }
+
+                [AsyncEventBridge.GenerateAsyncEvents]
+                public sealed class Sensor : SensorBase
+                {
+                    public int Standard => 0;
+                    public int Custom => 0;
+                }
+            }
+            """;
+
+        var result = RunGenerators(source);
+        var generated = result.Results.SelectMany(item => item.GeneratedSources);
+
+        Assert.Empty(generated);
+    }
+
+    [Fact]
+    public void AnnotatedBaseStopsInheritedGenerationAcrossAllEmitters()
+    {
+        var source = RuntimeStubs + """
+            namespace Demo
+            {
+                public delegate void CustomHandler(object? sender, int payload);
+
+                [AsyncEventBridge.GenerateAsyncEvents]
+                public class SensorBase
+                {
+                    public event EventHandler<int>? Standard;
+                    public event CustomHandler? Custom;
+                }
+
+                [AsyncEventBridge.GenerateAsyncEvents]
+                public sealed class Sensor : SensorBase
+                {
+                }
+            }
+            """;
+
+        var result = RunGenerators(source);
+        var generated = result.Results
+            .SelectMany(item => item.GeneratedSources)
+            .Select(item => item.SourceText.ToString())
+            .ToArray();
+
+        Assert.Equal(3, generated.Length);
+        Assert.DoesNotContain(generated, sourceText =>
+            sourceText.Contains("this global::Demo.Sensor source", StringComparison.Ordinal));
+    }
+
     private static GeneratorDriverRunResult RunGenerators(string source)
     {
         var parseOptions = new CSharpParseOptions(LanguageVersion.CSharp13);
