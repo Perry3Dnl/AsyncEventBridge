@@ -31,6 +31,7 @@ All notable changes across the supported AsyncEventBridge release tracks are doc
 - Lock bridge publication to subscriber-snapshot semantics: add/remove/dispose during an in-flight publication affects future publication but does not rewrite the captured invocation list.
 - Clarify `Dispose()` as a non-waiting suppression boundary and `EventStreamBridge.DisposeAsync()` as the completion boundary after which no bridge handlers remain in flight.
 - Add deterministic lifecycle coverage for terminal publication mutation, value-publication mutation, disposal from handlers, late subscribers, and in-flight terminal disposal.
+- Remove thread-pool scheduling dependence from the two timing-sensitive disposal tests that had intermittently failed on Windows convergence runners.
 - Document the bridge lifecycle contract in `docs/0.4-bridge-lifecycle.md`.
 
 ### 0.3 convergence
