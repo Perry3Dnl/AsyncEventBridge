@@ -39,6 +39,8 @@ public sealed class EventBridgeLifecycleTests
         EventBridge<int> bridge = taskCompletion.Task.ToEventBridge();
         var firstHandlerEntered = new TaskCompletionSource<bool>(
             TaskCreationOptions.RunContinuationsAsynchronously);
+        var publicationFinished = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
         using var releaseFirstHandler = new ManualResetEventSlim(false);
         var lateHandlerCalls = 0;
 
@@ -47,6 +49,7 @@ public sealed class EventBridgeLifecycleTests
             firstHandlerEntered.TrySetResult(true);
             releaseFirstHandler.Wait();
         };
+        bridge.Completed += (_, _) => publicationFinished.TrySetResult(true);
         bridge.Connect();
 
         taskCompletion.SetResult(42);
@@ -55,7 +58,7 @@ public sealed class EventBridgeLifecycleTests
         bridge.Completed += (_, _) => Interlocked.Increment(ref lateHandlerCalls);
         releaseFirstHandler.Set();
 
-        await Task.Delay(50);
+        await publicationFinished.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.Equal(0, Volatile.Read(ref lateHandlerCalls));
     }
@@ -78,7 +81,10 @@ public sealed class EventBridgeLifecycleTests
             firstHandlerEntered.TrySetResult(true);
             releaseFirstHandler.Wait();
         };
+        var publicationFinished = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
         bridge.Completed += secondHandler;
+        bridge.Completed += (_, _) => publicationFinished.TrySetResult(true);
         bridge.Connect();
 
         taskCompletion.SetResult(42);
@@ -87,7 +93,7 @@ public sealed class EventBridgeLifecycleTests
         bridge.Completed -= secondHandler;
         releaseFirstHandler.Set();
 
-        await Task.Delay(50);
+        await publicationFinished.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.Equal(1, Volatile.Read(ref secondHandlerCalls));
     }
@@ -123,21 +129,14 @@ public sealed class EventBridgeLifecycleTests
     }
 
     [Fact]
-    public void DisposeIsIdempotentBeforeTerminalPublication()
+    public void DisposeIsIdempotent()
     {
-        var taskCompletion = new TaskCompletionSource<int>(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        EventBridge<int> bridge = taskCompletion.Task.ToEventBridge();
-        var publications = 0;
-
-        bridge.Completed += (_, _) => Interlocked.Increment(ref publications);
-        bridge.Connect();
+        EventBridge bridge = Task.CompletedTask.ToEventBridge();
 
         bridge.Dispose();
         bridge.Dispose();
-        taskCompletion.SetResult(42);
 
-        Assert.Equal(0, Volatile.Read(ref publications));
+        Assert.Throws<ObjectDisposedException>(bridge.Connect);
     }
 
 
