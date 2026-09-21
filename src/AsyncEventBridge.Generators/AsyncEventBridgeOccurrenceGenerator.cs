@@ -94,7 +94,7 @@ public sealed class AsyncEventBridgeOccurrenceGenerator : IIncrementalGenerator
         }
 
         var typeParameters = CreateTypeParameterContext(typeSymbol);
-        var events = new List<EventInfo>();
+        var events = new List<EventGenerationModel>();
 
         foreach (var eventSymbol in GetEventsForGeneration(
             typeSymbol,
@@ -103,16 +103,26 @@ public sealed class AsyncEventBridgeOccurrenceGenerator : IIncrementalGenerator
                 HasDirectAttribute(current)))
         {
             if (eventSymbol.IsStatic ||
-                !CanAccessEvent(eventSymbol, typeSymbol, isExternalTarget) ||
-                !TryDescribeEvent(eventSymbol, typeParameters, out var eventInfo))
+                !CanAccessEvent(eventSymbol, typeSymbol, isExternalTarget))
             {
                 continue;
             }
 
-            events.Add(eventInfo with
+            var shape = EventShapeClassifier.Classify(eventSymbol);
+
+            if (shape.Kind == EventShapeKind.Unsupported ||
+                !shape.IsSenderAsyncCompatible ||
+                !shape.IsPayloadAsyncCompatible)
             {
-                Accessibility = GetMethodAccessibility(typeSymbol, eventSymbol, requirePublicDelegateParameters: true),
-            });
+                continue;
+            }
+
+            events.Add(EventGenerationModel.Create(
+                eventSymbol,
+                shape,
+                typeParameters,
+                GetMethodAccessibility(typeSymbol, eventSymbol, requirePublicDelegateParameters: true),
+                preserveNullableAnnotations: true));
         }
 
         if (events.Count == 0)
@@ -157,7 +167,7 @@ public sealed class AsyncEventBridgeOccurrenceGenerator : IIncrementalGenerator
     private static void AppendOccurrenceWait(
         StringBuilder source,
         INamedTypeSymbol typeSymbol,
-        EventInfo item,
+        EventGenerationModel item,
         TypeParameterContext typeParameters,
         bool includeTimeout)
     {
@@ -254,7 +264,7 @@ public sealed class AsyncEventBridgeOccurrenceGenerator : IIncrementalGenerator
     private static void AppendOccurrenceStream(
         StringBuilder source,
         INamedTypeSymbol typeSymbol,
-        EventInfo item,
+        EventGenerationModel item,
         TypeParameterContext typeParameters,
         bool includeOptions)
     {
@@ -341,33 +351,6 @@ public sealed class AsyncEventBridgeOccurrenceGenerator : IIncrementalGenerator
             .AppendLine();
     }
 
-    private static bool TryDescribeEvent(
-        IEventSymbol eventSymbol,
-        TypeParameterContext typeParameters,
-        out EventInfo eventInfo)
-    {
-        eventInfo = default;
-
-        var shape = EventShapeClassifier.Classify(eventSymbol);
-
-        if (shape.Kind == EventShapeKind.Unsupported ||
-            !shape.IsSenderAsyncCompatible ||
-            !shape.IsPayloadAsyncCompatible)
-        {
-            return false;
-        }
-
-        eventInfo = new EventInfo(
-            eventSymbol,
-            RenderType(shape.DelegateType!.WithNullableAnnotation(NullableAnnotation.NotAnnotated), typeParameters, preserveNullableAnnotations: true),
-            RenderType(shape.SenderType!, typeParameters, preserveNullableAnnotations: true),
-            RenderType(shape.PayloadType!, typeParameters, preserveNullableAnnotations: true),
-            string.Empty);
-        return true;
-    }
-
-
-
     private static bool HasDirectAttribute(INamedTypeSymbol typeSymbol) =>
         typeSymbol.GetAttributes().Any(attribute =>
             attribute.AttributeClass?.ToDisplayString() == DirectAttributeMetadataName);
@@ -384,12 +367,5 @@ public sealed class AsyncEventBridgeOccurrenceGenerator : IIncrementalGenerator
 
         return builder.Append(suffix).ToString();
     }
-
-    private readonly record struct EventInfo(
-        IEventSymbol EventSymbol,
-        string HandlerType,
-        string SenderType,
-        string PayloadType,
-        string Accessibility);
 
 }
