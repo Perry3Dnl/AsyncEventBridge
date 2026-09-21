@@ -270,6 +270,34 @@ public sealed class EventStreamBridgeTests
     }
 
     [Fact]
+    public async Task ReportPolicyReportsValueSubscriberFailureAndContinuesStream()
+    {
+        var subscriberFailure = new InvalidOperationException("subscriber failed");
+        var reported = new TaskCompletionSource<Exception>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var completed = NewCompletionSource();
+        var observed = new List<int>();
+        var options = new EventBridgeOptions
+        {
+            SubscriberExceptionPolicy = EventBridgeSubscriberExceptionPolicy.ReportAndContinue,
+            SubscriberExceptionObserver = exception => reported.TrySetResult(exception),
+        };
+        await using EventStreamBridge<int> bridge = Values(7, 8).ToEventBridge(options);
+
+        bridge.Value += (_, _) => throw subscriberFailure;
+        bridge.Value += (_, eventArgs) => observed.Add(eventArgs.Value);
+        bridge.Completed += (_, _) => completed.TrySetResult(true);
+
+        bridge.Connect();
+
+        Assert.Same(
+            subscriberFailure,
+            await reported.Task.WaitAsync(TimeSpan.FromSeconds(5)));
+        await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal([7, 8], observed);
+    }
+
+
+    [Fact]
     public async Task ThrowingValueSubscriberDoesNotBlockOtherSubscribersOrCompletion()
     {
         await using EventStreamBridge<int> bridge = Values(7, 8).ToEventBridge();
