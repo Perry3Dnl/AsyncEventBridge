@@ -312,9 +312,9 @@ There is no replay buffer in this direction. A handler attached after publicatio
 
 The async-to-events bridges isolate subscribers from one another.
 
-If a `Completed`, `Faulted`, `Cancelled`, or `Value` handler throws, AsyncEventBridge catches the exception, writes it through `System.Diagnostics.Trace.TraceError`, and continues dispatching the remaining subscribers. The exception is not propagated back through the bridge.
+The default `EventBridgeSubscriberExceptionPolicy.TraceAndContinue` catches subscriber exceptions, writes them through `System.Diagnostics.Trace.TraceError`, and continues dispatching remaining subscribers.
 
-This is intentionally different from normal synchronous event invocation, where a handler exception usually interrupts invocation and propagates to the caller. Bridge publication is driven by asynchronous observation and has no synchronous caller that can naturally receive the handler exception.
+Pass `EventBridgeOptions` to `ToEventBridge(...)` to select `ReportAndContinue` with a synchronous observer callback or `IgnoreAndContinue`. All policies preserve subscriber isolation. A propagation mode is deliberately not provided because bridge publication is driven by asynchronous observation and normally has no synchronous caller that can usefully receive a subscriber exception.
 
 ## Lifecycle rules
 
