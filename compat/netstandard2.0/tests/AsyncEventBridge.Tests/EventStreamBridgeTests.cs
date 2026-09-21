@@ -76,7 +76,7 @@ public sealed class EventStreamBridgeTests
     }
 
     [Fact]
-    public async Task CancellationPublishesCancelled()
+    public async Task CancellationPublishesExactlyOneCancelledTerminalOutcome()
     {
         var channel = Channel.CreateUnbounded<int>();
         using var cancellation = new CancellationTokenSource();
@@ -84,18 +84,27 @@ public sealed class EventStreamBridgeTests
         var cancelled = NewCompletionSource();
         var completed = 0;
         var faulted = 0;
+        var cancelledCount = 0;
 
         bridge.Completed += (_, _) => Interlocked.Increment(ref completed);
         bridge.Faulted += (_, _) => Interlocked.Increment(ref faulted);
-        bridge.Cancelled += (_, _) => cancelled.TrySetResult(true);
+        bridge.Cancelled += (_, _) =>
+        {
+            Interlocked.Increment(ref cancelledCount);
+            cancelled.TrySetResult(true);
+        };
 
         bridge.Connect(cancellation.Token);
         cancellation.Cancel();
 
         await cancelled.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
+        channel.Writer.TryComplete();
+        await bridge.DisposeAsync();
+
         Assert.Equal(0, completed);
         Assert.Equal(0, faulted);
+        Assert.Equal(1, Volatile.Read(ref cancelledCount));
     }
 
     [Fact]
