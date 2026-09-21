@@ -243,6 +243,14 @@ N-way `WaitAllAsync` preserves input order and fails fast by cancelling and obse
 
 See [`docs/event-composition.md`](docs/event-composition.md) for detailed lifecycle semantics.
 
+## Bridge lifecycle boundaries
+
+Bridge event publication uses subscriber snapshots. Adding or removing a subscriber while one event is already being dispatched affects future publications, not the invocation list already captured for the current event.
+
+`EventBridge.Dispose()` and `EventStreamBridge.Dispose()` suppress future publication but do not interrupt a handler snapshot already in flight. `EventStreamBridge.DisposeAsync()` additionally waits for bridge-owned enumeration cleanup and in-flight publication; after it completes, no further bridge handler can run.
+
+Bridges do not replay values or terminal events to late subscribers. See [`docs/0.4-bridge-lifecycle.md`](docs/0.4-bridge-lifecycle.md) for the full lifecycle and threading contract.
+
 ## Async work back to events
 
 Tasks and value tasks can be exposed through ordinary .NET events:
