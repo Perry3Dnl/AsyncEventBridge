@@ -362,6 +362,41 @@ public sealed class AsyncEventBridgeOccurrenceGenerator : IIncrementalGenerator
 
 
 
+    private static IEnumerable<IEventSymbol> GetEventsForGeneration(
+        INamedTypeSymbol typeSymbol,
+        HashSet<INamedTypeSymbol>? stopAtTargetTypes)
+    {
+        var hiddenNames = new HashSet<string>(StringComparer.Ordinal);
+        INamedTypeSymbol? current = typeSymbol;
+        var isTargetType = true;
+
+        while (current is not null)
+        {
+            if (!isTargetType &&
+                ((stopAtTargetTypes is not null && stopAtTargetTypes.Contains(current)) ||
+                 HasDirectAttribute(current)))
+            {
+                yield break;
+            }
+
+            foreach (var eventSymbol in current.GetMembers().OfType<IEventSymbol>())
+            {
+                if (!hiddenNames.Contains(eventSymbol.Name))
+                {
+                    yield return eventSymbol;
+                }
+            }
+
+            foreach (var member in current.GetMembers())
+            {
+                hiddenNames.Add(member.Name);
+            }
+
+            isTargetType = false;
+            current = current.BaseType;
+        }
+    }
+
     private static bool CanAccessEvent(
         IEventSymbol eventSymbol,
         INamedTypeSymbol targetType,
