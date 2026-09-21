@@ -269,7 +269,11 @@ bridge.Value += (_, e) => Console.WriteLine(e.Value);
 bridge.Connect(cancellationToken);
 ```
 
-Subscriber exceptions are isolated: one throwing event subscriber does not stop remaining subscribers or bridge processing. Failures are written through `Trace.TraceError`.
+Subscriber exceptions are isolated: one throwing event subscriber does not stop remaining subscribers or bridge processing. The default policy writes failures through `Trace.TraceError`.
+
+For explicit control, pass `EventBridgeOptions` to `ToEventBridge(...)`. `TraceAndContinue` is the default, `ReportAndContinue` forwards failures to a configured callback, and `IgnoreAndContinue` suppresses bridge-level reporting. All policies continue dispatching remaining subscribers; there is deliberately no background-task `Propagate` mode.
+
+See [`docs/0.4-subscriber-exceptions.md`](docs/0.4-subscriber-exceptions.md) for the policy and threading contract.
 
 ## Runtime metrics
 
