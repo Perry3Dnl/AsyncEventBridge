@@ -10,6 +10,12 @@ The Unity package keeps the cross-platform AsyncEventBridge runtime behavior ava
 
 Prefer the overloads that accept a `MonoBehaviour` for scene- or component-scoped work. They cache the behaviour's `destroyCancellationToken` before awaiting and link it with `Application.exitCancellationToken` plus any caller token.
 
+## Event-stream buffering
+
+The portable runtime uses the same 0.4 buffering contract as the NuGet editions. `EventStreamFullMode.Unbounded` is the lossless default; `Grow` is a compatibility alias for the same mode. `Capacity` is ignored for unbounded streams and is a hard limit only for `DropOldest` and `DropNewest`.
+
+An unbounded stream can grow memory usage indefinitely when event production permanently exceeds consumption. Unity integrations that represent state-like or telemetry-like values should generally choose an explicit bounded drop mode when complete history is not required.
+
 ## Core/runtime relationship
 
 The files under `Runtime/Core` mirror the matching core runtime sources used by the NuGet package. CI is responsible for preventing drift between those copies. Generic fixes belong in the core first; Unity-only behavior belongs under `Runtime/Unity`.
