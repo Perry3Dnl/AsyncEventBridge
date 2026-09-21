@@ -349,12 +349,23 @@ internal sealed class EventWaitState<TEventArgs>
 
         if (cleanupErrors is not null)
         {
-            if (completion.Kind == CompletionKind.Faulted && completion.Exception is not null)
+            Exception? primaryException;
+
+            switch (completion.Kind)
             {
-                cleanupErrors.Insert(0, completion.Exception);
+                case CompletionKind.Cancelled:
+                    primaryException = new OperationCanceledException(_cancellationToken);
+                    break;
+                case CompletionKind.TimedOut:
+                case CompletionKind.Faulted:
+                    primaryException = completion.Exception;
+                    break;
+                default:
+                    primaryException = null;
+                    break;
             }
 
-            _completionSource.TrySetException(cleanupErrors);
+            _completionSource.TrySetException(CleanupExceptionPolicy.Combine(primaryException, cleanupErrors));
             return;
         }
 
@@ -418,4 +429,45 @@ internal sealed class EventWaitState<TEventArgs>
             new(CompletionKind.Faulted, null, exception);
     }
 }
+internal static class CleanupExceptionPolicy
+{
+    internal static Exception Combine(Exception? primaryException, Exception cleanupException)
+    {
+        if (primaryException is null)
+        {
+            return cleanupException;
+        }
+
+        return new AggregateException(
+            "The operation failed and cleanup also failed.",
+            new[] { primaryException, cleanupException });
+    }
+
+    internal static Exception Combine(
+        Exception? primaryException,
+        IReadOnlyList<Exception> cleanupExceptions)
+    {
+        if (cleanupExceptions.Count == 1)
+        {
+            return Combine(primaryException, cleanupExceptions[0]);
+        }
+
+        var exceptions = new List<Exception>(
+            cleanupExceptions.Count + (primaryException is null ? 0 : 1));
+
+        if (primaryException is not null)
+        {
+            exceptions.Add(primaryException);
+        }
+
+        for (var index = 0; index < cleanupExceptions.Count; index++)
+        {
+            exceptions.Add(cleanupExceptions[index]);
+        }
+
+        return new AggregateException("One or more cleanup operations failed.", exceptions);
+    }
+}
+
+
 }
