@@ -2,16 +2,16 @@
 
 Unity-focused distribution of AsyncEventBridge. It follows the same version number as the .NET/NuGet package, is packaged for Unity Package Manager, and adds Unity-native `Awaitable`, lifecycle, main-thread, `UnityEvent`, and Inspector integration.
 
-This distribution is maintained on the `unity` branch and should regularly merge shared runtime fixes from `base/netstandard2.0`.
+Starting with `0.3.0`, this distribution is maintained on `main` alongside the modern and .NET Standard compatibility editions. Shared fixes and release gates are coordinated from the same branch.
 
 ## Install from GitHub
 
-> **Development channel:** the public `unity` branch remains available while the Unity edition is under active development. The eventual Asset Store build will be produced from a validated release commit; retaining or changing GitHub distribution at commercial launch is a separate release decision.
+> **Development channel:** Unity package development now follows `main`. A release build should come from a validated 0.3.x release commit or tag.
 
 In Unity Package Manager, choose **Add package from git URL...** and use:
 
 ```text
-https://github.com/Perry3Dnl/AsyncEventBridge.git?path=/Packages/com.perry3d.async-event-bridge#unity
+https://github.com/Perry3Dnl/AsyncEventBridge.git?path=/Packages/com.perry3d.async-event-bridge#main
 ```
 
 Or add it directly to the project's `Packages/manifest.json`:
@@ -24,7 +24,7 @@ Or add it directly to the project's `Packages/manifest.json`:
 }
 ```
 
-The Unity package and NuGet package share the same version. The current package version is `0.2.0`.
+The Unity package and NuGet package share the same version. The current package version is `0.3.0`.
 
 ## Baseline
 
