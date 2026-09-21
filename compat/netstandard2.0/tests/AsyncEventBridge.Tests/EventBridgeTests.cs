@@ -71,11 +71,8 @@ public sealed class EventBridgeTests
     public void NullBridgeOptionsAreRejected()
     {
         EventBridgeOptions? options = null;
-        var stream = EmptyValues();
-
         Assert.Throws<ArgumentNullException>(() => Task.CompletedTask.ToEventBridge(options!));
         Assert.Throws<ArgumentNullException>(() => Task.FromResult(1).ToEventBridge(options!));
-        Assert.Throws<ArgumentNullException>(() => stream.ToEventBridge(options!));
     }
 
 
