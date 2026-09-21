@@ -28,16 +28,6 @@
     <ProjectReference Include="../../compat/netstandard2.0/src/AsyncEventBridge.Generators/AsyncEventBridge.Generators.csproj"
                       ReferenceOutputAssembly="false"
                       PrivateAssets="all" />
-
-    <None Include="../../compat/netstandard2.0/src/AsyncEventBridge/bin/$(Configuration)/netstandard2.0/AsyncEventBridge.dll"
-          Pack="true"
-          PackagePath="lib/netstandard2.0/" />
-    <None Include="../../compat/netstandard2.0/src/AsyncEventBridge/bin/$(Configuration)/netstandard2.0/AsyncEventBridge.xml"
-          Pack="true"
-          PackagePath="lib/netstandard2.0/" />
-    <None Include="../../compat/netstandard2.0/src/AsyncEventBridge.Generators/bin/$(Configuration)/netstandard2.0/AsyncEventBridge.Generators.dll"
-          Pack="true"
-          PackagePath="tools/generators/compat/" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
@@ -47,6 +37,18 @@
     <ProjectReference Include="../../src/AsyncEventBridge.Generators/AsyncEventBridge.Generators.csproj"
                       ReferenceOutputAssembly="false"
                       PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="../../compat/netstandard2.0/src/AsyncEventBridge/bin/$(Configuration)/netstandard2.0/AsyncEventBridge.dll"
+          Pack="true"
+          PackagePath="lib/netstandard2.0/" />
+    <None Include="../../compat/netstandard2.0/src/AsyncEventBridge/bin/$(Configuration)/netstandard2.0/AsyncEventBridge.xml"
+          Pack="true"
+          PackagePath="lib/netstandard2.0/" />
+    <None Include="../../compat/netstandard2.0/src/AsyncEventBridge.Generators/bin/$(Configuration)/netstandard2.0/AsyncEventBridge.Generators.dll"
+          Pack="true"
+          PackagePath="tools/generators/compat/" />
 
     <None Include="../../src/AsyncEventBridge/bin/$(Configuration)/net10.0/AsyncEventBridge.dll"
           Pack="true"
@@ -57,9 +59,7 @@
     <None Include="../../src/AsyncEventBridge.Generators/bin/$(Configuration)/netstandard2.0/AsyncEventBridge.Generators.dll"
           Pack="true"
           PackagePath="tools/generators/modern/" />
-  </ItemGroup>
 
-  <ItemGroup>
     <None Include="AsyncEventBridge.targets"
           Pack="true"
           PackagePath="buildTransitive/AsyncEventBridge.targets" />
