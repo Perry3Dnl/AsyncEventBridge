@@ -1,0 +1,75 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>netstandard2.0;net10.0</TargetFrameworks>
+    <IsPackable>true</IsPackable>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+
+    <PackageId>AsyncEventBridge</PackageId>
+    <Authors>Perry3Dnl</Authors>
+    <Description>Bridge event-driven and async code across modern .NET, .NET Standard compatibility, and generated event facades.</Description>
+    <PackageTags>async;events;task;valuetask;iasyncenumerable;source-generator;netstandard;net10;nativeaot</PackageTags>
+    <PackageProjectUrl>https://github.com/Perry3Dnl/AsyncEventBridge</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Perry3Dnl/AsyncEventBridge.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>assets/AsyncEventBridge.png</PackageIcon>
+    <PackageLicenseExpression>MPL-2.0</PackageLicenseExpression>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="8.0.0" />
+
+    <ProjectReference Include="../../compat/netstandard2.0/src/AsyncEventBridge/AsyncEventBridge.csproj"
+                      ReferenceOutputAssembly="false"
+                      PrivateAssets="all" />
+    <ProjectReference Include="../../compat/netstandard2.0/src/AsyncEventBridge.Generators/AsyncEventBridge.Generators.csproj"
+                      ReferenceOutputAssembly="false"
+                      PrivateAssets="all" />
+
+    <None Include="../../compat/netstandard2.0/src/AsyncEventBridge/bin/$(Configuration)/netstandard2.0/AsyncEventBridge.dll"
+          Pack="true"
+          PackagePath="lib/netstandard2.0/" />
+    <None Include="../../compat/netstandard2.0/src/AsyncEventBridge/bin/$(Configuration)/netstandard2.0/AsyncEventBridge.xml"
+          Pack="true"
+          PackagePath="lib/netstandard2.0/" />
+    <None Include="../../compat/netstandard2.0/src/AsyncEventBridge.Generators/bin/$(Configuration)/netstandard2.0/AsyncEventBridge.Generators.dll"
+          Pack="true"
+          PackagePath="tools/generators/compat/" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <ProjectReference Include="../../src/AsyncEventBridge/AsyncEventBridge.csproj"
+                      ReferenceOutputAssembly="false"
+                      PrivateAssets="all" />
+    <ProjectReference Include="../../src/AsyncEventBridge.Generators/AsyncEventBridge.Generators.csproj"
+                      ReferenceOutputAssembly="false"
+                      PrivateAssets="all" />
+
+    <None Include="../../src/AsyncEventBridge/bin/$(Configuration)/net10.0/AsyncEventBridge.dll"
+          Pack="true"
+          PackagePath="lib/net10.0/" />
+    <None Include="../../src/AsyncEventBridge/bin/$(Configuration)/net10.0/AsyncEventBridge.xml"
+          Pack="true"
+          PackagePath="lib/net10.0/" />
+    <None Include="../../src/AsyncEventBridge.Generators/bin/$(Configuration)/netstandard2.0/AsyncEventBridge.Generators.dll"
+          Pack="true"
+          PackagePath="tools/generators/modern/" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="AsyncEventBridge.targets"
+          Pack="true"
+          PackagePath="buildTransitive/AsyncEventBridge.targets" />
+    <None Include="../../README.md"
+          Pack="true"
+          PackagePath="/"
+          Visible="false" />
+    <None Include="../../assets/AsyncEventBridge.png"
+          Pack="true"
+          PackagePath="assets/"
+          Visible="false" />
+  </ItemGroup>
+</Project>
