@@ -485,6 +485,21 @@ public sealed class AsyncEventBridgeGenerator : IIncrementalGenerator
 
 
 
+    private static bool CanAccessEvent(IEventSymbol eventSymbol, INamedTypeSymbol targetType)
+    {
+        if (eventSymbol.DeclaredAccessibility == Accessibility.Public)
+        {
+            return true;
+        }
+
+        var sameAssembly = SymbolEqualityComparer.Default.Equals(
+            eventSymbol.ContainingAssembly,
+            targetType.ContainingAssembly);
+
+        return sameAssembly &&
+            eventSymbol.DeclaredAccessibility is Accessibility.Internal or Accessibility.ProtectedOrInternal;
+    }
+
     private static string GetMethodAccessibility(INamedTypeSymbol typeSymbol, IEventSymbol eventSymbol)
     {
         return IsPubliclyAccessible(typeSymbol) &&
