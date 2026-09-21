@@ -25,8 +25,7 @@ namespace AsyncEventBridge
         /// <summary>
         /// Gets or sets the hard buffer limit for <see cref="EventStreamFullMode.DropOldest"/> and
         /// <see cref="EventStreamFullMode.DropNewest"/>.
-        /// This value is ignored when <see cref="FullMode"/> is <see cref="EventStreamFullMode.Unbounded"/>
-        /// (or its compatibility alias <see cref="EventStreamFullMode.Grow"/>).
+        /// This value is ignored when <see cref="FullMode"/> is <see cref="EventStreamFullMode.Unbounded"/>.
         /// </summary>
         public int Capacity { get; set; } = DefaultCapacity;
 
@@ -64,11 +63,6 @@ namespace AsyncEventBridge
         /// WARNING: sustained producer throughput above consumer throughput can grow memory usage without a fixed upper bound.
         /// </summary>
         Unbounded = 0,
-
-        /// <summary>
-        /// Compatibility alias for <see cref="Unbounded"/>. New code should prefer <see cref="Unbounded"/>.
-        /// </summary>
-        Grow = Unbounded,
 
         /// <summary>
         /// Keeps the buffer bounded by removing the oldest buffered value when a new value arrives at capacity.
