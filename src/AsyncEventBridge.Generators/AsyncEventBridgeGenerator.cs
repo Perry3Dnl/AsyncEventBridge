@@ -33,7 +33,7 @@ public sealed class AsyncEventBridgeGenerator : IIncrementalGenerator
         }
 
         var typeParameters = CreateTypeParameterContext(typeSymbol);
-        var supportedEvents = new List<EventGenerationInfo>();
+        var supportedEvents = new List<EventGenerationModel>();
 
         foreach (var eventSymbol in GetEventsForGeneration(
             typeSymbol,
@@ -52,16 +52,12 @@ public sealed class AsyncEventBridgeGenerator : IIncrementalGenerator
                 continue;
             }
 
-            var isGenericEventHandler = shape.Kind == EventShapeKind.StandardTyped;
-            var eventArgsType = isGenericEventHandler
-                ? RenderType(shape.PayloadType!, typeParameters)
-                : "global::System.EventArgs";
-
-            supportedEvents.Add(new EventGenerationInfo(
+            supportedEvents.Add(EventGenerationModel.Create(
                 eventSymbol,
-                eventArgsType,
-                isGenericEventHandler,
-                GetMethodAccessibility(typeSymbol, eventSymbol)));
+                shape,
+                typeParameters,
+                GetMethodAccessibility(typeSymbol, eventSymbol),
+                preserveNullableAnnotations: false));
         }
 
         if (supportedEvents.Count == 0)
@@ -88,23 +84,8 @@ public sealed class AsyncEventBridgeGenerator : IIncrementalGenerator
 
         foreach (var item in supportedEvents)
         {
-            AppendWaitMethods(
-                source,
-                typeSymbol,
-                item.EventSymbol,
-                item.EventArgsType,
-                item.IsGenericEventHandler,
-                item.Accessibility,
-                typeParameters);
-
-            AppendStreamMethods(
-                source,
-                typeSymbol,
-                item.EventSymbol,
-                item.EventArgsType,
-                item.IsGenericEventHandler,
-                item.Accessibility,
-                typeParameters);
+            AppendWaitMethods(source, typeSymbol, item, typeParameters);
+            AppendStreamMethods(source, typeSymbol, item, typeParameters);
         }
 
         source.AppendLine("}")
@@ -117,18 +98,16 @@ public sealed class AsyncEventBridgeGenerator : IIncrementalGenerator
     private static void AppendWaitMethods(
         StringBuilder source,
         INamedTypeSymbol typeSymbol,
-        IEventSymbol eventSymbol,
-        string eventArgsType,
-        bool isGenericEventHandler,
-        string accessibility,
+        EventGenerationModel item,
         TypeParameterContext typeParameters)
     {
         var sourceType = RenderType(typeSymbol, typeParameters);
-        var eventName = EscapeIdentifier(eventSymbol.Name);
-        var methodName = eventSymbol.Name + "Async";
-        var handlerType = isGenericEventHandler
-            ? $"global::System.EventHandler<{eventArgsType}>"
-            : "global::System.EventHandler";
+        var eventName = EscapeIdentifier(item.EventSymbol.Name);
+        var methodName = item.EventSymbol.Name + "Async";
+        var eventArgsType = item.PayloadType;
+        var handlerType = item.HandlerType;
+        var isGenericEventHandler = item.IsStandardTyped;
+        var accessibility = item.Accessibility;
         var waitTypeArgument = isGenericEventHandler ? $"<{eventArgsType}>" : string.Empty;
 
         AppendMethod(
@@ -197,18 +176,16 @@ public sealed class AsyncEventBridgeGenerator : IIncrementalGenerator
     private static void AppendStreamMethods(
         StringBuilder source,
         INamedTypeSymbol typeSymbol,
-        IEventSymbol eventSymbol,
-        string eventArgsType,
-        bool isGenericEventHandler,
-        string accessibility,
+        EventGenerationModel item,
         TypeParameterContext typeParameters)
     {
         var sourceType = RenderType(typeSymbol, typeParameters);
-        var eventName = EscapeIdentifier(eventSymbol.Name);
-        var methodName = eventSymbol.Name + "Stream";
-        var handlerType = isGenericEventHandler
-            ? $"global::System.EventHandler<{eventArgsType}>"
-            : "global::System.EventHandler";
+        var eventName = EscapeIdentifier(item.EventSymbol.Name);
+        var methodName = item.EventSymbol.Name + "Stream";
+        var eventArgsType = item.PayloadType;
+        var handlerType = item.HandlerType;
+        var isGenericEventHandler = item.IsStandardTyped;
+        var accessibility = item.Accessibility;
 
         AppendStreamMethod(
             source,
@@ -524,26 +501,4 @@ public sealed class AsyncEventBridgeGenerator : IIncrementalGenerator
         }
     }
 
-    private sealed class EventGenerationInfo
-    {
-        internal EventGenerationInfo(
-            IEventSymbol eventSymbol,
-            string eventArgsType,
-            bool isGenericEventHandler,
-            string accessibility)
-        {
-            EventSymbol = eventSymbol;
-            EventArgsType = eventArgsType;
-            IsGenericEventHandler = isGenericEventHandler;
-            Accessibility = accessibility;
-        }
-
-        internal IEventSymbol EventSymbol { get; }
-
-        internal string EventArgsType { get; }
-
-        internal bool IsGenericEventHandler { get; }
-
-        internal string Accessibility { get; }
-    }
 }
