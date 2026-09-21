@@ -320,6 +320,83 @@ public sealed class EventStreamBridgeTests
         Assert.Throws<ObjectDisposedException>(() => bridge.Completed += (_, _) => { });
     }
 
+    [Fact]
+    public async Task SourceFailureAndEnumeratorCleanupFailureAreAggregatedInOrder()
+    {
+        var primaryFailure = new InvalidOperationException("source failed");
+        var cleanupFailure = new ApplicationException("enumerator cleanup failed");
+        await using EventStreamBridge<int> bridge =
+            new FaultAndCleanupAsyncEnumerable(primaryFailure, cleanupFailure).ToEventBridge();
+        var faulted = new TaskCompletionSource<Exception>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        bridge.Faulted += (_, eventArgs) => faulted.TrySetResult(eventArgs.Exception);
+        bridge.Connect();
+
+        var actual = Assert.IsType<AggregateException>(
+            await faulted.Task.WaitAsync(TimeSpan.FromSeconds(5)));
+
+        Assert.Equal(2, actual.InnerExceptions.Count);
+        Assert.Same(primaryFailure, actual.InnerExceptions[0]);
+        Assert.Same(cleanupFailure, actual.InnerExceptions[1]);
+    }
+
+    [Fact]
+    public async Task DisposeAsyncPreservesCancellationWhenEnumeratorCleanupFails()
+    {
+        var cleanupFailure = new InvalidOperationException("enumerator cleanup failed");
+        var source = new CancellationCleanupFailingAsyncEnumerable(cleanupFailure);
+        var bridge = source.ToEventBridge();
+
+        bridge.Connect();
+        await source.MoveNextStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        var actual = await Assert.ThrowsAsync<AggregateException>(
+            async () => await bridge.DisposeAsync());
+
+        Assert.Equal(2, actual.InnerExceptions.Count);
+        Assert.IsAssignableFrom<OperationCanceledException>(actual.InnerExceptions[0]);
+        Assert.Same(cleanupFailure, actual.InnerExceptions[1]);
+    }
+
+    private sealed class FaultAndCleanupAsyncEnumerable(
+        Exception primaryFailure,
+        Exception cleanupFailure) : IAsyncEnumerable<int>, IAsyncEnumerator<int>
+    {
+        public int Current => 0;
+
+        public IAsyncEnumerator<int> GetAsyncEnumerator(CancellationToken cancellationToken = default) => this;
+
+        public ValueTask<bool> MoveNextAsync() => ValueTask.FromException<bool>(primaryFailure);
+
+        public ValueTask DisposeAsync() => ValueTask.FromException(cleanupFailure);
+    }
+
+    private sealed class CancellationCleanupFailingAsyncEnumerable(
+        Exception cleanupFailure) : IAsyncEnumerable<int>, IAsyncEnumerator<int>
+    {
+        private CancellationToken _cancellationToken;
+
+        internal TaskCompletionSource<bool> MoveNextStarted { get; } = NewCompletionSource();
+
+        public int Current => 0;
+
+        public IAsyncEnumerator<int> GetAsyncEnumerator(CancellationToken cancellationToken = default)
+        {
+            _cancellationToken = cancellationToken;
+            return this;
+        }
+
+        public async ValueTask<bool> MoveNextAsync()
+        {
+            MoveNextStarted.TrySetResult(true);
+            await Task.Delay(Timeout.InfiniteTimeSpan, _cancellationToken);
+            return false;
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.FromException(cleanupFailure);
+    }
+
+
     private static TaskCompletionSource<bool> NewCompletionSource() =>
         new(TaskCreationOptions.RunContinuationsAsynchronously);
 
