@@ -12,7 +12,7 @@ Prefer the overloads that accept a `MonoBehaviour` for scene- or component-scope
 
 ## Event-stream buffering
 
-The portable runtime uses the same 0.4 buffering contract as the NuGet editions. `EventStreamFullMode.Unbounded` is the lossless default; `Grow` is a compatibility alias for the same mode. `Capacity` is ignored for unbounded streams and is a hard limit only for `DropOldest` and `DropNewest`.
+The portable runtime uses the same 0.4 buffering contract as the NuGet editions. `EventStreamFullMode.Unbounded` is the lossless default. `Capacity` is ignored for unbounded streams and is a hard limit only for `DropOldest` and `DropNewest`. The earlier `Grow` member was renamed before the 1.0 API freeze.
 
 An unbounded stream can grow memory usage indefinitely when event production permanently exceeds consumption. Unity integrations that represent state-like or telemetry-like values should generally choose an explicit bounded drop mode when complete history is not required.
 
