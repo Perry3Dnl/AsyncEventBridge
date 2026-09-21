@@ -40,14 +40,18 @@ public sealed class AsyncEventBridgeGenerator : IIncrementalGenerator
                 continue;
             }
 
-            if (!TryGetEventArgsType(
-                    eventSymbol,
-                    typeParameters,
-                    out var eventArgsType,
-                    out var isGenericEventHandler))
+            var shape = EventShapeClassifier.Classify(eventSymbol);
+
+            if (shape.Kind is not (EventShapeKind.StandardUntyped or EventShapeKind.StandardTyped) ||
+                !shape.IsPayloadAsyncCompatible)
             {
                 continue;
             }
+
+            var isGenericEventHandler = shape.Kind == EventShapeKind.StandardTyped;
+            var eventArgsType = isGenericEventHandler
+                ? RenderType(shape.PayloadType!, typeParameters)
+                : "global::System.EventArgs";
 
             supportedEvents.Add(new EventGenerationInfo(
                 eventSymbol,
@@ -477,57 +481,9 @@ public sealed class AsyncEventBridgeGenerator : IIncrementalGenerator
             .AppendLine();
     }
 
-    private static bool TryGetEventArgsType(
-        IEventSymbol eventSymbol,
-        TypeParameterContext typeParameters,
-        out string eventArgsType,
-        out bool isGenericEventHandler)
-    {
-        eventArgsType = string.Empty;
-        isGenericEventHandler = false;
 
-        if (eventSymbol.Type is not INamedTypeSymbol delegateType ||
-            delegateType.Name != "EventHandler" ||
-            delegateType.ContainingNamespace.ToDisplayString() != "System")
-        {
-            return false;
-        }
 
-        if (delegateType.TypeArguments.Length == 0)
-        {
-            eventArgsType = "global::System.EventArgs";
-            return true;
-        }
 
-        if (delegateType.TypeArguments.Length != 1 ||
-            !IsAsyncPayloadCompatible(delegateType.TypeArguments[0]))
-        {
-            return false;
-        }
-
-        eventArgsType = RenderType(delegateType.TypeArguments[0], typeParameters);
-        isGenericEventHandler = true;
-        return true;
-    }
-
-    private static bool IsAsyncPayloadCompatible(ITypeSymbol typeSymbol) =>
-        !typeSymbol.IsRefLikeType &&
-        (typeSymbol is not ITypeParameterSymbol typeParameter || !typeParameter.AllowsRefLikeType);
-
-    private static bool CanAccessEvent(IEventSymbol eventSymbol, INamedTypeSymbol targetType)
-    {
-        if (eventSymbol.DeclaredAccessibility == Accessibility.Public)
-        {
-            return true;
-        }
-
-        var sameAssembly = SymbolEqualityComparer.Default.Equals(
-            eventSymbol.ContainingAssembly,
-            targetType.ContainingAssembly);
-
-        return sameAssembly &&
-            eventSymbol.DeclaredAccessibility is Accessibility.Internal or Accessibility.ProtectedOrInternal;
-    }
 
     private static string GetMethodAccessibility(INamedTypeSymbol typeSymbol, IEventSymbol eventSymbol)
     {
