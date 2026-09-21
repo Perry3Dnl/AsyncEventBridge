@@ -170,7 +170,21 @@ A source-thrown `OperationCanceledException` is classified as bridge cancellatio
 
 ## Subscriber exception policy
 
-Async -> events publication isolates subscribers. If one bridge event handler throws, AsyncEventBridge writes the failure through `System.Diagnostics.Trace.TraceError` and continues dispatching remaining subscribers. Subscriber exceptions are not propagated through the bridge.
+Async -> events publication always isolates subscriber exceptions and continues dispatching remaining subscribers.
+
+`EventBridgeOptions.SubscriberExceptionPolicy` supports:
+
+```text
+TraceAndContinue = 0
+ReportAndContinue = 1
+IgnoreAndContinue = 2
+```
+
+`TraceAndContinue` is the default and preserves the earlier `Trace.TraceError` behavior. `ReportAndContinue` requires `SubscriberExceptionObserver`; `IgnoreAndContinue` performs no bridge-level reporting.
+
+Options are snapshotted when `ToEventBridge(..., options)` creates the bridge. Observer failures are themselves isolated and traced.
+
+A propagation policy is intentionally not exposed because bridge event publication is driven by async observation and generally has no synchronous application caller to receive the exception. See `docs/0.4-subscriber-exceptions.md`.
 
 ## Metrics
 
@@ -210,6 +224,8 @@ EventWaitAllResult<TFirst, TSecond>
 AsyncEventBridgeExtensions
 EventBridge
 EventBridge<T>
+EventBridgeOptions
+EventBridgeSubscriberExceptionPolicy
 EventStreamBridge<T>
 AsyncValueEventArgs<T>
 AsyncFaultedEventArgs
