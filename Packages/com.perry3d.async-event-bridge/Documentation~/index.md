@@ -16,6 +16,10 @@ The portable runtime uses the same 0.4 buffering contract as the NuGet editions.
 
 An unbounded stream can grow memory usage indefinitely when event production permanently exceeds consumption. Unity integrations that represent state-like or telemetry-like values should generally choose an explicit bounded drop mode when complete history is not required.
 
+## Portable bridge subscriber exceptions
+
+Portable async-to-event bridges use `EventBridgeSubscriberExceptionPolicy.TraceAndContinue` by default. Pass `EventBridgeOptions` when creating a portable bridge to select callback reporting or silent isolation. All policies continue remaining subscribers; options are snapshotted when the bridge is created.
+
 ## Core/runtime relationship
 
 The files under `Runtime/Core` mirror the matching core runtime sources used by the NuGet package. CI is responsible for preventing drift between those copies. Generic fixes belong in the core first; Unity-only behavior belongs under `Runtime/Unity`.
