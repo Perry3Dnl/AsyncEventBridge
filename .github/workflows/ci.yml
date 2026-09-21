@@ -287,6 +287,133 @@ jobs:
           path: src/AsyncEventBridge.Unity.Generators/bin/Release/netstandard2.0/AsyncEventBridge.Unity.Generators.dll
           if-no-files-found: error
 
+  unified-package:
+    name: Unified 0.3 NuGet
+    needs:
+      - modern
+      - compatibility
+      - unity
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8 and 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Resolve shared version
+        shell: bash
+        run: |
+          VERSION="$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' Directory.Build.props | head -n 1)"
+          test -n "$VERSION"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Pack unified NuGet package
+        run: dotnet pack packaging/AsyncEventBridge.Package/AsyncEventBridge.Package.csproj --configuration Release -o artifacts/unified
+
+      - name: Verify unified package layout and dependency groups
+        shell: bash
+        run: |
+          set -euo pipefail
+          PACKAGE="artifacts/unified/AsyncEventBridge.${VERSION}.nupkg"
+          test -f "$PACKAGE"
+          unzip -l "$PACKAGE" | tee artifacts/unified-package-contents.txt
+          unzip -l "$PACKAGE" | grep -q "lib/net10.0/AsyncEventBridge.dll"
+          unzip -l "$PACKAGE" | grep -q "lib/net10.0/AsyncEventBridge.xml"
+          unzip -l "$PACKAGE" | grep -q "lib/netstandard2.0/AsyncEventBridge.dll"
+          unzip -l "$PACKAGE" | grep -q "lib/netstandard2.0/AsyncEventBridge.xml"
+          unzip -l "$PACKAGE" | grep -q "tools/generators/modern/AsyncEventBridge.Generators.dll"
+          unzip -l "$PACKAGE" | grep -q "tools/generators/compat/AsyncEventBridge.Generators.dll"
+          unzip -l "$PACKAGE" | grep -q "buildTransitive/AsyncEventBridge.targets"
+          unzip -l "$PACKAGE" | grep -q "README.md"
+          unzip -l "$PACKAGE" | grep -q "assets/AsyncEventBridge.png"
+
+          python3 - <<'PY'
+          import os
+          import xml.etree.ElementTree as ET
+          import zipfile
+
+          package = f"artifacts/unified/AsyncEventBridge.{os.environ['VERSION']}.nupkg"
+          with zipfile.ZipFile(package) as archive:
+              nuspec_name = next(name for name in archive.namelist() if name.endswith(".nuspec"))
+              root = ET.fromstring(archive.read(nuspec_name))
+
+          ns = {"n": "http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd"}
+          groups = root.findall(".//n:dependencies/n:group", ns)
+          by_tfm = {group.attrib.get("targetFramework"): group for group in groups}
+
+          netstandard = next((group for tfm, group in by_tfm.items() if tfm and "NETStandard2.0" in tfm), None)
+          if netstandard is None:
+              raise SystemExit("Missing .NET Standard 2.0 dependency group")
+
+          dependencies = [d.attrib.get("id") for d in netstandard.findall("n:dependency", ns)]
+          if "Microsoft.Bcl.AsyncInterfaces" not in dependencies:
+              raise SystemExit("Compatibility dependency group is missing Microsoft.Bcl.AsyncInterfaces")
+
+          for tfm, group in by_tfm.items():
+              if tfm and "NET10.0" in tfm:
+                  ids = [d.attrib.get("id") for d in group.findall("n:dependency", ns)]
+                  if "Microsoft.Bcl.AsyncInterfaces" in ids:
+                      raise SystemExit("Modern dependency group must not depend on Microsoft.Bcl.AsyncInterfaces")
+          PY
+
+      - name: Restore modern consumer from unified package
+        run: dotnet restore tests/AsyncEventBridge.PackageSmoke/AsyncEventBridge.PackageSmoke.csproj --source "$PWD/artifacts/unified" --source https://api.nuget.org/v3/index.json -p:AsyncEventBridgePackageVersion="$VERSION"
+
+      - name: Build modern consumer from unified package
+        run: dotnet build tests/AsyncEventBridge.PackageSmoke/AsyncEventBridge.PackageSmoke.csproj --configuration Release --no-restore -p:AsyncEventBridgePackageVersion="$VERSION"
+
+      - name: Restore modern runtime consumer from unified package
+        run: dotnet restore tests/AsyncEventBridge.PackageRuntimeSmoke/AsyncEventBridge.PackageRuntimeSmoke.csproj --source "$PWD/artifacts/unified" --source https://api.nuget.org/v3/index.json -p:AsyncEventBridgePackageVersion="$VERSION"
+
+      - name: Run modern runtime consumer from unified package
+        run: timeout 15s dotnet run --project tests/AsyncEventBridge.PackageRuntimeSmoke/AsyncEventBridge.PackageRuntimeSmoke.csproj --configuration Release --no-restore -p:AsyncEventBridgePackageVersion="$VERSION"
+
+      - name: Restore compatibility consumer from unified package
+        run: dotnet restore compat/netstandard2.0/tests/AsyncEventBridge.PackageSmoke/AsyncEventBridge.PackageSmoke.csproj --source "$PWD/artifacts/unified" --source https://api.nuget.org/v3/index.json -p:AsyncEventBridgePackageVersion="$VERSION"
+
+      - name: Build compatibility consumer from unified package
+        run: dotnet build compat/netstandard2.0/tests/AsyncEventBridge.PackageSmoke/AsyncEventBridge.PackageSmoke.csproj --configuration Release --no-restore -p:AsyncEventBridgePackageVersion="$VERSION"
+
+      - name: Restore compatibility runtime consumer from unified package
+        run: dotnet restore compat/netstandard2.0/tests/AsyncEventBridge.PackageRuntimeSmoke/AsyncEventBridge.PackageRuntimeSmoke.csproj --source "$PWD/artifacts/unified" --source https://api.nuget.org/v3/index.json -p:AsyncEventBridgePackageVersion="$VERSION"
+
+      - name: Run compatibility runtime consumer from unified package
+        run: timeout 15s dotnet run --project compat/netstandard2.0/tests/AsyncEventBridge.PackageRuntimeSmoke/AsyncEventBridge.PackageRuntimeSmoke.csproj --configuration Release --no-restore -p:AsyncEventBridgePackageVersion="$VERSION"
+
+      - name: Restore unified-package Native AOT consumer
+        run: dotnet restore tests/AsyncEventBridge.PackageAotSmoke/AsyncEventBridge.PackageAotSmoke.csproj --runtime linux-x64 --source "$PWD/artifacts/unified" --source https://api.nuget.org/v3/index.json -p:AsyncEventBridgePackageVersion="$VERSION"
+
+      - name: Publish unified-package Native AOT consumer
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/unified-native-aot
+          dotnet publish tests/AsyncEventBridge.PackageAotSmoke/AsyncEventBridge.PackageAotSmoke.csproj \
+            --configuration Release \
+            --runtime linux-x64 \
+            --no-restore \
+            -p:AsyncEventBridgePackageVersion="$VERSION" \
+            -o artifacts/unified-native-aot 2>&1 | tee artifacts/unified-native-aot.log
+          if grep -E 'warning IL[0-9]{4}' artifacts/unified-native-aot.log; then
+            echo "Native AOT/trimming warnings are not allowed."
+            exit 1
+          fi
+          timeout 15s ./artifacts/unified-native-aot/AsyncEventBridge.PackageAotSmoke
+
+      - name: Upload unified package
+        uses: actions/upload-artifact@v4
+        with:
+          name: AsyncEventBridge-unified-${{ env.VERSION }}
+          path: artifacts/unified/AsyncEventBridge.${{ env.VERSION }}.nupkg
+          if-no-files-found: error
+
   cross-platform:
     name: ${{ matrix.os }} convergence
     strategy:
