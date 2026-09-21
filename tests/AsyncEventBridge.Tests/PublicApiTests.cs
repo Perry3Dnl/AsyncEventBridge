@@ -129,7 +129,7 @@ public sealed class PublicApiTests
         AssertPropertyNames(typeof(GenerateAsyncEventsForAttribute), "TargetType");
 
         Assert.Equal(
-            new[] { "DropNewest", "DropOldest", "Grow", "Unbounded" },
+            new[] { "DropNewest", "DropOldest", "Unbounded" },
             Enum.GetNames<EventStreamFullMode>().OrderBy(name => name, StringComparer.Ordinal));
     }
 
@@ -196,7 +196,6 @@ public sealed class PublicApiTests
         Assert.Equal(0, options.DroppedCount);
         Assert.Null(options.DropObserver);
         Assert.Equal(0, (int)EventStreamFullMode.Unbounded);
-        Assert.Equal((int)EventStreamFullMode.Unbounded, (int)EventStreamFullMode.Grow);
         Assert.Equal(1, (int)EventStreamFullMode.DropOldest);
         Assert.Equal(2, (int)EventStreamFullMode.DropNewest);
     }
