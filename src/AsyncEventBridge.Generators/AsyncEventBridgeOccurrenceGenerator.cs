@@ -96,7 +96,11 @@ public sealed class AsyncEventBridgeOccurrenceGenerator : IIncrementalGenerator
         var typeParameters = CreateTypeParameterContext(typeSymbol);
         var events = new List<EventInfo>();
 
-        foreach (var eventSymbol in GetEventsForGeneration(\n            typeSymbol,\n            current =>\n                (stopAtTargetTypes is not null && stopAtTargetTypes.Contains(current)) ||\n                HasDirectAttribute(current)))
+        foreach (var eventSymbol in GetEventsForGeneration(
+            typeSymbol,
+            current =>
+                (stopAtTargetTypes is not null && stopAtTargetTypes.Contains(current)) ||
+                HasDirectAttribute(current)))
         {
             if (eventSymbol.IsStatic ||
                 !CanAccessEvent(eventSymbol, typeSymbol, isExternalTarget) ||
