@@ -14,5 +14,6 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/AsyncEventBridge.Generators/AsyncEventBridge.Generators.csproj" />
+    <ProjectReference Include="../../src/AsyncEventBridge.Unity.Generators/AsyncEventBridge.Unity.Generators.csproj" />
   </ItemGroup>
 </Project>
