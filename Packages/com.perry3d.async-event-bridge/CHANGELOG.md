@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0 - In progress
+
+- Rename the portable event-stream lossless mode from `Grow` to `Unbounded` and define `Capacity` as bounded-mode-only.
+- Align portable wait, stream, and stream-bridge cleanup exception ordering with the shared 0.4 runtime contract.
+- Add `EventBridgeOptions` and configurable subscriber exception reporting to the portable Task / async-stream event bridges.
+- Preserve subscriber isolation by default with `TraceAndContinue`, with explicit report and ignore policies.
+- Keep the Unity portable core byte-for-byte aligned with the .NET Standard compatibility runtime.
+
 ## 0.3.0 - In progress
 
 - Move Unity development onto the shared `main` release line.
