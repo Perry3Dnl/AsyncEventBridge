@@ -5,9 +5,13 @@ public sealed class EventBridgeLifecycleTests
     [Fact]
     public async Task DisposeAllowsTerminalPublicationAlreadyInProgressToFinish()
     {
-        var taskCompletion = new TaskCompletionSource<int>();
+        var taskCompletion = new TaskCompletionSource<int>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
         EventBridge<int> bridge = taskCompletion.Task.ToEventBridge();
-        var firstHandlerEntered = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var firstHandlerEntered = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var publicationFinished = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
         using var releaseFirstHandler = new ManualResetEventSlim(false);
         var secondHandlerCalls = 0;
 
@@ -16,17 +20,21 @@ public sealed class EventBridgeLifecycleTests
             firstHandlerEntered.TrySetResult(true);
             releaseFirstHandler.Wait();
         };
-        bridge.Completed += (_, _) => Interlocked.Increment(ref secondHandlerCalls);
+        bridge.Completed += (_, _) =>
+        {
+            Interlocked.Increment(ref secondHandlerCalls);
+            publicationFinished.TrySetResult(true);
+        };
         bridge.Connect();
 
-        var completeTask = Task.Run(() => taskCompletion.SetResult(42));
+        taskCompletion.SetResult(42);
         await firstHandlerEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         bridge.Dispose();
         Assert.Equal(0, Volatile.Read(ref secondHandlerCalls));
 
         releaseFirstHandler.Set();
-        await completeTask.WaitAsync(TimeSpan.FromSeconds(5));
+        await publicationFinished.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.Equal(1, Volatile.Read(ref secondHandlerCalls));
     }
