@@ -1,5 +1,6 @@
 using System.Text;
 using static AsyncEventBridge.Generators.GeneratorTypeSystem;
+using static AsyncEventBridge.Generators.GeneratorSymbolAnalysis;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Text;
@@ -95,7 +96,7 @@ public sealed class AsyncEventBridgeOccurrenceGenerator : IIncrementalGenerator
         var typeParameters = CreateTypeParameterContext(typeSymbol);
         var events = new List<EventInfo>();
 
-        foreach (var eventSymbol in GetEventsForGeneration(typeSymbol, stopAtTargetTypes))
+        foreach (var eventSymbol in GetEventsForGeneration(\n            typeSymbol,\n            current =>\n                (stopAtTargetTypes is not null && stopAtTargetTypes.Contains(current)) ||\n                HasDirectAttribute(current)))
         {
             if (eventSymbol.IsStatic ||
                 !CanAccessEvent(eventSymbol, typeSymbol, isExternalTarget) ||
@@ -106,7 +107,7 @@ public sealed class AsyncEventBridgeOccurrenceGenerator : IIncrementalGenerator
 
             events.Add(eventInfo with
             {
-                Accessibility = GetMethodAccessibility(typeSymbol, eventSymbol, eventInfo),
+                Accessibility = GetMethodAccessibility(typeSymbol, eventSymbol, requirePublicDelegateParameters: true),
             });
         }
 
@@ -362,130 +363,6 @@ public sealed class AsyncEventBridgeOccurrenceGenerator : IIncrementalGenerator
     }
 
 
-
-    private static IEnumerable<IEventSymbol> GetEventsForGeneration(
-        INamedTypeSymbol typeSymbol,
-        HashSet<INamedTypeSymbol>? stopAtTargetTypes)
-    {
-        var hiddenNames = new HashSet<string>(StringComparer.Ordinal);
-        INamedTypeSymbol? current = typeSymbol;
-        var isTargetType = true;
-
-        while (current is not null)
-        {
-            if (!isTargetType &&
-                ((stopAtTargetTypes is not null && stopAtTargetTypes.Contains(current)) ||
-                 HasDirectAttribute(current)))
-            {
-                yield break;
-            }
-
-            foreach (var eventSymbol in current.GetMembers().OfType<IEventSymbol>())
-            {
-                if (!hiddenNames.Contains(eventSymbol.Name))
-                {
-                    yield return eventSymbol;
-                }
-            }
-
-            foreach (var member in current.GetMembers())
-            {
-                hiddenNames.Add(member.Name);
-            }
-
-            isTargetType = false;
-            current = current.BaseType;
-        }
-    }
-
-    private static bool CanAccessEvent(
-        IEventSymbol eventSymbol,
-        INamedTypeSymbol targetType,
-        bool isExternalTarget)
-    {
-        if (eventSymbol.DeclaredAccessibility == Accessibility.Public)
-        {
-            return true;
-        }
-
-        if (isExternalTarget)
-        {
-            return false;
-        }
-
-        var sameAssembly = SymbolEqualityComparer.Default.Equals(
-            eventSymbol.ContainingAssembly,
-            targetType.ContainingAssembly);
-
-        return sameAssembly &&
-            eventSymbol.DeclaredAccessibility is Accessibility.Internal or Accessibility.ProtectedOrInternal;
-    }
-
-    private static string GetMethodAccessibility(
-        INamedTypeSymbol typeSymbol,
-        IEventSymbol eventSymbol,
-        EventInfo eventInfo)
-    {
-        return IsPubliclyAccessible(typeSymbol) &&
-               eventSymbol.DeclaredAccessibility == Accessibility.Public &&
-               IsPubliclyAccessible(eventSymbol.Type) &&
-               IsPubliclyAccessible(((INamedTypeSymbol)eventSymbol.Type).DelegateInvokeMethod!.Parameters[0].Type) &&
-               IsPubliclyAccessible(((INamedTypeSymbol)eventSymbol.Type).DelegateInvokeMethod!.Parameters[1].Type)
-            ? "public"
-            : "internal";
-    }
-
-    private static bool IsPubliclyAccessible(ITypeSymbol typeSymbol)
-    {
-        if (typeSymbol is ITypeParameterSymbol)
-        {
-            return true;
-        }
-
-        if (typeSymbol is IArrayTypeSymbol arrayType)
-        {
-            return IsPubliclyAccessible(arrayType.ElementType);
-        }
-
-        if (typeSymbol is not INamedTypeSymbol namedType)
-        {
-            return true;
-        }
-
-        if (namedType.DeclaredAccessibility != Accessibility.Public)
-        {
-            return false;
-        }
-
-        if (namedType.ContainingType is not null && !IsPubliclyAccessible(namedType.ContainingType))
-        {
-            return false;
-        }
-
-        return namedType.TypeArguments.All(IsPubliclyAccessible);
-    }
-
-    private static bool CanGenerateForType(INamedTypeSymbol typeSymbol)
-    {
-        if (typeSymbol.TypeKind != TypeKind.Class)
-        {
-            return false;
-        }
-
-        INamedTypeSymbol? current = typeSymbol;
-        while (current is not null)
-        {
-            if (current.ContainingType is not null &&
-                current.DeclaredAccessibility is Accessibility.Private or Accessibility.Protected or Accessibility.ProtectedAndInternal)
-            {
-                return false;
-            }
-
-            current = current.ContainingType;
-        }
-
-        return true;
-    }
 
     private static bool HasDirectAttribute(INamedTypeSymbol typeSymbol) =>
         typeSymbol.GetAttributes().Any(attribute =>
