@@ -1,4 +1,6 @@
 using System.Text;
+using static AsyncEventBridge.Generators.GeneratorTypeSystem;
+using static AsyncEventBridge.Generators.GeneratorSymbolAnalysis;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Text;
@@ -92,21 +94,35 @@ public sealed class AsyncEventBridgeOccurrenceGenerator : IIncrementalGenerator
         }
 
         var typeParameters = CreateTypeParameterContext(typeSymbol);
-        var events = new List<EventInfo>();
+        var events = new List<EventGenerationModel>();
 
-        foreach (var eventSymbol in GetEventsForGeneration(typeSymbol, stopAtTargetTypes))
+        foreach (var eventSymbol in GetEventsForGeneration(
+            typeSymbol,
+            current =>
+                (stopAtTargetTypes is not null && stopAtTargetTypes.Contains(current)) ||
+                HasDirectAttribute(current)))
         {
             if (eventSymbol.IsStatic ||
-                !CanAccessEvent(eventSymbol, typeSymbol, isExternalTarget) ||
-                !TryDescribeEvent(eventSymbol, typeParameters, out var eventInfo))
+                !CanAccessEvent(eventSymbol, typeSymbol, isExternalTarget))
             {
                 continue;
             }
 
-            events.Add(eventInfo with
+            var shape = EventShapeClassifier.Classify(eventSymbol);
+
+            if (shape.Kind == EventShapeKind.Unsupported ||
+                !shape.IsSenderAsyncCompatible ||
+                !shape.IsPayloadAsyncCompatible)
             {
-                Accessibility = GetMethodAccessibility(typeSymbol, eventSymbol, eventInfo),
-            });
+                continue;
+            }
+
+            events.Add(EventGenerationModel.Create(
+                eventSymbol,
+                shape,
+                typeParameters,
+                GetMethodAccessibility(typeSymbol, eventSymbol, requirePublicDelegateParameters: true),
+                preserveNullableAnnotations: true));
         }
 
         if (events.Count == 0)
@@ -134,10 +150,7 @@ public sealed class AsyncEventBridgeOccurrenceGenerator : IIncrementalGenerator
 
         foreach (var item in events)
         {
-            AppendOccurrenceWait(source, typeSymbol, item, typeParameters, includeTimeout: false);
-            AppendOccurrenceWait(source, typeSymbol, item, typeParameters, includeTimeout: true);
-            AppendOccurrenceStream(source, typeSymbol, item, typeParameters, includeOptions: false);
-            AppendOccurrenceStream(source, typeSymbol, item, typeParameters, includeOptions: true);
+            EventOccurrenceEmitter.AppendMethods(source, typeSymbol, item, typeParameters);
         }
 
         source.AppendLine("}")
@@ -148,498 +161,9 @@ public sealed class AsyncEventBridgeOccurrenceGenerator : IIncrementalGenerator
             SourceText.From(source.ToString(), Encoding.UTF8));
     }
 
-    private static void AppendOccurrenceWait(
-        StringBuilder source,
-        INamedTypeSymbol typeSymbol,
-        EventInfo item,
-        TypeParameterContext typeParameters,
-        bool includeTimeout)
-    {
-        var sourceType = RenderType(typeSymbol, typeParameters);
-        var eventName = EscapeIdentifier(item.EventSymbol.Name);
-        var methodName = eventName.TrimStart('@') + "OccurrenceAsync";
-        var occurrenceType = $"global::AsyncEventBridge.EventOccurrence<{item.SenderType}, {item.PayloadType}>";
-
-        source.Append("    ")
-            .Append(item.Accessibility)
-            .Append(" static global::System.Threading.Tasks.Task<")
-            .Append(occurrenceType)
-            .Append("> ")
-            .Append(methodName);
-        AppendMethodTypeParameters(source, typeParameters);
-        source.Append("(this ")
-            .Append(sourceType)
-            .Append(" source, ");
-
-        if (includeTimeout)
-        {
-            source.Append("global::System.TimeSpan timeout, ");
-        }
-
-        source.Append("global::System.Threading.CancellationToken cancellationToken = default");
-
-        if (includeTimeout)
-        {
-            source.Append(", global::System.TimeProvider? timeProvider = null");
-        }
-
-        source.Append(')');
-        AppendMethodConstraints(source, typeParameters);
-        source.AppendLine()
-            .AppendLine("    {")
-            .AppendLine("        if (source is null)")
-            .AppendLine("        {")
-            .AppendLine("            throw new global::System.ArgumentNullException(nameof(source));")
-            .AppendLine("        }")
-            .AppendLine()
-            .Append("        ")
-            .Append(item.HandlerType)
-            .AppendLine("? adaptedHandler = null;")
-            .AppendLine()
-            .Append("        return global::AsyncEventBridge.EventOccurrenceAwaiter.WaitAsync<")
-            .Append(item.SenderType)
-            .Append(", ")
-            .Append(item.PayloadType)
-            .AppendLine(">(")
-            .Append("            (global::System.EventHandler<")
-            .Append(item.SenderType)
-            .Append(", ")
-            .Append(item.PayloadType)
-            .AppendLine("> handler) =>")
-            .AppendLine("            {")
-            .Append("                adaptedHandler = new ")
-            .Append(item.HandlerType)
-            .AppendLine("((sender, payload) => handler(sender, payload));")
-            .Append("                source.")
-            .Append(eventName)
-            .AppendLine(" += adaptedHandler;")
-            .AppendLine("            },")
-            .Append("            (global::System.EventHandler<")
-            .Append(item.SenderType)
-            .Append(", ")
-            .Append(item.PayloadType)
-            .AppendLine("> _) =>")
-            .AppendLine("            {")
-            .AppendLine("                if (adaptedHandler != null)")
-            .AppendLine("                {")
-            .Append("                    source.")
-            .Append(eventName)
-            .AppendLine(" -= adaptedHandler;")
-            .AppendLine("                }")
-            .AppendLine("            },")
-            .AppendLine("            null,")
-            .Append("            cancellationToken");
-
-        if (includeTimeout)
-        {
-            source.AppendLine(",")
-                .AppendLine("            timeout,")
-                .AppendLine("            timeProvider);");
-        }
-        else
-        {
-            source.AppendLine(");");
-        }
-
-        source.AppendLine("    }")
-            .AppendLine();
-    }
-
-    private static void AppendOccurrenceStream(
-        StringBuilder source,
-        INamedTypeSymbol typeSymbol,
-        EventInfo item,
-        TypeParameterContext typeParameters,
-        bool includeOptions)
-    {
-        var sourceType = RenderType(typeSymbol, typeParameters);
-        var eventName = EscapeIdentifier(item.EventSymbol.Name);
-        var methodName = eventName.TrimStart('@') + "OccurrenceStream";
-        var occurrenceType = $"global::AsyncEventBridge.EventOccurrence<{item.SenderType}, {item.PayloadType}>";
-
-        source.Append("    ")
-            .Append(item.Accessibility)
-            .Append(" static global::System.Collections.Generic.IAsyncEnumerable<")
-            .Append(occurrenceType)
-            .Append("> ")
-            .Append(methodName);
-        AppendMethodTypeParameters(source, typeParameters);
-        source.Append("(this ")
-            .Append(sourceType)
-            .Append(" source, ");
-
-        if (includeOptions)
-        {
-            source.Append("global::AsyncEventBridge.EventStreamOptions options, ");
-        }
-
-        source.Append("global::System.Threading.CancellationToken cancellationToken = default)");
-        AppendMethodConstraints(source, typeParameters);
-        source.AppendLine()
-            .AppendLine("    {")
-            .AppendLine("        if (source is null)")
-            .AppendLine("        {")
-            .AppendLine("            throw new global::System.ArgumentNullException(nameof(source));")
-            .AppendLine("        }")
-            .AppendLine();
-
-        if (includeOptions)
-        {
-            source.AppendLine("        if (options is null)")
-                .AppendLine("        {")
-                .AppendLine("            throw new global::System.ArgumentNullException(nameof(options));")
-                .AppendLine("        }")
-                .AppendLine();
-        }
-
-        source.Append("        ")
-            .Append(item.HandlerType)
-            .AppendLine("? adaptedHandler = null;")
-            .AppendLine()
-            .Append("        return global::AsyncEventBridge.EventOccurrenceStream.Create<")
-            .Append(item.SenderType)
-            .Append(", ")
-            .Append(item.PayloadType)
-            .AppendLine(">(")
-            .Append("            (global::System.EventHandler<")
-            .Append(item.SenderType)
-            .Append(", ")
-            .Append(item.PayloadType)
-            .AppendLine("> handler) =>")
-            .AppendLine("            {")
-            .Append("                adaptedHandler = new ")
-            .Append(item.HandlerType)
-            .AppendLine("((sender, payload) => handler(sender, payload));")
-            .Append("                source.")
-            .Append(eventName)
-            .AppendLine(" += adaptedHandler;")
-            .AppendLine("            },")
-            .Append("            (global::System.EventHandler<")
-            .Append(item.SenderType)
-            .Append(", ")
-            .Append(item.PayloadType)
-            .AppendLine("> _) =>")
-            .AppendLine("            {")
-            .AppendLine("                if (adaptedHandler != null)")
-            .AppendLine("                {")
-            .Append("                    source.")
-            .Append(eventName)
-            .AppendLine(" -= adaptedHandler;")
-            .AppendLine("                }")
-            .AppendLine("            },")
-            .AppendLine("            null,")
-            .Append("            ")
-            .AppendLine(includeOptions ? "options," : "null,")
-            .AppendLine("            cancellationToken);")
-            .AppendLine("    }")
-            .AppendLine();
-    }
-
-    private static bool TryDescribeEvent(
-        IEventSymbol eventSymbol,
-        TypeParameterContext typeParameters,
-        out EventInfo eventInfo)
-    {
-        eventInfo = default;
-
-        if (eventSymbol.Type is not INamedTypeSymbol delegateType ||
-            delegateType.TypeKind != TypeKind.Delegate ||
-            delegateType.DelegateInvokeMethod is not { } invokeMethod ||
-            !invokeMethod.ReturnsVoid ||
-            invokeMethod.Parameters.Length != 2 ||
-            invokeMethod.Parameters[0].RefKind != RefKind.None ||
-            invokeMethod.Parameters[1].RefKind != RefKind.None ||
-            !IsAsyncLifetimeCompatible(invokeMethod.Parameters[0].Type) ||
-            !IsAsyncLifetimeCompatible(invokeMethod.Parameters[1].Type))
-        {
-            return false;
-        }
-
-        eventInfo = new EventInfo(
-            eventSymbol,
-            RenderType(delegateType.WithNullableAnnotation(NullableAnnotation.NotAnnotated), typeParameters),
-            RenderType(invokeMethod.Parameters[0].Type, typeParameters),
-            RenderType(invokeMethod.Parameters[1].Type, typeParameters),
-            string.Empty);
-        return true;
-    }
-
-    private static bool IsAsyncLifetimeCompatible(ITypeSymbol typeSymbol) =>
-        !typeSymbol.IsRefLikeType &&
-        (typeSymbol is not ITypeParameterSymbol typeParameter || !typeParameter.AllowsRefLikeType);
-
-    private static IEnumerable<IEventSymbol> GetEventsForGeneration(
-        INamedTypeSymbol typeSymbol,
-        HashSet<INamedTypeSymbol>? stopAtTargetTypes)
-    {
-        var hiddenNames = new HashSet<string>(StringComparer.Ordinal);
-        INamedTypeSymbol? current = typeSymbol;
-        var isTargetType = true;
-
-        while (current is not null)
-        {
-            if (!isTargetType &&
-                ((stopAtTargetTypes is not null && stopAtTargetTypes.Contains(current)) ||
-                 HasDirectAttribute(current)))
-            {
-                yield break;
-            }
-
-            foreach (var eventSymbol in current.GetMembers().OfType<IEventSymbol>())
-            {
-                if (!hiddenNames.Contains(eventSymbol.Name))
-                {
-                    yield return eventSymbol;
-                }
-            }
-
-            foreach (var member in current.GetMembers())
-            {
-                hiddenNames.Add(member.Name);
-            }
-
-            isTargetType = false;
-            current = current.BaseType;
-        }
-    }
-
-    private static bool CanAccessEvent(
-        IEventSymbol eventSymbol,
-        INamedTypeSymbol targetType,
-        bool isExternalTarget)
-    {
-        if (eventSymbol.DeclaredAccessibility == Accessibility.Public)
-        {
-            return true;
-        }
-
-        if (isExternalTarget)
-        {
-            return false;
-        }
-
-        var sameAssembly = SymbolEqualityComparer.Default.Equals(
-            eventSymbol.ContainingAssembly,
-            targetType.ContainingAssembly);
-
-        return sameAssembly &&
-            eventSymbol.DeclaredAccessibility is Accessibility.Internal or Accessibility.ProtectedOrInternal;
-    }
-
-    private static string GetMethodAccessibility(
-        INamedTypeSymbol typeSymbol,
-        IEventSymbol eventSymbol,
-        EventInfo eventInfo)
-    {
-        return IsPubliclyAccessible(typeSymbol) &&
-               eventSymbol.DeclaredAccessibility == Accessibility.Public &&
-               IsPubliclyAccessible(eventSymbol.Type) &&
-               IsPubliclyAccessible(((INamedTypeSymbol)eventSymbol.Type).DelegateInvokeMethod!.Parameters[0].Type) &&
-               IsPubliclyAccessible(((INamedTypeSymbol)eventSymbol.Type).DelegateInvokeMethod!.Parameters[1].Type)
-            ? "public"
-            : "internal";
-    }
-
-    private static bool IsPubliclyAccessible(ITypeSymbol typeSymbol)
-    {
-        if (typeSymbol is ITypeParameterSymbol)
-        {
-            return true;
-        }
-
-        if (typeSymbol is IArrayTypeSymbol arrayType)
-        {
-            return IsPubliclyAccessible(arrayType.ElementType);
-        }
-
-        if (typeSymbol is not INamedTypeSymbol namedType)
-        {
-            return true;
-        }
-
-        if (namedType.DeclaredAccessibility != Accessibility.Public)
-        {
-            return false;
-        }
-
-        if (namedType.ContainingType is not null && !IsPubliclyAccessible(namedType.ContainingType))
-        {
-            return false;
-        }
-
-        return namedType.TypeArguments.All(IsPubliclyAccessible);
-    }
-
-    private static bool CanGenerateForType(INamedTypeSymbol typeSymbol)
-    {
-        if (typeSymbol.TypeKind != TypeKind.Class)
-        {
-            return false;
-        }
-
-        INamedTypeSymbol? current = typeSymbol;
-        while (current is not null)
-        {
-            if (current.ContainingType is not null &&
-                current.DeclaredAccessibility is Accessibility.Private or Accessibility.Protected or Accessibility.ProtectedAndInternal)
-            {
-                return false;
-            }
-
-            current = current.ContainingType;
-        }
-
-        return true;
-    }
-
     private static bool HasDirectAttribute(INamedTypeSymbol typeSymbol) =>
         typeSymbol.GetAttributes().Any(attribute =>
             attribute.AttributeClass?.ToDisplayString() == DirectAttributeMetadataName);
-
-    private static TypeParameterContext CreateTypeParameterContext(INamedTypeSymbol typeSymbol)
-    {
-        var containingTypes = new Stack<INamedTypeSymbol>();
-        INamedTypeSymbol? current = typeSymbol;
-
-        while (current is not null)
-        {
-            containingTypes.Push(current);
-            current = current.ContainingType;
-        }
-
-        var parameters = containingTypes
-            .SelectMany(type => type.TypeParameters)
-            .ToArray();
-        var names = new Dictionary<ITypeParameterSymbol, string>(SymbolEqualityComparer.Default);
-
-        for (var index = 0; index < parameters.Length; index++)
-        {
-            names[parameters[index]] = "TSource" + index;
-        }
-
-        return new TypeParameterContext(parameters, names);
-    }
-
-    private static string RenderType(ITypeSymbol typeSymbol, TypeParameterContext typeParameters)
-    {
-        if (typeSymbol is ITypeParameterSymbol typeParameter &&
-            typeParameters.Names.TryGetValue(typeParameter, out var mappedName))
-        {
-            return mappedName;
-        }
-
-        if (typeSymbol is IArrayTypeSymbol arrayType)
-        {
-            var array = RenderType(arrayType.ElementType, typeParameters) +
-                "[" + new string(',', arrayType.Rank - 1) + "]";
-            return arrayType.NullableAnnotation == NullableAnnotation.Annotated
-                ? array + "?"
-                : array;
-        }
-
-        if (typeSymbol is not INamedTypeSymbol namedType)
-        {
-            return typeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-        }
-
-        var builder = new StringBuilder();
-
-        if (namedType.ContainingType is not null)
-        {
-            builder.Append(RenderType(namedType.ContainingType, typeParameters))
-                .Append('.');
-        }
-        else if (!namedType.ContainingNamespace.IsGlobalNamespace)
-        {
-            builder.Append("global::")
-                .Append(namedType.ContainingNamespace.ToDisplayString())
-                .Append('.');
-        }
-        else
-        {
-            builder.Append("global::");
-        }
-
-        builder.Append(EscapeIdentifier(namedType.Name));
-
-        if (namedType.TypeArguments.Length > 0)
-        {
-            builder.Append('<')
-                .Append(string.Join(", ", namedType.TypeArguments.Select(argument => RenderType(argument, typeParameters))))
-                .Append('>');
-        }
-
-        if (namedType.NullableAnnotation == NullableAnnotation.Annotated && namedType.IsReferenceType)
-        {
-            builder.Append('?');
-        }
-
-        return builder.ToString();
-    }
-
-    private static void AppendMethodTypeParameters(
-        StringBuilder source,
-        TypeParameterContext typeParameters)
-    {
-        if (typeParameters.Parameters.Count == 0)
-        {
-            return;
-        }
-
-        source.Append('<')
-            .Append(string.Join(", ", typeParameters.Parameters.Select(parameter => typeParameters.Names[parameter])))
-            .Append('>');
-    }
-
-    private static void AppendMethodConstraints(
-        StringBuilder source,
-        TypeParameterContext typeParameters)
-    {
-        foreach (var parameter in typeParameters.Parameters)
-        {
-            var constraints = new List<string>();
-
-            if (parameter.HasUnmanagedTypeConstraint)
-            {
-                constraints.Add("unmanaged");
-            }
-            else if (parameter.HasValueTypeConstraint)
-            {
-                constraints.Add("struct");
-            }
-            else if (parameter.HasReferenceTypeConstraint)
-            {
-                constraints.Add(parameter.ReferenceTypeConstraintNullableAnnotation == NullableAnnotation.Annotated
-                    ? "class?"
-                    : "class");
-            }
-            else if (parameter.HasNotNullConstraint)
-            {
-                constraints.Add("notnull");
-            }
-
-            constraints.AddRange(parameter.ConstraintTypes.Select(type => RenderType(type, typeParameters)));
-
-            if (parameter.HasConstructorConstraint)
-            {
-                constraints.Add("new()");
-            }
-
-            if (parameter.AllowsRefLikeType)
-            {
-                constraints.Add("allows ref struct");
-            }
-
-            if (constraints.Count > 0)
-            {
-                source.AppendLine()
-                    .Append("        where ")
-                    .Append(typeParameters.Names[parameter])
-                    .Append(" : ")
-                    .Append(string.Join(", ", constraints));
-            }
-        }
-    }
 
     private static string GetExtensionClassName(INamedTypeSymbol typeSymbol, string suffix)
     {
@@ -654,20 +178,4 @@ public sealed class AsyncEventBridgeOccurrenceGenerator : IIncrementalGenerator
         return builder.Append(suffix).ToString();
     }
 
-    private static string EscapeIdentifier(string identifier) =>
-        SyntaxFacts.GetKeywordKind(identifier) != SyntaxKind.None ||
-        SyntaxFacts.GetContextualKeywordKind(identifier) != SyntaxKind.None
-            ? "@" + identifier
-            : identifier;
-
-    private readonly record struct EventInfo(
-        IEventSymbol EventSymbol,
-        string HandlerType,
-        string SenderType,
-        string PayloadType,
-        string Accessibility);
-
-    private sealed record TypeParameterContext(
-        IReadOnlyList<ITypeParameterSymbol> Parameters,
-        Dictionary<ITypeParameterSymbol, string> Names);
 }

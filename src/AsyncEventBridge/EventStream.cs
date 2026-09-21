@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
 using System.Threading.Channels;
 
 namespace AsyncEventBridge;
@@ -62,6 +63,7 @@ public static class EventStream
 
         var channel = CreateChannel<EventArgs>(settings);
         var subscriptionAttempted = false;
+        Exception? primaryException = null;
 
         EventHandler handler = (_, eventArgs) =>
         {
@@ -82,15 +84,32 @@ public static class EventStream
 
         try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            subscriptionAttempted = true;
-            subscribe(handler);
-
-            await foreach (var value in channel.Reader
-                .ReadAllAsync(cancellationToken)
-                .ConfigureAwait(false))
+            if (cancellationToken.IsCancellationRequested)
             {
-                yield return value;
+                primaryException = new OperationCanceledException(cancellationToken);
+            }
+            else
+            {
+                subscriptionAttempted = true;
+                primaryException = TrySubscribe(() => subscribe(handler));
+
+                while (primaryException is null)
+                {
+                    var read = await ReadNextAsync(channel.Reader, cancellationToken).ConfigureAwait(false);
+
+                    if (read.Exception is not null)
+                    {
+                        primaryException = read.Exception;
+                        break;
+                    }
+
+                    if (!read.HasValue)
+                    {
+                        break;
+                    }
+
+                    yield return read.Value!;
+                }
             }
         }
         finally
@@ -99,8 +118,20 @@ public static class EventStream
 
             if (subscriptionAttempted)
             {
-                unsubscribe(handler);
+                try
+                {
+                    unsubscribe(handler);
+                }
+                catch (Exception cleanupException)
+                {
+                    throw CleanupExceptionPolicy.Combine(primaryException, cleanupException);
+                }
             }
+        }
+
+        if (primaryException is not null)
+        {
+            ExceptionDispatchInfo.Capture(primaryException).Throw();
         }
     }
 
@@ -123,6 +154,7 @@ public static class EventStream
 
         var channel = CreateChannel<TEventArgs>(settings);
         var subscriptionAttempted = false;
+        Exception? primaryException = null;
 
         EventHandler<TEventArgs> handler = (_, eventArgs) =>
         {
@@ -143,15 +175,32 @@ public static class EventStream
 
         try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            subscriptionAttempted = true;
-            subscribe(handler);
-
-            await foreach (var value in channel.Reader
-                .ReadAllAsync(cancellationToken)
-                .ConfigureAwait(false))
+            if (cancellationToken.IsCancellationRequested)
             {
-                yield return value;
+                primaryException = new OperationCanceledException(cancellationToken);
+            }
+            else
+            {
+                subscriptionAttempted = true;
+                primaryException = TrySubscribe(() => subscribe(handler));
+
+                while (primaryException is null)
+                {
+                    var read = await ReadNextAsync(channel.Reader, cancellationToken).ConfigureAwait(false);
+
+                    if (read.Exception is not null)
+                    {
+                        primaryException = read.Exception;
+                        break;
+                    }
+
+                    if (!read.HasValue)
+                    {
+                        break;
+                    }
+
+                    yield return read.Value!;
+                }
             }
         }
         finally
@@ -160,14 +209,61 @@ public static class EventStream
 
             if (subscriptionAttempted)
             {
-                unsubscribe(handler);
+                try
+                {
+                    unsubscribe(handler);
+                }
+                catch (Exception cleanupException)
+                {
+                    throw CleanupExceptionPolicy.Combine(primaryException, cleanupException);
+                }
             }
+        }
+
+        if (primaryException is not null)
+        {
+            ExceptionDispatchInfo.Capture(primaryException).Throw();
+        }
+    }
+
+    private static Exception? TrySubscribe(Action subscribe)
+    {
+        try
+        {
+            subscribe();
+            return null;
+        }
+        catch (Exception exception)
+        {
+            return exception;
+        }
+    }
+
+    private static async ValueTask<StreamReadResult<T>> ReadNextAsync<T>(
+        ChannelReader<T> reader,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (await reader.WaitToReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                if (reader.TryRead(out var value))
+                {
+                    return StreamReadResult<T>.ValueAvailable(value);
+                }
+            }
+
+            return StreamReadResult<T>.Completed;
+        }
+        catch (Exception exception)
+        {
+            return StreamReadResult<T>.Faulted(exception);
         }
     }
 
     private static Channel<T> CreateChannel<T>(EventStreamSettings settings)
     {
-        if (settings.FullMode == EventStreamFullMode.Grow)
+        if (settings.FullMode == EventStreamFullMode.Unbounded)
         {
             return Channel.CreateUnbounded<T>(new UnboundedChannelOptions
             {
@@ -223,9 +319,7 @@ public static class EventStream
     private static EventStreamSettings GetSettings(EventStreamOptions? options)
     {
         var capacity = options?.Capacity ?? EventStreamOptions.DefaultCapacity;
-        var fullMode = options?.FullMode ?? EventStreamFullMode.Grow;
-
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(capacity, 0, nameof(options));
+        var fullMode = options?.FullMode ?? EventStreamFullMode.Unbounded;
 
         if (!Enum.IsDefined(fullMode))
         {
@@ -233,6 +327,11 @@ public static class EventStream
                 nameof(options),
                 fullMode,
                 "Unknown event stream full mode.");
+        }
+
+        if (fullMode != EventStreamFullMode.Unbounded)
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(capacity, 0, nameof(options));
         }
 
         return new EventStreamSettings(
@@ -252,6 +351,18 @@ public static class EventStream
         }
 
         return CancellationTokenSource.CreateLinkedTokenSource(first, second);
+    }
+
+    private readonly record struct StreamReadResult<T>(
+        bool HasValue,
+        T? Value,
+        Exception? Exception)
+    {
+        internal static StreamReadResult<T> Completed => new(false, default, null);
+
+        internal static StreamReadResult<T> ValueAvailable(T value) => new(true, value, null);
+
+        internal static StreamReadResult<T> Faulted(Exception exception) => new(false, default, exception);
     }
 
     private readonly record struct EventStreamSettings(

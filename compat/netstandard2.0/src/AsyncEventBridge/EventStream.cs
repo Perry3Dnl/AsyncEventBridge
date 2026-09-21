@@ -94,6 +94,7 @@ public static class EventStream
 
         var buffer = new EventBuffer<EventArgs>(settings);
         var subscriptionAttempted = false;
+        Exception? primaryException = null;
 
         EventHandler handler = (_, eventArgs) =>
         {
@@ -114,20 +115,32 @@ public static class EventStream
 
         try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            subscriptionAttempted = true;
-            subscribe(handler);
-
-            while (true)
+            if (cancellationToken.IsCancellationRequested)
             {
-                var result = await buffer.ReadAsync(cancellationToken).ConfigureAwait(false);
+                primaryException = new OperationCanceledException(cancellationToken);
+            }
+            else
+            {
+                subscriptionAttempted = true;
+                primaryException = TrySubscribe(() => subscribe(handler));
 
-                if (!result.HasValue)
+                while (primaryException is null)
                 {
-                    yield break;
-                }
+                    var read = await ReadNextAsync(buffer, cancellationToken).ConfigureAwait(false);
 
-                yield return result.Value!;
+                    if (read.Exception is not null)
+                    {
+                        primaryException = read.Exception;
+                        break;
+                    }
+
+                    if (!read.Result.HasValue)
+                    {
+                        break;
+                    }
+
+                    yield return read.Result.Value!;
+                }
             }
         }
         finally
@@ -136,8 +149,20 @@ public static class EventStream
 
             if (subscriptionAttempted)
             {
-                unsubscribe(handler);
+                try
+                {
+                    unsubscribe(handler);
+                }
+                catch (Exception cleanupException)
+                {
+                    throw CleanupExceptionPolicy.Combine(primaryException, cleanupException);
+                }
             }
+        }
+
+        if (primaryException is not null)
+        {
+            ExceptionDispatchInfo.Capture(primaryException).Throw();
         }
     }
 
@@ -160,6 +185,7 @@ public static class EventStream
 
         var buffer = new EventBuffer<TEventArgs>(settings);
         var subscriptionAttempted = false;
+        Exception? primaryException = null;
 
         EventHandler<TEventArgs> handler = (_, eventArgs) =>
         {
@@ -180,20 +206,32 @@ public static class EventStream
 
         try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            subscriptionAttempted = true;
-            subscribe(handler);
-
-            while (true)
+            if (cancellationToken.IsCancellationRequested)
             {
-                var result = await buffer.ReadAsync(cancellationToken).ConfigureAwait(false);
+                primaryException = new OperationCanceledException(cancellationToken);
+            }
+            else
+            {
+                subscriptionAttempted = true;
+                primaryException = TrySubscribe(() => subscribe(handler));
 
-                if (!result.HasValue)
+                while (primaryException is null)
                 {
-                    yield break;
-                }
+                    var read = await ReadNextAsync(buffer, cancellationToken).ConfigureAwait(false);
 
-                yield return result.Value!;
+                    if (read.Exception is not null)
+                    {
+                        primaryException = read.Exception;
+                        break;
+                    }
+
+                    if (!read.Result.HasValue)
+                    {
+                        break;
+                    }
+
+                    yield return read.Result.Value!;
+                }
             }
         }
         finally
@@ -202,23 +240,55 @@ public static class EventStream
 
             if (subscriptionAttempted)
             {
-                unsubscribe(handler);
+                try
+                {
+                    unsubscribe(handler);
+                }
+                catch (Exception cleanupException)
+                {
+                    throw CleanupExceptionPolicy.Combine(primaryException, cleanupException);
+                }
             }
+        }
+
+        if (primaryException is not null)
+        {
+            ExceptionDispatchInfo.Capture(primaryException).Throw();
+        }
+    }
+
+    private static Exception? TrySubscribe(Action subscribe)
+    {
+        try
+        {
+            subscribe();
+            return null;
+        }
+        catch (Exception exception)
+        {
+            return exception;
+        }
+    }
+
+    private static async ValueTask<BufferReadAttempt<T>> ReadNextAsync<T>(
+        EventBuffer<T> buffer,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return BufferReadAttempt<T>.Succeeded(
+                await buffer.ReadAsync(cancellationToken).ConfigureAwait(false));
+        }
+        catch (Exception exception)
+        {
+            return BufferReadAttempt<T>.Faulted(exception);
         }
     }
 
     private static EventStreamSettings GetSettings(EventStreamOptions? options)
     {
         var capacity = options?.Capacity ?? EventStreamOptions.DefaultCapacity;
-        var fullMode = options?.FullMode ?? EventStreamFullMode.Grow;
-
-        if (capacity <= 0)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(options),
-                capacity,
-                "Event stream capacity must be greater than zero.");
-        }
+        var fullMode = options?.FullMode ?? EventStreamFullMode.Unbounded;
 
         if (!Enum.IsDefined(typeof(EventStreamFullMode), fullMode))
         {
@@ -226,6 +296,14 @@ public static class EventStream
                 nameof(options),
                 fullMode,
                 "Unknown event stream full mode.");
+        }
+
+        if (fullMode != EventStreamFullMode.Unbounded && capacity <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(options),
+                capacity,
+                "Bounded event stream capacity must be greater than zero.");
         }
 
         return new EventStreamSettings(capacity, fullMode);
@@ -279,6 +357,25 @@ public static class EventStream
         internal EventStreamFullMode FullMode { get; }
     }
 
+    private readonly struct BufferReadAttempt<T>
+    {
+        private BufferReadAttempt(BufferReadResult<T> result, Exception? exception)
+        {
+            Result = result;
+            Exception = exception;
+        }
+
+        internal BufferReadResult<T> Result { get; }
+
+        internal Exception? Exception { get; }
+
+        internal static BufferReadAttempt<T> Succeeded(BufferReadResult<T> result) =>
+            new BufferReadAttempt<T>(result, null);
+
+        internal static BufferReadAttempt<T> Faulted(Exception exception) =>
+            new BufferReadAttempt<T>(default, exception);
+    }
+
     private readonly struct BufferReadResult<T>
     {
         private BufferReadResult(bool hasValue, T? value)
@@ -309,7 +406,9 @@ public static class EventStream
 
         internal EventBuffer(EventStreamSettings settings)
         {
-            _queue = new Queue<T>(settings.Capacity);
+            _queue = settings.FullMode == EventStreamFullMode.Unbounded
+                ? new Queue<T>()
+                : new Queue<T>(settings.Capacity);
             _capacity = settings.Capacity;
             _fullMode = settings.FullMode;
         }

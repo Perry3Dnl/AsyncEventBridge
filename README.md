@@ -8,7 +8,7 @@
 
 `main` is the single development and release line for AsyncEventBridge starting with **0.3.0**. The modern .NET 10 implementation remains at the repository root, the .NET Standard 2.0 compatibility implementation lives under `compat/netstandard2.0`, and the Unity UPM package lives under `Packages/com.perry3d.async-event-bridge`.
 
-The 0.3 release is a convergence release: all supported editions share one version and one release process, while runtime-specific APIs may remain different where the platform capabilities differ.
+The `0.4.0` release candidate builds on that convergence model: all supported editions still share one version and one release process, while 0.4 hardens the generator architecture, cleanup/lifecycle semantics, stream buffering, subscriber exception handling, packaging, and cross-platform verification.
 
 ## What it bridges
 
@@ -32,10 +32,10 @@ Package ID:
 AsyncEventBridge
 ```
 
-For a project consuming the `0.3.0` package:
+For a project consuming the `0.4.0` package:
 
 ```xml
-<PackageReference Include="AsyncEventBridge" Version="0.3.0" />
+<PackageReference Include="AsyncEventBridge" Version="0.4.0" />
 ```
 
 The source generator ships in the same NuGet package; there is no separate analyzer package to install.
@@ -157,13 +157,17 @@ await foreach (int value in sensor.ValueChangedStream(cancellationToken))
 }
 ```
 
-The modern runtime uses `System.Threading.Channels` internally. `EventStreamOptions` exposes three buffering modes:
+The modern runtime uses `System.Threading.Channels` internally. The default is explicitly **unbounded and lossless**: accepted values are preserved, but sustained producer/consumer imbalance can grow memory usage without a fixed upper bound.
+
+`EventStreamOptions` exposes these buffering modes. In 0.4, the previous `Grow` enum member was renamed to `Unbounded` before the 1.0 API freeze:
 
 ```text
-Grow        keep accepted values in an unbounded channel
-DropOldest  discard the oldest buffered value at capacity
-DropNewest  keep the existing buffer and discard the incoming value
+Unbounded   preserve accepted values with no fixed buffer limit
+DropOldest  discard the oldest buffered value at Capacity
+DropNewest  keep the existing buffer and discard the incoming value at Capacity
 ```
+
+`Capacity` applies only to the two bounded drop modes. It is ignored by `Unbounded`. The property still defaults to `100` so switching to a bounded mode has a useful default; it does not impose a 100-item limit on the default stream.
 
 Example bounded stream:
 
@@ -239,6 +243,14 @@ N-way `WaitAllAsync` preserves input order and fails fast by cancelling and obse
 
 See [`docs/event-composition.md`](docs/event-composition.md) for detailed lifecycle semantics.
 
+## Bridge lifecycle boundaries
+
+Bridge event publication uses subscriber snapshots. Adding or removing a subscriber while one event is already being dispatched affects future publications, not the invocation list already captured for the current event.
+
+`EventBridge.Dispose()` and `EventStreamBridge.Dispose()` suppress future publication but do not interrupt a handler snapshot already in flight. `EventStreamBridge.DisposeAsync()` additionally waits for bridge-owned enumeration cleanup and in-flight publication; after it completes, no further bridge handler can run.
+
+Bridges do not replay values or terminal events to late subscribers. See [`docs/0.4-bridge-lifecycle.md`](docs/0.4-bridge-lifecycle.md) for the full lifecycle and threading contract.
+
 ## Async work back to events
 
 Tasks and value tasks can be exposed through ordinary .NET events:
@@ -265,7 +277,11 @@ bridge.Value += (_, e) => Console.WriteLine(e.Value);
 bridge.Connect(cancellationToken);
 ```
 
-Subscriber exceptions are isolated: one throwing event subscriber does not stop remaining subscribers or bridge processing. Failures are written through `Trace.TraceError`.
+Subscriber exceptions are isolated: one throwing event subscriber does not stop remaining subscribers or bridge processing. The default policy writes failures through `Trace.TraceError`.
+
+For explicit control, pass `EventBridgeOptions` to `ToEventBridge(...)`. `TraceAndContinue` is the default, `ReportAndContinue` forwards failures to a configured callback, and `IgnoreAndContinue` suppresses bridge-level reporting. All policies continue dispatching remaining subscribers; there is deliberately no background-task `Propagate` mode.
+
+See [`docs/0.4-subscriber-exceptions.md`](docs/0.4-subscriber-exceptions.md) for the policy and threading contract.
 
 ## Runtime metrics
 
@@ -281,7 +297,7 @@ asynceventbridge.event_stream.dropped
 
 Tags are intentionally bounded and low-cardinality. Applications can collect these instruments with `MeterListener`, `dotnet-counters`, OpenTelemetry, or another `System.Diagnostics.Metrics` consumer.
 
-See [`docs/metrics.md`](docs/metrics.md).
+See [`docs/metrics.md`](docs/metrics.md). For the buffering tradeoff and default-policy rationale, see [`docs/0.4-stream-buffering.md`](docs/0.4-stream-buffering.md).
 
 ## Native AOT and trimming
 
@@ -299,16 +315,18 @@ Benchmarks are intentionally not executed on every CI run so normal verification
 
 ## Verification
 
-Every push/PR to `main` or `dotnet-latest` runs the release gate:
+CI runs the release gate on pushes to `main` and `release/**`, and on pull requests targeting `main`:
 
-- restore/build the full .NET 10 solution;
-- run runtime, generator, lifecycle, race, stress, metrics, and API-lock tests;
-- run the sensor sample;
-- create and inspect `.nupkg` and `.snupkg` artifacts;
-- compile a clean consumer against the packed package;
-- execute a separate packaged runtime consumer;
+- restore/build/test the full .NET 10 solution, including runtime, generator, lifecycle, race, stress, metrics, and API-lock coverage;
+- restore/build/test the .NET Standard 2.0 compatibility solution independently;
+- run the modern and compatibility sensor samples;
+- create and inspect the modern, compatibility, and unified NuGet package layouts;
+- compile and execute clean modern and compatibility consumers from the packed artifacts;
 - publish and execute the packaged Native AOT consumer with no `ILxxxx` warnings;
-- independently restore/build/test on Windows and macOS.
+- independently restore/build/test modern and compatibility code on Windows and macOS;
+- validate the Unity manifest/version, portable-core parity, asset metadata, Unity generator build, and runtime compilation against Unity API stubs.
+
+The automated Unity job is a repository/compile gate, not a substitute for a real Unity Editor. Unity Test Framework execution, IL2CPP acceptance, and sample validation in a supported Unity Editor remain manual release checks.
 
 See [`docs/release-readiness.md`](docs/release-readiness.md) for the complete release contract and [`docs/public-api.md`](docs/public-api.md) for the public surface.
 

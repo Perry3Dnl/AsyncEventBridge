@@ -154,13 +154,13 @@ public sealed class EventStreamTests
     }
 
     [Fact]
-    public async Task GrowPreservesValuesBeyondInitialCapacity()
+    public async Task UnboundedIgnoresCapacityAndPreservesValues()
     {
         var source = new TestEventSource<TestEventArgs>();
         var options = new EventStreamOptions
         {
-            Capacity = 2,
-            FullMode = EventStreamFullMode.Grow,
+            Capacity = -1,
+            FullMode = EventStreamFullMode.Unbounded,
         };
         var stream = EventStream.Create<TestEventArgs>(
             handler => source.Changed += handler,
@@ -264,10 +264,78 @@ public sealed class EventStreamTests
     }
 
     [Fact]
-    public void RejectsNonPositiveCapacity()
+    public async Task DisposeAsyncSurfacesUnsubscribeFailure()
+    {
+        EventHandler<TestEventArgs>? handler = null;
+        var cleanupFailure = new InvalidOperationException("unsubscribe failed");
+        var stream = EventStream.Create<TestEventArgs>(
+            subscribedHandler => handler = subscribedHandler,
+            _ => throw cleanupFailure);
+        var enumerator = stream.GetAsyncEnumerator();
+
+        var move = enumerator.MoveNextAsync().AsTask();
+        handler!(null, new TestEventArgs(1));
+        Assert.True(await move);
+
+        var actual = await Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await enumerator.DisposeAsync());
+
+        Assert.Same(cleanupFailure, actual);
+    }
+
+    [Fact]
+    public async Task PredicateFailureAndUnsubscribeFailureAreAggregatedInOrder()
+    {
+        EventHandler<TestEventArgs>? handler = null;
+        var primaryFailure = new InvalidOperationException("predicate failed");
+        var cleanupFailure = new ApplicationException("unsubscribe failed");
+        var stream = EventStream.Create<TestEventArgs>(
+            subscribedHandler => handler = subscribedHandler,
+            _ => throw cleanupFailure,
+            _ => throw primaryFailure);
+        var enumerator = stream.GetAsyncEnumerator();
+
+        var move = enumerator.MoveNextAsync().AsTask();
+        handler!(null, new TestEventArgs(1));
+
+        var actual = await Assert.ThrowsAsync<AggregateException>(async () => await move);
+
+        Assert.Equal(2, actual.InnerExceptions.Count);
+        Assert.Same(primaryFailure, actual.InnerExceptions[0]);
+        Assert.Same(cleanupFailure, actual.InnerExceptions[1]);
+    }
+
+    [Fact]
+    public async Task CancellationAndUnsubscribeFailureAreAggregatedInOrder()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var cleanupFailure = new InvalidOperationException("unsubscribe failed");
+        var stream = EventStream.Create<TestEventArgs>(
+            _ => { },
+            _ => throw cleanupFailure,
+            cancellationToken: cancellation.Token);
+        var enumerator = stream.GetAsyncEnumerator();
+
+        var move = enumerator.MoveNextAsync().AsTask();
+        cancellation.Cancel();
+
+        var actual = await Assert.ThrowsAsync<AggregateException>(async () => await move);
+
+        Assert.Equal(2, actual.InnerExceptions.Count);
+        Assert.IsAssignableFrom<OperationCanceledException>(actual.InnerExceptions[0]);
+        Assert.Same(cleanupFailure, actual.InnerExceptions[1]);
+    }
+
+
+    [Fact]
+    public void RejectsNonPositiveCapacityForBoundedModes()
     {
         var source = new TestEventSource<TestEventArgs>();
-        var options = new EventStreamOptions { Capacity = 0 };
+        var options = new EventStreamOptions
+        {
+            Capacity = 0,
+            FullMode = EventStreamFullMode.DropOldest,
+        };
 
         Assert.Throws<ArgumentOutOfRangeException>(() => EventStream.Create<TestEventArgs>(
             handler => source.Changed += handler,

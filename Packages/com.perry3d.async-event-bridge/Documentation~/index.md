@@ -10,6 +10,22 @@ The Unity package keeps the cross-platform AsyncEventBridge runtime behavior ava
 
 Prefer the overloads that accept a `MonoBehaviour` for scene- or component-scoped work. They cache the behaviour's `destroyCancellationToken` before awaiting and link it with `Application.exitCancellationToken` plus any caller token.
 
+## Event-stream buffering
+
+The portable runtime uses the same 0.4 buffering contract as the NuGet editions. `EventStreamFullMode.Unbounded` is the lossless default. `Capacity` is ignored for unbounded streams and is a hard limit only for `DropOldest` and `DropNewest`. The earlier `Grow` member was renamed before the 1.0 API freeze.
+
+An unbounded stream can grow memory usage indefinitely when event production permanently exceeds consumption. Unity integrations that represent state-like or telemetry-like values should generally choose an explicit bounded drop mode when complete history is not required.
+
+## Portable bridge subscriber exceptions
+
+Portable async-to-event bridges use `EventBridgeSubscriberExceptionPolicy.TraceAndContinue` by default. Pass `EventBridgeOptions` when creating a portable bridge to select callback reporting or silent isolation. All policies continue remaining subscribers; options are snapshotted when the bridge is created.
+
+## Portable bridge lifecycle
+
+Portable bridge publication uses subscriber snapshots: subscriber changes during one callback affect future publications, not the current captured list. `Dispose()` suppresses future publication without waiting for an already-running handler. `EventStreamBridge.DisposeAsync()` is the stronger boundary that waits for portable stream enumeration cleanup and in-flight publication.
+
+Attach handlers before `Connect()`; portable bridges do not replay prior values or terminal events.
+
 ## Core/runtime relationship
 
 The files under `Runtime/Core` mirror the matching core runtime sources used by the NuGet package. CI is responsible for preventing drift between those copies. Generic fixes belong in the core first; Unity-only behavior belongs under `Runtime/Unity`.

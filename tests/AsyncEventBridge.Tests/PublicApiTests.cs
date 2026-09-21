@@ -28,6 +28,8 @@ public sealed class PublicApiTests
             "AsyncEventBridge.EventWaitAnyResult`2",
             "AsyncEventBridge.EventBridge",
             "AsyncEventBridge.EventBridge`1",
+            "AsyncEventBridge.EventBridgeOptions",
+            "AsyncEventBridge.EventBridgeSubscriberExceptionPolicy",
             "AsyncEventBridge.EventStream",
             "AsyncEventBridge.EventStreamBridge`1",
             "AsyncEventBridge.EventStreamFullMode",
@@ -44,6 +46,11 @@ public sealed class PublicApiTests
     {
         AssertMethodNames(
             typeof(AsyncEventBridgeExtensions),
+            "ToEventBridge",
+            "ToEventBridge",
+            "ToEventBridge",
+            "ToEventBridge",
+            "ToEventBridge",
             "ToEventBridge",
             "ToEventBridge",
             "ToEventBridge",
@@ -90,10 +97,15 @@ public sealed class PublicApiTests
         AssertMethodSignatures(
             typeof(AsyncEventBridgeExtensions),
             "AsyncEventBridge.EventBridge ToEventBridge(System.Threading.Tasks.Task task)",
+            "AsyncEventBridge.EventBridge ToEventBridge(System.Threading.Tasks.Task task, AsyncEventBridge.EventBridgeOptions options)",
             "AsyncEventBridge.EventBridge ToEventBridge(System.Threading.Tasks.ValueTask task)",
+            "AsyncEventBridge.EventBridge ToEventBridge(System.Threading.Tasks.ValueTask task, AsyncEventBridge.EventBridgeOptions options)",
             "AsyncEventBridge.EventBridge<T> ToEventBridge<T>(System.Threading.Tasks.Task<T> task)",
+            "AsyncEventBridge.EventBridge<T> ToEventBridge<T>(System.Threading.Tasks.Task<T> task, AsyncEventBridge.EventBridgeOptions options)",
             "AsyncEventBridge.EventBridge<T> ToEventBridge<T>(System.Threading.Tasks.ValueTask<T> task)",
-            "AsyncEventBridge.EventStreamBridge<T> ToEventBridge<T>(System.Collections.Generic.IAsyncEnumerable<T> source)");
+            "AsyncEventBridge.EventBridge<T> ToEventBridge<T>(System.Threading.Tasks.ValueTask<T> task, AsyncEventBridge.EventBridgeOptions options)",
+            "AsyncEventBridge.EventStreamBridge<T> ToEventBridge<T>(System.Collections.Generic.IAsyncEnumerable<T> source)",
+            "AsyncEventBridge.EventStreamBridge<T> ToEventBridge<T>(System.Collections.Generic.IAsyncEnumerable<T> source, AsyncEventBridge.EventBridgeOptions options)");
 
         AssertMethodSignatures(
             typeof(EventBridge),
@@ -122,6 +134,10 @@ public sealed class PublicApiTests
         AssertPropertyNames(typeof(AsyncValueEventArgs<int>), "Value");
         AssertPropertyNames(typeof(AsyncFaultedEventArgs), "Exception");
         AssertPropertyNames(typeof(EventStreamOptions), "Capacity", "DroppedCount", "DropObserver", "FullMode");
+        AssertPropertyNames(
+            typeof(EventBridgeOptions),
+            "SubscriberExceptionObserver",
+            "SubscriberExceptionPolicy");
         AssertPropertyNames(typeof(EventOccurrence<object, int>), "Payload", "Sender");
         AssertPropertyNames(typeof(EventWaitAllResult<int, string>), "First", "Second");
         AssertPropertyNames(typeof(EventWaitAnyResult<int>), "Index", "Value");
@@ -129,8 +145,11 @@ public sealed class PublicApiTests
         AssertPropertyNames(typeof(GenerateAsyncEventsForAttribute), "TargetType");
 
         Assert.Equal(
-            new[] { "DropNewest", "DropOldest", "Grow" },
+            new[] { "DropNewest", "DropOldest", "Unbounded" },
             Enum.GetNames<EventStreamFullMode>().OrderBy(name => name, StringComparer.Ordinal));
+        Assert.Equal(
+            new[] { "IgnoreAndContinue", "ReportAndContinue", "TraceAndContinue" },
+            Enum.GetNames<EventBridgeSubscriberExceptionPolicy>().OrderBy(name => name, StringComparer.Ordinal));
     }
 
     [Fact]
@@ -163,6 +182,11 @@ public sealed class PublicApiTests
             "FullMode:AsyncEventBridge.EventStreamFullMode:get,set");
 
         AssertPropertySignatures(
+            typeof(EventBridgeOptions),
+            "SubscriberExceptionObserver:System.Action<System.Exception>:get,set",
+            "SubscriberExceptionPolicy:AsyncEventBridge.EventBridgeSubscriberExceptionPolicy:get,set");
+
+        AssertPropertySignatures(
             typeof(EventOccurrence<object, int>),
             "Payload:System.Int32:get",
             "Sender:System.Object:get");
@@ -192,12 +216,21 @@ public sealed class PublicApiTests
         var options = new EventStreamOptions();
 
         Assert.Equal(100, options.Capacity);
-        Assert.Equal(EventStreamFullMode.Grow, options.FullMode);
+        Assert.Equal(EventStreamFullMode.Unbounded, options.FullMode);
         Assert.Equal(0, options.DroppedCount);
         Assert.Null(options.DropObserver);
-        Assert.Equal(0, (int)EventStreamFullMode.Grow);
+        Assert.Equal(0, (int)EventStreamFullMode.Unbounded);
         Assert.Equal(1, (int)EventStreamFullMode.DropOldest);
         Assert.Equal(2, (int)EventStreamFullMode.DropNewest);
+
+        var bridgeOptions = new EventBridgeOptions();
+        Assert.Equal(
+            EventBridgeSubscriberExceptionPolicy.TraceAndContinue,
+            bridgeOptions.SubscriberExceptionPolicy);
+        Assert.Null(bridgeOptions.SubscriberExceptionObserver);
+        Assert.Equal(0, (int)EventBridgeSubscriberExceptionPolicy.TraceAndContinue);
+        Assert.Equal(1, (int)EventBridgeSubscriberExceptionPolicy.ReportAndContinue);
+        Assert.Equal(2, (int)EventBridgeSubscriberExceptionPolicy.IgnoreAndContinue);
     }
 
     private static void AssertMethodNames(Type type, params string[] expected)

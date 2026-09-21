@@ -1,6 +1,6 @@
-# Public API — v0.1.0
+# Public API — v0.4.0
 
-AsyncEventBridge `0.1.0` establishes the .NET Standard 2.0 baseline and the first public bridge contract.
+AsyncEventBridge `0.4.0` keeps the .NET Standard 2.0 compatibility runtime aligned with the unified release contract.
 
 The generated event APIs are the normal Event -> async entry points. `ToEventBridge()` is the normal async -> events entry point.
 
@@ -110,18 +110,18 @@ A non-generic `EventHandler` is exposed as `IAsyncEnumerable<EventArgs>`.
 
 ```text
 Capacity = 100
-FullMode = Grow
+FullMode = Unbounded
 ```
 
 The fixed `EventStreamFullMode` values are:
 
 ```text
-Grow = 0
+Unbounded = 0
 DropOldest = 1
 DropNewest = 2
 ```
 
-`Grow` is lossless but can grow memory usage without a fixed upper bound when producers permanently outrun consumers. `DropOldest` and `DropNewest` use `Capacity` as a hard bound.
+`Unbounded` is lossless but can grow memory usage without a fixed upper bound when producers permanently outrun consumers. In 0.4 it replaces the earlier `Grow` name before the 1.0 API freeze. `Capacity` is ignored in unbounded mode and is used only as the hard bound for `DropOldest` and `DropNewest`.
 
 `EventStream` is the low-level runtime API for manual integration.
 
@@ -177,9 +177,19 @@ Values are published in enumeration order. There is no replay buffer in this dir
 
 ## Subscriber exception policy
 
-Async -> events publication isolates subscribers. If a bridge event handler throws, the bridge catches the exception, writes it through `System.Diagnostics.Trace.TraceError`, and continues with the remaining subscribers.
+Async -> events publication always isolates subscriber exceptions and continues with remaining subscribers.
 
-The exception is not propagated through the bridge. This differs from ordinary synchronous event invocation and is part of the v0.1.0 bridge contract.
+`EventBridgeOptions.SubscriberExceptionPolicy` supports `TraceAndContinue` (default), `ReportAndContinue`, and `IgnoreAndContinue`. Reporting mode requires `SubscriberExceptionObserver`. Options are snapshotted when the bridge is created, and observer failures are isolated and traced.
+
+No propagation policy is provided because async bridge publication normally has no synchronous application caller that can usefully receive the subscriber exception.
+
+## Bridge lifecycle
+
+Bridge publication uses subscriber snapshots. Adding or removing a handler while a publication is already in flight affects future publication only. Late subscribers receive no replay.
+
+Handlers should be attached before `Connect()`; an already-completed task or synchronously advancing async source may publish before `Connect()` returns.
+
+`EventBridge.Dispose()` and `EventStreamBridge.Dispose()` suppress future publication but allow an already-captured subscriber snapshot to finish. `EventStreamBridge.DisposeAsync()` additionally waits for bridge-owned async enumeration cleanup and in-flight publication.
 
 ## Generated API rules
 
@@ -211,6 +221,8 @@ EventStreamFullMode
 AsyncEventBridgeExtensions
 EventBridge
 EventBridge<T>
+EventBridgeOptions
+EventBridgeSubscriberExceptionPolicy
 EventStreamBridge<T>
 AsyncValueEventArgs<T>
 AsyncFaultedEventArgs

@@ -1,6 +1,6 @@
-# Public API — v0.2.0
+# Public API — v0.4.0
 
-AsyncEventBridge `0.2.0` is the native .NET 10 line and the primary product contract on `main`.
+AsyncEventBridge `0.4.0` keeps the native .NET 10 runtime on the unified release line and hardens behavioral contracts before 1.0.
 
 The normal Event -> async entry points are generated APIs such as `<EventName>Async(...)`, `<EventName>Stream(...)`, and sender-aware `<EventName>OccurrenceAsync(...)` / `<EventName>OccurrenceStream(...)`. The normal async -> events entry point is `ToEventBridge()`.
 
@@ -94,7 +94,7 @@ Sender-aware streams are available through `<EventName>OccurrenceStream(...)` an
 
 ```text
 Capacity = 100
-FullMode = Grow
+FullMode = Unbounded
 DroppedCount = 0
 DropObserver = null
 ```
@@ -102,12 +102,14 @@ DropObserver = null
 The fixed enum values are:
 
 ```text
-Grow = 0
+Unbounded = 0
 DropOldest = 1
 DropNewest = 2
 ```
 
-`Grow` is unbounded. `DropOldest` and `DropNewest` use `Capacity` as the buffer bound. Bounded drop telemetry comes from the underlying channel's real dropped-item callback.
+`Unbounded` is the canonical lossless mode and retains numeric value `0`. In 0.4 it replaces the earlier `Grow` name before the 1.0 API freeze. In this mode, `Capacity` is ignored completely; the default value of `100` is only the default hard limit used if a caller selects `DropOldest` or `DropNewest`.
+
+The unbounded default deliberately avoids silent event loss, but sustained producer throughput above consumer throughput can grow memory usage without a fixed upper bound. Applications that require a memory bound must opt into one of the two explicit drop policies. Bounded drop telemetry comes from the underlying channel's real dropped-item callback.
 
 ## Event composition
 
@@ -168,7 +170,33 @@ A source-thrown `OperationCanceledException` is classified as bridge cancellatio
 
 ## Subscriber exception policy
 
-Async -> events publication isolates subscribers. If one bridge event handler throws, AsyncEventBridge writes the failure through `System.Diagnostics.Trace.TraceError` and continues dispatching remaining subscribers. Subscriber exceptions are not propagated through the bridge.
+Async -> events publication always isolates subscriber exceptions and continues dispatching remaining subscribers.
+
+`EventBridgeOptions.SubscriberExceptionPolicy` supports:
+
+```text
+TraceAndContinue = 0
+ReportAndContinue = 1
+IgnoreAndContinue = 2
+```
+
+`TraceAndContinue` is the default and preserves the earlier `Trace.TraceError` behavior. `ReportAndContinue` requires `SubscriberExceptionObserver`; `IgnoreAndContinue` performs no bridge-level reporting.
+
+Options are snapshotted when `ToEventBridge(..., options)` creates the bridge. Observer failures are themselves isolated and traced.
+
+A propagation policy is intentionally not exposed because bridge event publication is driven by async observation and generally has no synchronous application caller to receive the exception. See `docs/0.4-subscriber-exceptions.md`.
+
+## Bridge lifecycle
+
+Portable bridge events use subscriber snapshots. A handler added or removed while one publication is already in flight changes future publications only; it does not rewrite the invocation list captured for the current event.
+
+Bridges do not replay values or terminal outcomes. Handlers should be attached before `Connect()`; already-completed tasks or synchronously advancing async sources may publish before `Connect()` returns.
+
+`EventBridge.Dispose()` suppresses terminal publication that has not started, but it does not interrupt a terminal subscriber snapshot already in flight.
+
+`EventStreamBridge.Dispose()` suppresses future values/terminal publication and requests source cancellation without waiting for a handler already in flight. `DisposeAsync()` additionally waits for bridge-owned enumeration cleanup and in-flight publication. Its completion can therefore depend on the source honoring cancellation or eventually returning from async enumeration/cleanup.
+
+See `docs/0.4-bridge-lifecycle.md`.
 
 ## Metrics
 
@@ -208,6 +236,8 @@ EventWaitAllResult<TFirst, TSecond>
 AsyncEventBridgeExtensions
 EventBridge
 EventBridge<T>
+EventBridgeOptions
+EventBridgeSubscriberExceptionPolicy
 EventStreamBridge<T>
 AsyncValueEventArgs<T>
 AsyncFaultedEventArgs

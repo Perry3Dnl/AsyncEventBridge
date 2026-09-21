@@ -227,10 +227,12 @@ The default is:
 
 ```text
 Capacity = 100
-FullMode = Grow
+FullMode = Unbounded
 ```
 
-`Grow` preserves every accepted event value. `Capacity` is the initial capacity, not a hard limit. If producers continuously outrun consumers, memory usage can grow without a fixed upper bound.
+`Unbounded` preserves every accepted event value and has no fixed buffer limit. If producers continuously outrun consumers, memory usage can grow without a fixed upper bound.
+
+`Capacity` is ignored by `Unbounded`. It is used only as the hard buffer limit for the two bounded drop modes. The default value of `100` exists so opting into a bounded mode has a useful capacity without another required setting.
 
 For bounded buffering:
 
@@ -247,10 +249,10 @@ await foreach (SensorEventArgs value in sensor.ValueChangedStream(
 }
 ```
 
-The modes are:
+The modes are (0.4 renames the previous `Grow` member to `Unbounded` before the 1.0 API freeze):
 
 ```text
-Grow        preserve all values; buffer may grow beyond Capacity
+Unbounded   preserve all accepted values; Capacity is ignored
 DropOldest  keep the newest buffered values within Capacity
 DropNewest  preserve the existing buffer and drop the incoming value at Capacity
 ```
@@ -310,9 +312,9 @@ There is no replay buffer in this direction. A handler attached after publicatio
 
 The async-to-events bridges isolate subscribers from one another.
 
-If a `Completed`, `Faulted`, `Cancelled`, or `Value` handler throws, AsyncEventBridge catches the exception, writes it through `System.Diagnostics.Trace.TraceError`, and continues dispatching the remaining subscribers. The exception is not propagated back through the bridge.
+The default `EventBridgeSubscriberExceptionPolicy.TraceAndContinue` catches subscriber exceptions, writes them through `System.Diagnostics.Trace.TraceError`, and continues dispatching remaining subscribers.
 
-This is intentionally different from normal synchronous event invocation, where a handler exception usually interrupts invocation and propagates to the caller. Bridge publication is driven by asynchronous observation and has no synchronous caller that can naturally receive the handler exception.
+Pass `EventBridgeOptions` to `ToEventBridge(...)` to select `ReportAndContinue` with a synchronous observer callback or `IgnoreAndContinue`. All policies preserve subscriber isolation. A propagation mode is deliberately not provided because bridge publication is driven by asynchronous observation and normally has no synchronous caller that can usefully receive a subscriber exception.
 
 ## Lifecycle rules
 

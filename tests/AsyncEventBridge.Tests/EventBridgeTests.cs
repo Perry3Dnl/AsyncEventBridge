@@ -153,6 +153,124 @@ public sealed class EventBridgeTests
     }
 
     [Fact]
+    public void NullBridgeOptionsAreRejected()
+    {
+        EventBridgeOptions? options = null;
+        Assert.Throws<ArgumentNullException>(() => Task.CompletedTask.ToEventBridge(options!));
+        Assert.Throws<ArgumentNullException>(() => Task.FromResult(1).ToEventBridge(options!));
+        Assert.Throws<ArgumentNullException>(() => new ValueTask().ToEventBridge(options!));
+        Assert.Throws<ArgumentNullException>(() => new ValueTask<int>(1).ToEventBridge(options!));
+    }
+
+
+    [Fact]
+    public void ReportPolicyReportsSubscriberFailureAndContinuesDispatch()
+    {
+        var subscriberFailure = new InvalidOperationException("subscriber failed");
+        Exception? reported = null;
+        var observed = new List<int>();
+        var options = new EventBridgeOptions
+        {
+            SubscriberExceptionPolicy = EventBridgeSubscriberExceptionPolicy.ReportAndContinue,
+            SubscriberExceptionObserver = exception => reported = exception,
+        };
+        using EventBridge<int> bridge = Task.FromResult(7).ToEventBridge(options);
+
+        bridge.Completed += (_, _) => throw subscriberFailure;
+        bridge.Completed += (_, eventArgs) => observed.Add(eventArgs.Value);
+
+        bridge.Connect();
+
+        Assert.Same(subscriberFailure, reported);
+        Assert.Equal([7], observed);
+    }
+
+    [Fact]
+    public void IgnorePolicyContinuesWithoutCallingConfiguredObserver()
+    {
+        var reportCalls = 0;
+        var observed = new List<int>();
+        var options = new EventBridgeOptions
+        {
+            SubscriberExceptionPolicy = EventBridgeSubscriberExceptionPolicy.IgnoreAndContinue,
+            SubscriberExceptionObserver = _ => reportCalls++,
+        };
+        using EventBridge<int> bridge = Task.FromResult(7).ToEventBridge(options);
+
+        bridge.Completed += (_, _) => throw new InvalidOperationException("subscriber failed");
+        bridge.Completed += (_, eventArgs) => observed.Add(eventArgs.Value);
+
+        bridge.Connect();
+
+        Assert.Equal(0, reportCalls);
+        Assert.Equal([7], observed);
+    }
+
+    [Fact]
+    public void ReportPolicyRequiresObserver()
+    {
+        var options = new EventBridgeOptions
+        {
+            SubscriberExceptionPolicy = EventBridgeSubscriberExceptionPolicy.ReportAndContinue,
+        };
+
+        Assert.Throws<ArgumentException>(() => Task.CompletedTask.ToEventBridge(options));
+    }
+
+    [Fact]
+    public void UnknownSubscriberExceptionPolicyIsRejected()
+    {
+        var options = new EventBridgeOptions
+        {
+            SubscriberExceptionPolicy = (EventBridgeSubscriberExceptionPolicy)999,
+        };
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => Task.CompletedTask.ToEventBridge(options));
+    }
+
+    [Fact]
+    public void BridgeSnapshotsSubscriberExceptionOptionsAtCreation()
+    {
+        var firstReports = 0;
+        var secondReports = 0;
+        var options = new EventBridgeOptions
+        {
+            SubscriberExceptionPolicy = EventBridgeSubscriberExceptionPolicy.ReportAndContinue,
+            SubscriberExceptionObserver = _ => firstReports++,
+        };
+        using EventBridge bridge = Task.CompletedTask.ToEventBridge(options);
+
+        options.SubscriberExceptionPolicy = EventBridgeSubscriberExceptionPolicy.IgnoreAndContinue;
+        options.SubscriberExceptionObserver = _ => secondReports++;
+
+        bridge.Completed += (_, _) => throw new InvalidOperationException("subscriber failed");
+        bridge.Connect();
+
+        Assert.Equal(1, firstReports);
+        Assert.Equal(0, secondReports);
+    }
+
+    [Fact]
+    public void ThrowingSubscriberExceptionObserverDoesNotBlockRemainingSubscribers()
+    {
+        var calls = 0;
+        var options = new EventBridgeOptions
+        {
+            SubscriberExceptionPolicy = EventBridgeSubscriberExceptionPolicy.ReportAndContinue,
+            SubscriberExceptionObserver = _ => throw new ApplicationException("observer failed"),
+        };
+        using EventBridge bridge = Task.CompletedTask.ToEventBridge(options);
+
+        bridge.Completed += (_, _) => throw new InvalidOperationException("subscriber failed");
+        bridge.Completed += (_, _) => calls++;
+
+        bridge.Connect();
+
+        Assert.Equal(1, calls);
+    }
+
+
+    [Fact]
     public void ThrowingSubscriberDoesNotBlockLaterSubscribers()
     {
         using EventBridge<int> bridge = Task.FromResult(7).ToEventBridge();

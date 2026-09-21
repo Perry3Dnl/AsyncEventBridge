@@ -1,19 +1,14 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Runtime.ExceptionServices;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace AsyncEventBridge
 {
-
     internal static class EventHandlerDispatcher
     {
-        internal static void Invoke(EventHandler? handlers, object sender)
+        internal static void Invoke(
+            EventHandler? handlers,
+            object sender,
+            EventHandlerDispatchSettings dispatchSettings)
         {
             if (handlers is null)
             {
@@ -28,9 +23,7 @@ namespace AsyncEventBridge
                 }
                 catch (Exception exception)
                 {
-                    System.Diagnostics.Trace.TraceError(
-                        "AsyncEventBridge event handler threw an exception: {0}",
-                        exception);
+                    HandleSubscriberException(exception, dispatchSettings);
                 }
             }
         }
@@ -38,7 +31,8 @@ namespace AsyncEventBridge
         internal static void Invoke<TEventArgs>(
             EventHandler<TEventArgs>? handlers,
             object sender,
-            TEventArgs eventArgs)
+            TEventArgs eventArgs,
+            EventHandlerDispatchSettings dispatchSettings)
             where TEventArgs : EventArgs
         {
             if (handlers is null)
@@ -54,10 +48,45 @@ namespace AsyncEventBridge
                 }
                 catch (Exception exception)
                 {
-                    System.Diagnostics.Trace.TraceError(
+                    HandleSubscriberException(exception, dispatchSettings);
+                }
+            }
+        }
+
+        private static void HandleSubscriberException(
+            Exception exception,
+            EventHandlerDispatchSettings dispatchSettings)
+        {
+            switch (dispatchSettings.Policy)
+            {
+                case EventBridgeSubscriberExceptionPolicy.TraceAndContinue:
+                    Trace.TraceError(
                         "AsyncEventBridge event handler threw an exception: {0}",
                         exception);
-                }
+                    break;
+
+                case EventBridgeSubscriberExceptionPolicy.ReportAndContinue:
+                    try
+                    {
+                        dispatchSettings.Observer!(exception);
+                    }
+                    catch (Exception observerException)
+                    {
+                        Trace.TraceError(
+                            "AsyncEventBridge subscriber exception observer threw while reporting subscriber failure. " +
+                            "Subscriber exception: {0}; observer exception: {1}",
+                            exception,
+                            observerException);
+                    }
+
+                    break;
+
+                case EventBridgeSubscriberExceptionPolicy.IgnoreAndContinue:
+                    break;
+
+                default:
+                    throw new InvalidOperationException(
+                        $"Unsupported subscriber exception policy: {dispatchSettings.Policy}.");
             }
         }
     }

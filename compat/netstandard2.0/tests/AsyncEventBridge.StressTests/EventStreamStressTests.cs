@@ -5,7 +5,7 @@ namespace AsyncEventBridge.StressTests;
 public sealed class EventStreamStressTests
 {
     [Fact]
-    public async Task GrowModePreservesConcurrentProducerValues()
+    public async Task UnboundedModePreservesConcurrentProducerValues()
     {
         const int producerCount = 20;
         const int valuesPerProducer = 100;
@@ -18,7 +18,7 @@ public sealed class EventStreamStressTests
             options: new EventStreamOptions
             {
                 Capacity = 1,
-                FullMode = EventStreamFullMode.Grow,
+                FullMode = EventStreamFullMode.Unbounded,
             });
 
         var enumerator = stream.GetAsyncEnumerator();

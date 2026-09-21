@@ -13,8 +13,8 @@ namespace AsyncEventBridge
 
     /// <summary>
     /// Configures buffering and drop observability for event-to-async streams. WARNING: the default
-    /// <see cref="EventStreamFullMode.Grow"/> mode preserves all event values and can grow memory usage without a fixed
-    /// upper bound when producers outpace consumers.
+    /// <see cref="EventStreamFullMode.Unbounded"/> mode preserves all event values and can grow memory usage without a
+    /// fixed upper bound when producers outpace consumers.
     /// </summary>
     public sealed class EventStreamOptions
     {
@@ -23,16 +23,17 @@ namespace AsyncEventBridge
         internal const int DefaultCapacity = 100;
 
         /// <summary>
-        /// Gets or sets the initial buffer capacity for <see cref="EventStreamFullMode.Grow"/>, or the hard buffer limit
-        /// for <see cref="EventStreamFullMode.DropOldest"/> and <see cref="EventStreamFullMode.DropNewest"/>.
+        /// Gets or sets the hard buffer limit for <see cref="EventStreamFullMode.DropOldest"/> and
+        /// <see cref="EventStreamFullMode.DropNewest"/>.
+        /// This value is ignored when <see cref="FullMode"/> is <see cref="EventStreamFullMode.Unbounded"/>.
         /// </summary>
         public int Capacity { get; set; } = DefaultCapacity;
 
         /// <summary>
         /// Gets or sets the behavior used when event production outpaces async consumption.
-        /// WARNING: <see cref="EventStreamFullMode.Grow"/> can increase memory usage without a fixed upper bound.
+        /// WARNING: <see cref="EventStreamFullMode.Unbounded"/> can increase memory usage without a fixed upper bound.
         /// </summary>
-        public EventStreamFullMode FullMode { get; set; } = EventStreamFullMode.Grow;
+        public EventStreamFullMode FullMode { get; set; } = EventStreamFullMode.Unbounded;
 
         /// <summary>
         /// Gets the total number of event values dropped by bounded streams created with this options instance.
@@ -57,10 +58,11 @@ namespace AsyncEventBridge
     public enum EventStreamFullMode
     {
         /// <summary>
-        /// Preserves every event value by allowing the buffer to grow beyond its initial capacity.
+        /// Preserves every accepted event value in an unbounded buffer.
+        /// <see cref="EventStreamOptions.Capacity"/> is ignored in this mode.
         /// WARNING: sustained producer throughput above consumer throughput can grow memory usage without a fixed upper bound.
         /// </summary>
-        Grow = 0,
+        Unbounded = 0,
 
         /// <summary>
         /// Keeps the buffer bounded by removing the oldest buffered value when a new value arrives at capacity.

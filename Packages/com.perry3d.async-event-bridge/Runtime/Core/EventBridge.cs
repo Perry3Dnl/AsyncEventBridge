@@ -18,6 +18,7 @@ public sealed class EventBridge : IDisposable
 {
     private readonly Task _task;
     private readonly object _gate = new();
+    private readonly EventHandlerDispatchSettings _dispatchSettings;
 
     private EventHandler? _completed;
     private EventHandler<AsyncFaultedEventArgs>? _faulted;
@@ -27,8 +28,14 @@ public sealed class EventBridge : IDisposable
     private bool _disposed;
 
     internal EventBridge(Task task)
+        : this(task, EventHandlerDispatchSettings.Default)
+    {
+    }
+
+    internal EventBridge(Task task, EventHandlerDispatchSettings dispatchSettings)
     {
         _task = task;
+        _dispatchSettings = dispatchSettings;
     }
 
     /// <summary>
@@ -132,7 +139,7 @@ public sealed class EventBridge : IDisposable
             ClearHandlers();
         }
 
-        EventHandlerDispatcher.Invoke(handlers, this);
+        EventHandlerDispatcher.Invoke(handlers, this, _dispatchSettings);
     }
 
     private void PublishFaulted(Exception exception)
@@ -150,7 +157,7 @@ public sealed class EventBridge : IDisposable
             ClearHandlers();
         }
 
-        EventHandlerDispatcher.Invoke(handlers, this, new AsyncFaultedEventArgs(exception));
+        EventHandlerDispatcher.Invoke(handlers, this, new AsyncFaultedEventArgs(exception), _dispatchSettings);
     }
 
     private void PublishCancelled()
@@ -168,7 +175,7 @@ public sealed class EventBridge : IDisposable
             ClearHandlers();
         }
 
-        EventHandlerDispatcher.Invoke(handlers, this);
+        EventHandlerDispatcher.Invoke(handlers, this, _dispatchSettings);
     }
 
     private bool TryBeginPublication()
@@ -276,6 +283,7 @@ public sealed class EventBridge<T> : IDisposable
 {
     private readonly Task<T> _task;
     private readonly object _gate = new();
+    private readonly EventHandlerDispatchSettings _dispatchSettings;
 
     private EventHandler<AsyncValueEventArgs<T>>? _completed;
     private EventHandler<AsyncFaultedEventArgs>? _faulted;
@@ -285,8 +293,14 @@ public sealed class EventBridge<T> : IDisposable
     private bool _disposed;
 
     internal EventBridge(Task<T> task)
+        : this(task, EventHandlerDispatchSettings.Default)
+    {
+    }
+
+    internal EventBridge(Task<T> task, EventHandlerDispatchSettings dispatchSettings)
     {
         _task = task;
+        _dispatchSettings = dispatchSettings;
     }
 
     /// <summary>
@@ -390,7 +404,7 @@ public sealed class EventBridge<T> : IDisposable
             ClearHandlers();
         }
 
-        EventHandlerDispatcher.Invoke(handlers, this, new AsyncValueEventArgs<T>(result));
+        EventHandlerDispatcher.Invoke(handlers, this, new AsyncValueEventArgs<T>(result), _dispatchSettings);
     }
 
     private void PublishFaulted(Exception exception)
@@ -408,7 +422,7 @@ public sealed class EventBridge<T> : IDisposable
             ClearHandlers();
         }
 
-        EventHandlerDispatcher.Invoke(handlers, this, new AsyncFaultedEventArgs(exception));
+        EventHandlerDispatcher.Invoke(handlers, this, new AsyncFaultedEventArgs(exception), _dispatchSettings);
     }
 
     private void PublishCancelled()
@@ -426,7 +440,7 @@ public sealed class EventBridge<T> : IDisposable
             ClearHandlers();
         }
 
-        EventHandlerDispatcher.Invoke(handlers, this);
+        EventHandlerDispatcher.Invoke(handlers, this, _dispatchSettings);
     }
 
     private bool TryBeginPublication()

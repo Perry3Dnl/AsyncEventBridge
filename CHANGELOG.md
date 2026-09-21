@@ -4,6 +4,38 @@ All notable changes across the supported AsyncEventBridge release tracks are doc
 
 ## Unreleased
 
+### 0.4 generator architecture
+
+- Consolidate inherited-event discovery, accessibility, event-shape classification, type rendering, and generic constraints into shared generator infrastructure.
+- Introduce a normalized `EventGenerationModel` consumed by all modern generator emission paths.
+- Split generation into dedicated wait, stream, and occurrence emitters instead of maintaining independent `StringBuilder` pipelines in each generator entry point.
+- Remove the private `EventGenerationInfo`, `EventInfo`, `EventClassification`, and `EventKind` families that duplicated the normalized event model.
+- Add cross-generator behavioral parity coverage for standard, custom, unsupported, nested-generic, nullable, keyword-identifier, hidden-inherited-event, and annotated-base scenarios.
+- Preserve the generated public API while reducing the three generator entry-point files from roughly 87 KB combined to roughly 23.5 KB combined.
+- Move the shared repository and Unity UPM development version to `0.4.0`.
+- Document the 0.4 generator pipeline in `docs/0.4-generator-architecture.md`.
+- Define consistent cleanup-exception ordering across waits, streams, occurrence APIs, and stream bridges: preserve the primary outcome first and aggregate cleanup failures after it.
+- Ensure event-stream unsubscribe failures cannot replace an existing predicate, cancellation, subscription, or channel failure.
+- Explicitly drive stream-bridge enumerators so source failures and enumerator-disposal failures can both be reported.
+- Make `EventStreamBridge.DisposeAsync()` surface asynchronous enumerator cleanup failures while synchronous disposal remains non-blocking.
+- Port the cleanup contract to the .NET Standard 2.0 and Unity portable runtime sources and add compatibility regression coverage.
+- Document the cleanup contract in `docs/0.4-cleanup-semantics.md`.
+- Rename the lossless stream mode from `Grow` to `EventStreamFullMode.Unbounded` while retaining numeric value `0`; this is a deliberate pre-1.0 source-breaking cleanup that avoids a permanent duplicate enum alias.
+- Define `Capacity` as a bounded-mode setting only: it is ignored by `Unbounded` and validated only for `DropOldest` / `DropNewest`.
+- Normalize unbounded buffering semantics across modern .NET, .NET Standard 2.0, and Unity instead of using `Capacity` as an allocation hint only on compatibility runtimes.
+- Keep the unbounded default to avoid silent event loss; document the operational memory-growth tradeoff and explicit bounded alternatives in `docs/0.4-stream-buffering.md`.
+- Add `EventBridgeOptions` and `EventBridgeSubscriberExceptionPolicy` so async-to-event bridges can explicitly trace, report, or ignore subscriber failures while always continuing remaining subscribers.
+- Preserve `TraceAndContinue` as the default subscriber behavior; add `ReportAndContinue` with a required observer callback and `IgnoreAndContinue` for deliberate silent isolation.
+- Snapshot subscriber policy options when a bridge is created, and isolate/report observer failures without destabilizing bridge processing.
+- Deliberately omit a subscriber-exception propagation mode because bridge publication is async-driven and lacks a reliable synchronous caller; document the contract in `docs/0.4-subscriber-exceptions.md`.
+- Lock bridge publication to subscriber-snapshot semantics: add/remove/dispose during an in-flight publication affects future publication but does not rewrite the captured invocation list.
+- Clarify `Dispose()` as a non-waiting suppression boundary and `EventStreamBridge.DisposeAsync()` as the completion boundary after which no bridge handlers remain in flight.
+- Add deterministic lifecycle coverage for terminal publication mutation, value-publication mutation, disposal from handlers, late subscribers, and in-flight terminal disposal.
+- Lock exactly-once stream terminal behavior when source completion and cancellation occur on opposite sides of the terminal-publication boundary.
+- Remove thread-pool scheduling dependence from the two timing-sensitive disposal tests that had intermittently failed on Windows convergence runners.
+- Run the blocked terminal-snapshot subscriber test on a dedicated long-running worker and avoid exact runtime `Task` implementation assertions, keeping lifecycle tests deterministic across .NET 8/10 and Linux/macOS/Windows runners.
+- Document the bridge lifecycle contract in `docs/0.4-bridge-lifecycle.md`.
+
 ### 0.3 convergence
 
 - Move the modern .NET, .NET Standard 2.0 compatibility, and Unity product sources onto one release line.

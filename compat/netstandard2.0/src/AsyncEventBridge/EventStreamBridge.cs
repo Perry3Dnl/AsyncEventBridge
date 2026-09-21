@@ -24,6 +24,7 @@ public sealed class EventStreamBridge<T> : IDisposable, IAsyncDisposable
 {
     private readonly IAsyncEnumerable<T> _source;
     private readonly object _gate = new();
+    private readonly EventHandlerDispatchSettings _dispatchSettings;
 
     private EventHandler<AsyncValueEventArgs<T>>? _value;
     private EventHandler? _completed;
@@ -34,10 +35,19 @@ public sealed class EventStreamBridge<T> : IDisposable, IAsyncDisposable
     private bool _connected;
     private bool _terminalPublished;
     private bool _disposed;
+    private bool _asyncDisposeRequested;
 
     internal EventStreamBridge(IAsyncEnumerable<T> source)
+        : this(source, EventHandlerDispatchSettings.Default)
+    {
+    }
+
+    internal EventStreamBridge(
+        IAsyncEnumerable<T> source,
+        EventHandlerDispatchSettings dispatchSettings)
     {
         _source = source;
+        _dispatchSettings = dispatchSettings;
     }
 
     /// <summary>
@@ -152,6 +162,7 @@ public sealed class EventStreamBridge<T> : IDisposable, IAsyncDisposable
                 ClearHandlers();
             }
 
+            _asyncDisposeRequested = true;
             lifetimeCts = _lifetimeCts;
             completionTask = _completion?.Task;
         }
@@ -168,35 +179,71 @@ public sealed class EventStreamBridge<T> : IDisposable, IAsyncDisposable
         CancellationTokenSource lifetimeCts,
         TaskCompletionSource<bool> completion)
     {
+        Exception? primaryException = null;
+        Exception? cleanupException = null;
+
         try
         {
             var cancellationToken = lifetimeCts.Token;
-            cancellationToken.ThrowIfCancellationRequested();
+            IAsyncEnumerator<T>? enumerator = null;
 
-            await foreach (var value in _source.WithCancellation(cancellationToken).ConfigureAwait(false))
+            try
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                PublishValue(value);
+                enumerator = _source.GetAsyncEnumerator(cancellationToken);
+
+                while (await enumerator.MoveNextAsync().ConfigureAwait(false))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    PublishValue(enumerator.Current);
+                }
+
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+            catch (Exception exception)
+            {
+                primaryException = exception;
             }
 
-            cancellationToken.ThrowIfCancellationRequested();
-            PublishCompleted();
-        }
-        catch (OperationCanceledException)
-        {
-            PublishCancelled();
-        }
-        catch (Exception exception)
-        {
-            PublishFaulted(exception);
+            if (enumerator is not null)
+            {
+                try
+                {
+                    await enumerator.DisposeAsync().ConfigureAwait(false);
+                }
+                catch (Exception exception)
+                {
+                    cleanupException = exception;
+                }
+            }
+
+            var terminalException = cleanupException is null
+                ? primaryException
+                : CleanupExceptionPolicy.Combine(primaryException, cleanupException);
+
+            if (terminalException is null)
+            {
+                PublishCompleted();
+            }
+            else if (cleanupException is null && terminalException is OperationCanceledException)
+            {
+                PublishCancelled();
+            }
+            else
+            {
+                PublishFaulted(terminalException);
+            }
         }
         finally
         {
             lifetimeCts.Dispose();
-            completion.TrySetResult(true);
+
+            bool asyncDisposeRequested;
 
             lock (_gate)
             {
+                asyncDisposeRequested = _asyncDisposeRequested;
+
                 if (ReferenceEquals(_lifetimeCts, lifetimeCts))
                 {
                     _lifetimeCts = null;
@@ -206,6 +253,22 @@ public sealed class EventStreamBridge<T> : IDisposable, IAsyncDisposable
                 {
                     _completion = null;
                 }
+            }
+
+            if (cleanupException is not null && asyncDisposeRequested)
+            {
+                completion.TrySetException(CleanupExceptionPolicy.Combine(primaryException, cleanupException));
+            }
+            else
+            {
+                if (cleanupException is not null && _disposed)
+                {
+                    Trace.TraceError(
+                        "AsyncEventBridge stream bridge cleanup failed after synchronous disposal: {0}",
+                        cleanupException);
+                }
+
+                completion.TrySetResult(true);
             }
         }
     }
@@ -224,7 +287,7 @@ public sealed class EventStreamBridge<T> : IDisposable, IAsyncDisposable
             handlers = _value;
         }
 
-        EventHandlerDispatcher.Invoke(handlers, this, new AsyncValueEventArgs<T>(value));
+        EventHandlerDispatcher.Invoke(handlers, this, new AsyncValueEventArgs<T>(value), _dispatchSettings);
     }
 
     private void PublishCompleted()
@@ -242,7 +305,7 @@ public sealed class EventStreamBridge<T> : IDisposable, IAsyncDisposable
             ClearHandlers();
         }
 
-        EventHandlerDispatcher.Invoke(handlers, this);
+        EventHandlerDispatcher.Invoke(handlers, this, _dispatchSettings);
     }
 
     private void PublishFaulted(Exception exception)
@@ -260,7 +323,7 @@ public sealed class EventStreamBridge<T> : IDisposable, IAsyncDisposable
             ClearHandlers();
         }
 
-        EventHandlerDispatcher.Invoke(handlers, this, new AsyncFaultedEventArgs(exception));
+        EventHandlerDispatcher.Invoke(handlers, this, new AsyncFaultedEventArgs(exception), _dispatchSettings);
     }
 
     private void PublishCancelled()
@@ -278,7 +341,7 @@ public sealed class EventStreamBridge<T> : IDisposable, IAsyncDisposable
             ClearHandlers();
         }
 
-        EventHandlerDispatcher.Invoke(handlers, this);
+        EventHandlerDispatcher.Invoke(handlers, this, _dispatchSettings);
     }
 
     private bool TryBeginTerminalPublication()

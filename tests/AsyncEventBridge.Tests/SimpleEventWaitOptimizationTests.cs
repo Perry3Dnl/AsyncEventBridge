@@ -23,13 +23,12 @@ public sealed class SimpleEventWaitOptimizationTests
             _ => throw new InvalidOperationException("subscribe failed"),
             _ => throw new ApplicationException("unsubscribe failed"));
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => wait);
+        var exception = await Assert.ThrowsAsync<AggregateException>(() => wait);
 
-        Assert.NotNull(wait.Exception);
         Assert.Collection(
-            wait.Exception.InnerExceptions,
-            exception => Assert.Equal("subscribe failed", exception.Message),
-            exception => Assert.Equal("unsubscribe failed", exception.Message));
+            exception.InnerExceptions,
+            innerException => Assert.Equal("subscribe failed", innerException.Message),
+            innerException => Assert.Equal("unsubscribe failed", innerException.Message));
     }
 
     [Fact]

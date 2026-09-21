@@ -112,7 +112,7 @@ await foreach (var score in scoreChanged.AsAsyncEnumerable(this, score => score 
 }
 ```
 
-The normal `EventStreamOptions` buffer modes (`Grow`, `DropOldest`, and `DropNewest`) apply.
+The normal `EventStreamOptions` buffer modes apply. `Unbounded` is the lossless default and ignores `Capacity`; `DropOldest` and `DropNewest` are bounded by `Capacity`. The earlier `Grow` name was renamed to `Unbounded` in 0.4 before the 1.0 API freeze.
 
 ## Async work -> Inspector events
 
@@ -135,6 +135,12 @@ private async Awaitable Start()
 ```
 
 The owner overload suppresses publication after the owning `MonoBehaviour` is destroyed or the application exits. Task cancellation can be published through the cancellation UnityEvent; faults are published as strings so they are straightforward to bind in the Inspector.
+
+## Portable bridge subscriber exceptions
+
+The portable `Task` / `IAsyncEnumerable<T>` event bridges support `EventBridgeOptions`. Subscriber failures are isolated by default and traced. Applications can instead choose `ReportAndContinue` with an observer callback or `IgnoreAndContinue`; remaining subscribers always continue.
+
+This policy applies to the portable core bridges. Unity-specific `UnityAsyncBridge` publication remains a separate Unity-facing API surface.
 
 ## Interactive sample
 

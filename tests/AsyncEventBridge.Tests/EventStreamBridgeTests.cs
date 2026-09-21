@@ -98,7 +98,7 @@ public sealed class EventStreamBridgeTests
     }
 
     [Fact]
-    public async Task CancellationPublishesCancelled()
+    public async Task CancellationPublishesExactlyOneCancelledTerminalOutcome()
     {
         var channel = Channel.CreateUnbounded<int>();
         using var cancellation = new CancellationTokenSource();
@@ -106,19 +106,61 @@ public sealed class EventStreamBridgeTests
         var cancelled = NewCompletionSource();
         var completed = 0;
         var faulted = 0;
+        var cancelledCount = 0;
 
         bridge.Completed += (_, _) => Interlocked.Increment(ref completed);
         bridge.Faulted += (_, _) => Interlocked.Increment(ref faulted);
-        bridge.Cancelled += (_, _) => cancelled.TrySetResult(true);
+        bridge.Cancelled += (_, _) =>
+        {
+            Interlocked.Increment(ref cancelledCount);
+            cancelled.TrySetResult(true);
+        };
 
         bridge.Connect(cancellation.Token);
         cancellation.Cancel();
 
         await cancelled.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
+        channel.Writer.TryComplete();
+        await bridge.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+
         Assert.Equal(0, completed);
         Assert.Equal(0, faulted);
+        Assert.Equal(1, Volatile.Read(ref cancelledCount));
     }
+
+    [Fact]
+    public async Task CancellationAfterCompletionDoesNotPublishSecondTerminalOutcome()
+    {
+        var channel = Channel.CreateUnbounded<int>();
+        using var cancellation = new CancellationTokenSource();
+        await using EventStreamBridge<int> bridge = channel.Reader.ReadAllAsync().ToEventBridge();
+        var completed = NewCompletionSource();
+        var completedCount = 0;
+        var faulted = 0;
+        var cancelled = 0;
+
+        bridge.Completed += (_, _) =>
+        {
+            Interlocked.Increment(ref completedCount);
+            completed.TrySetResult(true);
+        };
+        bridge.Faulted += (_, _) => Interlocked.Increment(ref faulted);
+        bridge.Cancelled += (_, _) => Interlocked.Increment(ref cancelled);
+
+        bridge.Connect(cancellation.Token);
+        channel.Writer.TryComplete();
+
+        await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        cancellation.Cancel();
+        await bridge.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Equal(1, Volatile.Read(ref completedCount));
+        Assert.Equal(0, Volatile.Read(ref faulted));
+        Assert.Equal(0, Volatile.Read(ref cancelled));
+    }
+
 
     [Fact]
     public async Task DisposeAsyncStopsEnumerationWithoutPublishingCancelled()
@@ -134,7 +176,7 @@ public sealed class EventStreamBridgeTests
         bridge.Cancelled += (_, _) => Interlocked.Increment(ref cancelled);
 
         bridge.Connect();
-        await bridge.DisposeAsync();
+        await bridge.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.Equal(0, completed);
         Assert.Equal(0, faulted);
@@ -172,7 +214,7 @@ public sealed class EventStreamBridgeTests
 
         releaseHandler.Set();
         await handlerFinished.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        await bridge.DisposeAsync();
+        await bridge.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
     }
 
     [Fact]
@@ -212,6 +254,123 @@ public sealed class EventStreamBridgeTests
         Assert.True(channel.Writer.TryWrite(2));
         Assert.Equal(1, Volatile.Read(ref publishedValues));
     }
+
+    [Fact]
+    public async Task SubscriberAddedDuringValuePublicationStartsWithNextValue()
+    {
+        await using EventStreamBridge<int> bridge = Values(1, 2).ToEventBridge();
+        var completed = NewCompletionSource();
+        var lateValues = new List<int>();
+        EventHandler<AsyncValueEventArgs<int>> lateHandler =
+            (_, eventArgs) => lateValues.Add(eventArgs.Value);
+
+        bridge.Value += (_, eventArgs) =>
+        {
+            if (eventArgs.Value == 1)
+            {
+                bridge.Value += lateHandler;
+            }
+        };
+        bridge.Completed += (_, _) => completed.TrySetResult(true);
+
+        bridge.Connect();
+        await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Equal(new[] { 2 }, lateValues);
+    }
+
+    [Fact]
+    public async Task SubscriberRemovedDuringValuePublicationStillReceivesCurrentValueOnly()
+    {
+        await using EventStreamBridge<int> bridge = Values(1, 2).ToEventBridge();
+        var completed = NewCompletionSource();
+        var observed = new List<int>();
+        EventHandler<AsyncValueEventArgs<int>> removable =
+            (_, eventArgs) => observed.Add(eventArgs.Value);
+
+        bridge.Value += (_, eventArgs) =>
+        {
+            if (eventArgs.Value == 1)
+            {
+                bridge.Value -= removable;
+            }
+        };
+        bridge.Value += removable;
+        bridge.Completed += (_, _) => completed.TrySetResult(true);
+
+        bridge.Connect();
+        await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Equal(new[] { 1 }, observed);
+    }
+
+    [Fact]
+    public async Task DisposeFromValueSubscriberDoesNotInterruptCapturedSubscribers()
+    {
+        var bridge = Values(1, 2).ToEventBridge();
+        var currentSnapshotFinished = NewCompletionSource();
+        var observed = new List<int>();
+
+        bridge.Value += (_, eventArgs) =>
+        {
+            observed.Add(eventArgs.Value);
+            bridge.Dispose();
+        };
+        bridge.Value += (_, eventArgs) =>
+        {
+            observed.Add(eventArgs.Value);
+            currentSnapshotFinished.TrySetResult(true);
+        };
+
+        bridge.Connect();
+
+        await currentSnapshotFinished.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await bridge.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Equal(new[] { 1, 1 }, observed);
+    }
+
+    [Fact]
+    public async Task DisposeAsyncWaitsForInFlightTerminalHandler()
+    {
+        var bridge = EmptyValues().ToEventBridge();
+        var currentSnapshotFinished = NewCompletionSource();
+        Task? disposeTask = null;
+        var disposeCompletedInsideHandler = 1;
+
+        bridge.Completed += (_, _) =>
+        {
+            disposeTask = bridge.DisposeAsync().AsTask();
+            Volatile.Write(ref disposeCompletedInsideHandler, disposeTask.IsCompleted ? 1 : 0);
+        };
+        bridge.Completed += (_, _) => currentSnapshotFinished.TrySetResult(true);
+
+        bridge.Connect();
+
+        await currentSnapshotFinished.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.NotNull(disposeTask);
+        Assert.Equal(0, Volatile.Read(ref disposeCompletedInsideHandler));
+        await disposeTask.WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Fact]
+    public async Task SubscriberAddedAfterTerminalPublicationReceivesNoReplay()
+    {
+        var bridge = EmptyValues().ToEventBridge();
+        var completed = NewCompletionSource();
+        var lateCalls = 0;
+
+        bridge.Completed += (_, _) => completed.TrySetResult(true);
+        bridge.Connect();
+
+        await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        bridge.Completed += (_, _) => Interlocked.Increment(ref lateCalls);
+
+        Assert.Equal(0, Volatile.Read(ref lateCalls));
+        await bridge.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
 
     [Fact]
     public async Task RemovedValueSubscriberIsNotInvoked()
@@ -270,6 +429,43 @@ public sealed class EventStreamBridgeTests
     }
 
     [Fact]
+    public void NullBridgeOptionsAreRejected()
+    {
+        EventBridgeOptions? options = null;
+
+        Assert.Throws<ArgumentNullException>(() => Values(1).ToEventBridge(options!));
+    }
+
+
+    [Fact]
+    public async Task ReportPolicyReportsValueSubscriberFailureAndContinuesStream()
+    {
+        var subscriberFailure = new InvalidOperationException("subscriber failed");
+        var reported = new TaskCompletionSource<Exception>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var completed = NewCompletionSource();
+        var observed = new List<int>();
+        var options = new EventBridgeOptions
+        {
+            SubscriberExceptionPolicy = EventBridgeSubscriberExceptionPolicy.ReportAndContinue,
+            SubscriberExceptionObserver = exception => reported.TrySetResult(exception),
+        };
+        await using EventStreamBridge<int> bridge = Values(7, 8).ToEventBridge(options);
+
+        bridge.Value += (_, _) => throw subscriberFailure;
+        bridge.Value += (_, eventArgs) => observed.Add(eventArgs.Value);
+        bridge.Completed += (_, _) => completed.TrySetResult(true);
+
+        bridge.Connect();
+
+        Assert.Same(
+            subscriberFailure,
+            await reported.Task.WaitAsync(TimeSpan.FromSeconds(5)));
+        await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal([7, 8], observed);
+    }
+
+
+    [Fact]
     public async Task ThrowingValueSubscriberDoesNotBlockOtherSubscribersOrCompletion()
     {
         await using EventStreamBridge<int> bridge = Values(7, 8).ToEventBridge();
@@ -319,6 +515,83 @@ public sealed class EventStreamBridgeTests
         Assert.Throws<ObjectDisposedException>(() => bridge.Value += (_, _) => { });
         Assert.Throws<ObjectDisposedException>(() => bridge.Completed += (_, _) => { });
     }
+
+    [Fact]
+    public async Task SourceFailureAndEnumeratorCleanupFailureAreAggregatedInOrder()
+    {
+        var primaryFailure = new InvalidOperationException("source failed");
+        var cleanupFailure = new ApplicationException("enumerator cleanup failed");
+        await using EventStreamBridge<int> bridge =
+            new FaultAndCleanupAsyncEnumerable(primaryFailure, cleanupFailure).ToEventBridge();
+        var faulted = new TaskCompletionSource<Exception>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        bridge.Faulted += (_, eventArgs) => faulted.TrySetResult(eventArgs.Exception);
+        bridge.Connect();
+
+        var actual = Assert.IsType<AggregateException>(
+            await faulted.Task.WaitAsync(TimeSpan.FromSeconds(5)));
+
+        Assert.Equal(2, actual.InnerExceptions.Count);
+        Assert.Same(primaryFailure, actual.InnerExceptions[0]);
+        Assert.Same(cleanupFailure, actual.InnerExceptions[1]);
+    }
+
+    [Fact]
+    public async Task DisposeAsyncPreservesCancellationWhenEnumeratorCleanupFails()
+    {
+        var cleanupFailure = new InvalidOperationException("enumerator cleanup failed");
+        var source = new CancellationCleanupFailingAsyncEnumerable(cleanupFailure);
+        var bridge = source.ToEventBridge();
+
+        bridge.Connect();
+        await source.MoveNextStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        var actual = await Assert.ThrowsAsync<AggregateException>(
+            async () => await bridge.DisposeAsync());
+
+        Assert.Equal(2, actual.InnerExceptions.Count);
+        Assert.IsAssignableFrom<OperationCanceledException>(actual.InnerExceptions[0]);
+        Assert.Same(cleanupFailure, actual.InnerExceptions[1]);
+    }
+
+    private sealed class FaultAndCleanupAsyncEnumerable(
+        Exception primaryFailure,
+        Exception cleanupFailure) : IAsyncEnumerable<int>, IAsyncEnumerator<int>
+    {
+        public int Current => 0;
+
+        public IAsyncEnumerator<int> GetAsyncEnumerator(CancellationToken cancellationToken = default) => this;
+
+        public ValueTask<bool> MoveNextAsync() => ValueTask.FromException<bool>(primaryFailure);
+
+        public ValueTask DisposeAsync() => ValueTask.FromException(cleanupFailure);
+    }
+
+    private sealed class CancellationCleanupFailingAsyncEnumerable(
+        Exception cleanupFailure) : IAsyncEnumerable<int>, IAsyncEnumerator<int>
+    {
+        private CancellationToken _cancellationToken;
+
+        internal TaskCompletionSource<bool> MoveNextStarted { get; } = NewCompletionSource();
+
+        public int Current => 0;
+
+        public IAsyncEnumerator<int> GetAsyncEnumerator(CancellationToken cancellationToken = default)
+        {
+            _cancellationToken = cancellationToken;
+            return this;
+        }
+
+        public async ValueTask<bool> MoveNextAsync()
+        {
+            MoveNextStarted.TrySetResult(true);
+            await Task.Delay(Timeout.InfiniteTimeSpan, _cancellationToken);
+            return false;
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.FromException(cleanupFailure);
+    }
+
 
     private static TaskCompletionSource<bool> NewCompletionSource() =>
         new(TaskCreationOptions.RunContinuationsAsynchronously);
