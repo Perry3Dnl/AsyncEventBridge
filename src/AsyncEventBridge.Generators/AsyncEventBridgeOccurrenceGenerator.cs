@@ -1,4 +1,5 @@
 using System.Text;
+using static AsyncEventBridge.Generators.GeneratorTypeSystem;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Text;
@@ -490,151 +491,6 @@ public sealed class AsyncEventBridgeOccurrenceGenerator : IIncrementalGenerator
         typeSymbol.GetAttributes().Any(attribute =>
             attribute.AttributeClass?.ToDisplayString() == DirectAttributeMetadataName);
 
-    private static TypeParameterContext CreateTypeParameterContext(INamedTypeSymbol typeSymbol)
-    {
-        var containingTypes = new Stack<INamedTypeSymbol>();
-        INamedTypeSymbol? current = typeSymbol;
-
-        while (current is not null)
-        {
-            containingTypes.Push(current);
-            current = current.ContainingType;
-        }
-
-        var parameters = containingTypes
-            .SelectMany(type => type.TypeParameters)
-            .ToArray();
-        var names = new Dictionary<ITypeParameterSymbol, string>(SymbolEqualityComparer.Default);
-
-        for (var index = 0; index < parameters.Length; index++)
-        {
-            names[parameters[index]] = "TSource" + index;
-        }
-
-        return new TypeParameterContext(parameters, names);
-    }
-
-    private static string RenderType(ITypeSymbol typeSymbol, TypeParameterContext typeParameters)
-    {
-        if (typeSymbol is ITypeParameterSymbol typeParameter &&
-            typeParameters.Names.TryGetValue(typeParameter, out var mappedName))
-        {
-            return mappedName;
-        }
-
-        if (typeSymbol is IArrayTypeSymbol arrayType)
-        {
-            var array = RenderType(arrayType.ElementType, typeParameters) +
-                "[" + new string(',', arrayType.Rank - 1) + "]";
-            return arrayType.NullableAnnotation == NullableAnnotation.Annotated
-                ? array + "?"
-                : array;
-        }
-
-        if (typeSymbol is not INamedTypeSymbol namedType)
-        {
-            return typeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-        }
-
-        var builder = new StringBuilder();
-
-        if (namedType.ContainingType is not null)
-        {
-            builder.Append(RenderType(namedType.ContainingType, typeParameters))
-                .Append('.');
-        }
-        else if (!namedType.ContainingNamespace.IsGlobalNamespace)
-        {
-            builder.Append("global::")
-                .Append(namedType.ContainingNamespace.ToDisplayString())
-                .Append('.');
-        }
-        else
-        {
-            builder.Append("global::");
-        }
-
-        builder.Append(EscapeIdentifier(namedType.Name));
-
-        if (namedType.TypeArguments.Length > 0)
-        {
-            builder.Append('<')
-                .Append(string.Join(", ", namedType.TypeArguments.Select(argument => RenderType(argument, typeParameters))))
-                .Append('>');
-        }
-
-        if (namedType.NullableAnnotation == NullableAnnotation.Annotated && namedType.IsReferenceType)
-        {
-            builder.Append('?');
-        }
-
-        return builder.ToString();
-    }
-
-    private static void AppendMethodTypeParameters(
-        StringBuilder source,
-        TypeParameterContext typeParameters)
-    {
-        if (typeParameters.Parameters.Count == 0)
-        {
-            return;
-        }
-
-        source.Append('<')
-            .Append(string.Join(", ", typeParameters.Parameters.Select(parameter => typeParameters.Names[parameter])))
-            .Append('>');
-    }
-
-    private static void AppendMethodConstraints(
-        StringBuilder source,
-        TypeParameterContext typeParameters)
-    {
-        foreach (var parameter in typeParameters.Parameters)
-        {
-            var constraints = new List<string>();
-
-            if (parameter.HasUnmanagedTypeConstraint)
-            {
-                constraints.Add("unmanaged");
-            }
-            else if (parameter.HasValueTypeConstraint)
-            {
-                constraints.Add("struct");
-            }
-            else if (parameter.HasReferenceTypeConstraint)
-            {
-                constraints.Add(parameter.ReferenceTypeConstraintNullableAnnotation == NullableAnnotation.Annotated
-                    ? "class?"
-                    : "class");
-            }
-            else if (parameter.HasNotNullConstraint)
-            {
-                constraints.Add("notnull");
-            }
-
-            constraints.AddRange(parameter.ConstraintTypes.Select(type => RenderType(type, typeParameters)));
-
-            if (parameter.HasConstructorConstraint)
-            {
-                constraints.Add("new()");
-            }
-
-            if (parameter.AllowsRefLikeType)
-            {
-                constraints.Add("allows ref struct");
-            }
-
-            if (constraints.Count > 0)
-            {
-                source.AppendLine()
-                    .Append("        where ")
-                    .Append(typeParameters.Names[parameter])
-                    .Append(" : ")
-                    .Append(string.Join(", ", constraints));
-            }
-        }
-    }
-
     private static string GetExtensionClassName(INamedTypeSymbol typeSymbol, string suffix)
     {
         var identity = typeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
@@ -648,12 +504,6 @@ public sealed class AsyncEventBridgeOccurrenceGenerator : IIncrementalGenerator
         return builder.Append(suffix).ToString();
     }
 
-    private static string EscapeIdentifier(string identifier) =>
-        SyntaxFacts.GetKeywordKind(identifier) != SyntaxKind.None ||
-        SyntaxFacts.GetContextualKeywordKind(identifier) != SyntaxKind.None
-            ? "@" + identifier
-            : identifier;
-
     private readonly record struct EventInfo(
         IEventSymbol EventSymbol,
         string HandlerType,
@@ -661,7 +511,4 @@ public sealed class AsyncEventBridgeOccurrenceGenerator : IIncrementalGenerator
         string PayloadType,
         string Accessibility);
 
-    private sealed record TypeParameterContext(
-        IReadOnlyList<ITypeParameterSymbol> Parameters,
-        Dictionary<ITypeParameterSymbol, string> Names);
 }
