@@ -21,6 +21,8 @@ public sealed class PublicApiTests
             "AsyncEventBridge.EventAwaiter",
             "AsyncEventBridge.EventBridge",
             "AsyncEventBridge.EventBridge`1",
+            "AsyncEventBridge.EventBridgeOptions",
+            "AsyncEventBridge.EventBridgeSubscriberExceptionPolicy",
             "AsyncEventBridge.EventStream",
             "AsyncEventBridge.EventStreamBridge`1",
             "AsyncEventBridge.EventStreamFullMode",
@@ -35,7 +37,14 @@ public sealed class PublicApiTests
     [Fact]
     public void RuntimePublicMethodsStaySmallAndIntentional()
     {
-        AssertMethodNames(typeof(AsyncEventBridgeExtensions), "ToEventBridge", "ToEventBridge", "ToEventBridge");
+        AssertMethodNames(
+            typeof(AsyncEventBridgeExtensions),
+            "ToEventBridge",
+            "ToEventBridge",
+            "ToEventBridge",
+            "ToEventBridge",
+            "ToEventBridge",
+            "ToEventBridge");
         AssertMethodNames(typeof(EventAwaiter), "WaitAsync", "WaitAsync");
         AssertMethodNames(typeof(EventStream), "Create", "Create");
         AssertMethodNames(typeof(EventBridge), "Connect", "Dispose");
@@ -53,11 +62,18 @@ public sealed class PublicApiTests
         AssertPropertyNames(typeof(AsyncValueEventArgs<int>), "Value");
         AssertPropertyNames(typeof(AsyncFaultedEventArgs), "Exception");
         AssertPropertyNames(typeof(EventStreamOptions), "Capacity", "FullMode");
+        AssertPropertyNames(
+            typeof(EventBridgeOptions),
+            "SubscriberExceptionObserver",
+            "SubscriberExceptionPolicy");
         AssertPropertyNames(typeof(GenerateAsyncEventsForAttribute), "TargetType");
 
         Assert.Equal(
             new[] { "DropNewest", "DropOldest", "Unbounded" },
             Enum.GetNames<EventStreamFullMode>().OrderBy(name => name, StringComparer.Ordinal));
+        Assert.Equal(
+            new[] { "IgnoreAndContinue", "ReportAndContinue", "TraceAndContinue" },
+            Enum.GetNames<EventBridgeSubscriberExceptionPolicy>().OrderBy(name => name, StringComparer.Ordinal));
     }
 
     [Fact]
@@ -70,6 +86,15 @@ public sealed class PublicApiTests
         Assert.Equal(0, (int)EventStreamFullMode.Unbounded);
         Assert.Equal(1, (int)EventStreamFullMode.DropOldest);
         Assert.Equal(2, (int)EventStreamFullMode.DropNewest);
+
+        var bridgeOptions = new EventBridgeOptions();
+        Assert.Equal(
+            EventBridgeSubscriberExceptionPolicy.TraceAndContinue,
+            bridgeOptions.SubscriberExceptionPolicy);
+        Assert.Null(bridgeOptions.SubscriberExceptionObserver);
+        Assert.Equal(0, (int)EventBridgeSubscriberExceptionPolicy.TraceAndContinue);
+        Assert.Equal(1, (int)EventBridgeSubscriberExceptionPolicy.ReportAndContinue);
+        Assert.Equal(2, (int)EventBridgeSubscriberExceptionPolicy.IgnoreAndContinue);
     }
 
     private static void AssertMethodNames(Type type, params string[] expected)
