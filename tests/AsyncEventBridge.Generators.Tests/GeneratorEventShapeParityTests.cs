@@ -184,14 +184,14 @@ public sealed class GeneratorEventShapeParityTests
             Assert.Contains("where TSource1 : class, new()", generatedSource, StringComparison.Ordinal);
         }
 
-        var standard = Assert.Single(generated.Where(sourceText =>
+        var standard = Assert.Single(generated, sourceText =>
             sourceText.Contains("AsyncEventExtensions", StringComparison.Ordinal) &&
             !sourceText.Contains("CustomAsyncEventExtensions", StringComparison.Ordinal) &&
-            !sourceText.Contains("OccurrenceAsyncEventExtensions", StringComparison.Ordinal)));
+            !sourceText.Contains("OccurrenceAsyncEventExtensions", StringComparison.Ordinal));
         Assert.Contains("source.@event", standard, StringComparison.Ordinal);
 
-        var occurrence = Assert.Single(generated.Where(sourceText =>
-            sourceText.Contains("OccurrenceAsyncEventExtensions", StringComparison.Ordinal)));
+        var occurrence = Assert.Single(generated, sourceText =>
+            sourceText.Contains("OccurrenceAsyncEventExtensions", StringComparison.Ordinal));
         Assert.Contains(
             "EventOccurrence<global::System.Object?, global::Demo.Payload<TSource0, TSource1>?>",
             occurrence,
