@@ -4,6 +4,14 @@ All notable changes to the .NET Standard 2.0 baseline of AsyncEventBridge are do
 
 ## Unreleased
 
+### 0.4 behavioral hardening
+
+- Rename `EventStreamFullMode.Grow` to `Unbounded` before the 1.0 API freeze while retaining numeric value `0`.
+- Treat `Capacity` as a bounded-mode-only setting and ignore it for unbounded streams.
+- Preserve primary wait/stream outcomes when cleanup also fails and aggregate cleanup failures after the primary outcome.
+- Add `EventBridgeOptions` with trace, report, and ignore subscriber-exception policies that always continue remaining subscribers.
+- Snapshot bridge options at creation so live bridge behavior cannot be changed by later mutation of a shared options object.
+
 ### Runtime baseline
 
 - Keep .NET Standard 2.0 as the complete portable runtime contract.
