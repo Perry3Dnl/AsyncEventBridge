@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-      - release/0.3.0-convergence
+      - 'release/**'
   pull_request:
     branches:
       - main
