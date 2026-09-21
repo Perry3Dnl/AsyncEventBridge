@@ -1,6 +1,6 @@
-# Public API — v0.1.0
+# Public API — v0.4.0
 
-AsyncEventBridge `0.1.0` establishes the .NET Standard 2.0 baseline and the first public bridge contract.
+AsyncEventBridge `0.4.0` keeps the .NET Standard 2.0 compatibility runtime aligned with the unified release contract.
 
 The generated event APIs are the normal Event -> async entry points. `ToEventBridge()` is the normal async -> events entry point.
 
@@ -110,18 +110,19 @@ A non-generic `EventHandler` is exposed as `IAsyncEnumerable<EventArgs>`.
 
 ```text
 Capacity = 100
-FullMode = Grow
+FullMode = Unbounded
 ```
 
 The fixed `EventStreamFullMode` values are:
 
 ```text
-Grow = 0
+Unbounded = 0
+Grow = Unbounded
 DropOldest = 1
 DropNewest = 2
 ```
 
-`Grow` is lossless but can grow memory usage without a fixed upper bound when producers permanently outrun consumers. `DropOldest` and `DropNewest` use `Capacity` as a hard bound.
+`Unbounded` is lossless but can grow memory usage without a fixed upper bound when producers permanently outrun consumers. `Grow` remains a compatibility alias. `Capacity` is ignored in unbounded mode and is used only as the hard bound for `DropOldest` and `DropNewest`.
 
 `EventStream` is the low-level runtime API for manual integration.
 
