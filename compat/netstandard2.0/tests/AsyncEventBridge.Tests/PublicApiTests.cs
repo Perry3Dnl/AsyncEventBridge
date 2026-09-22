@@ -25,6 +25,7 @@ public sealed class PublicApiTests
             "AsyncEventBridge.EventBridgeSubscriberExceptionPolicy",
             "AsyncEventBridge.EventStream",
             "AsyncEventBridge.EventStreamBridge`1",
+            "AsyncEventBridge.EventStreamComposition",
             "AsyncEventBridge.EventStreamFullMode",
             "AsyncEventBridge.EventStreamOptions",
             "AsyncEventBridge.GenerateAsyncEventsAttribute",
@@ -47,6 +48,7 @@ public sealed class PublicApiTests
             "ToEventBridge");
         AssertMethodNames(typeof(EventAwaiter), "WaitAsync", "WaitAsync");
         AssertMethodNames(typeof(EventStream), "Create", "Create");
+        AssertMethodNames(typeof(EventStreamComposition), "TakeUntil");
         AssertMethodNames(typeof(EventBridge), "Connect", "Dispose");
         AssertMethodNames(typeof(EventBridge<int>), "Connect", "Dispose");
         AssertMethodNames(typeof(EventStreamBridge<int>), "Connect", "Dispose", "DisposeAsync");
