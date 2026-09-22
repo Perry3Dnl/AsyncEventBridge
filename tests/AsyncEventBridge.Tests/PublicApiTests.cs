@@ -268,6 +268,67 @@ public sealed class PublicApiTests
     }
 
     [Fact]
+    public void RuntimeNullabilityContractsStayStable()
+    {
+        var nullability = new NullabilityInfoContext();
+
+        var wait = typeof(EventAwaiter)
+            .GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .Single(method => method.Name == "WaitAsync" && !method.IsGenericMethod);
+        AssertParameterNullability(nullability, wait, "subscribe", NullabilityState.NotNull);
+        AssertParameterNullability(nullability, wait, "unsubscribe", NullabilityState.NotNull);
+        AssertParameterNullability(nullability, wait, "predicate", NullabilityState.Nullable);
+        AssertParameterNullability(nullability, wait, "timeProvider", NullabilityState.Nullable);
+
+        var stream = typeof(EventStream)
+            .GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .Single(method => method.Name == "Create" && !method.IsGenericMethod);
+        AssertParameterNullability(nullability, stream, "subscribe", NullabilityState.NotNull);
+        AssertParameterNullability(nullability, stream, "unsubscribe", NullabilityState.NotNull);
+        AssertParameterNullability(nullability, stream, "predicate", NullabilityState.Nullable);
+        AssertParameterNullability(nullability, stream, "options", NullabilityState.Nullable);
+
+        var occurrenceWait = typeof(EventOccurrenceAwaiter)
+            .GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .Single(method => method.Name == "WaitAsync");
+        AssertParameterNullability(nullability, occurrenceWait, "subscribe", NullabilityState.NotNull);
+        AssertParameterNullability(nullability, occurrenceWait, "unsubscribe", NullabilityState.NotNull);
+        AssertParameterNullability(nullability, occurrenceWait, "predicate", NullabilityState.Nullable);
+        AssertParameterNullability(nullability, occurrenceWait, "timeProvider", NullabilityState.Nullable);
+
+        var occurrenceStream = typeof(EventOccurrenceStream)
+            .GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .Single(method => method.Name == "Create");
+        AssertParameterNullability(nullability, occurrenceStream, "subscribe", NullabilityState.NotNull);
+        AssertParameterNullability(nullability, occurrenceStream, "unsubscribe", NullabilityState.NotNull);
+        AssertParameterNullability(nullability, occurrenceStream, "predicate", NullabilityState.Nullable);
+        AssertParameterNullability(nullability, occurrenceStream, "options", NullabilityState.Nullable);
+
+        var taskBridge = typeof(AsyncEventBridgeExtensions)
+            .GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .Single(method =>
+                method.Name == "ToEventBridge" &&
+                !method.IsGenericMethod &&
+                method.GetParameters() is [{ ParameterType: var taskType }, { ParameterType: var optionsType }] &&
+                taskType == typeof(Task) &&
+                optionsType == typeof(EventBridgeOptions));
+        AssertParameterNullability(nullability, taskBridge, "task", NullabilityState.NotNull);
+        AssertParameterNullability(nullability, taskBridge, "options", NullabilityState.NotNull);
+
+        var observer = typeof(EventBridgeOptions).GetProperty(nameof(EventBridgeOptions.SubscriberExceptionObserver))!;
+        var observerNullability = nullability.Create(observer);
+        Assert.Equal(NullabilityState.Nullable, observerNullability.ReadState);
+        Assert.Equal(NullabilityState.Nullable, observerNullability.WriteState);
+
+        var targetType = typeof(GenerateAsyncEventsForAttribute)
+            .GetConstructors()
+            .Single()
+            .GetParameters()
+            .Single();
+        Assert.Equal(NullabilityState.NotNull, nullability.Create(targetType).ReadState);
+    }
+
+    [Fact]
     public void EventStreamConfigurationDefaultsAndNumericValuesStayStable()
     {
         var options = new EventStreamOptions();
@@ -288,6 +349,16 @@ public sealed class PublicApiTests
         Assert.Equal(0, (int)EventBridgeSubscriberExceptionPolicy.TraceAndContinue);
         Assert.Equal(1, (int)EventBridgeSubscriberExceptionPolicy.ReportAndContinue);
         Assert.Equal(2, (int)EventBridgeSubscriberExceptionPolicy.IgnoreAndContinue);
+    }
+
+    private static void AssertParameterNullability(
+        NullabilityInfoContext context,
+        MethodInfo method,
+        string parameterName,
+        NullabilityState expected)
+    {
+        var parameter = method.GetParameters().Single(item => item.Name == parameterName);
+        Assert.Equal(expected, context.Create(parameter).ReadState);
     }
 
     private static void AssertMethodNames(Type type, params string[] expected)
