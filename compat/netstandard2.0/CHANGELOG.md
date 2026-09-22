@@ -7,6 +7,8 @@ All notable changes to the .NET Standard 2.0 baseline of AsyncEventBridge are do
 ### 0.5 async interoperability
 
 - Add `EventStreamComposition.TakeUntil(...)` to the .NET Standard 2.0 runtime.
+- Add `EventStreamComposition.StartAfter(...)` so portable event streams can defer subscription until activation succeeds.
+- Support composing `StartAfter(...).TakeUntil(...)` into an inactive/active/stopped lifecycle where stop-before-start never subscribes the source.
 - Coordinate source enumeration and the stop wait through a shared cancellation lifetime.
 - Cancel, observe, and dispose the losing side before reporting completion.
 - Preserve primary source/stop failures ahead of cleanup failures.
