@@ -72,7 +72,7 @@ internal static class EventWaitEmitter
         }
 
         source.Append(')');
-        AppendMethodConstraints(source, typeParameters);
+        AppendMethodConstraints(source, typeParameters, preserveNullableAnnotations: true);
         source.AppendLine()
             .AppendLine("    {")
             .AppendLine("        if (source is null)")
