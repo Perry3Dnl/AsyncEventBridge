@@ -57,7 +57,7 @@ public sealed class AsyncEventBridgeGenerator : IIncrementalGenerator
                 shape,
                 typeParameters,
                 GetMethodAccessibility(typeSymbol, eventSymbol),
-                preserveNullableAnnotations: false));
+                preserveNullableAnnotations: true));
         }
 
         if (supportedEvents.Count == 0)
