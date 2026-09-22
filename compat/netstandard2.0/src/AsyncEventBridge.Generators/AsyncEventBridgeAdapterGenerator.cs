@@ -17,7 +17,8 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
         messageFormat: "Event '{0}.{1}' uses unsupported delegate type '{2}'. Generated event APIs require EventHandler, EventHandler<TEventArgs>, or a void delegate with two non-ref parameters whose second parameter derives from EventArgs.",
         category: "AsyncEventBridge",
         defaultSeverity: DiagnosticSeverity.Warning,
-        isEnabledByDefault: true);
+        isEnabledByDefault: true,
+        helpLinkUri: "https://github.com/Perry3Dnl/AsyncEventBridge/blob/main/docs/diagnostics.md#aeb001");
 
     private static readonly DiagnosticDescriptor InvalidGenerationTarget = new(
         id: "AEB002",
@@ -25,7 +26,8 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
         messageFormat: "Type '{0}' cannot be targeted by GenerateAsyncEventsFor. Generated async-event adapters require a supported class type.",
         category: "AsyncEventBridge",
         defaultSeverity: DiagnosticSeverity.Warning,
-        isEnabledByDefault: true);
+        isEnabledByDefault: true,
+        helpLinkUri: "https://github.com/Perry3Dnl/AsyncEventBridge/blob/main/docs/diagnostics.md#aeb002");
 
     private static readonly DiagnosticDescriptor RedundantGenerationRequest = new(
         id: "AEB003",
@@ -33,7 +35,8 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
         messageFormat: "Async-event generation for type '{0}' was requested more than once. The redundant request is ignored.",
         category: "AsyncEventBridge",
         defaultSeverity: DiagnosticSeverity.Warning,
-        isEnabledByDefault: true);
+        isEnabledByDefault: true,
+        helpLinkUri: "https://github.com/Perry3Dnl/AsyncEventBridge/blob/main/docs/diagnostics.md#aeb003");
 
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
