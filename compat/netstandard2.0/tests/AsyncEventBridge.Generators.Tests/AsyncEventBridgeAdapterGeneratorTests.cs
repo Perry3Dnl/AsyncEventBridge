@@ -95,6 +95,9 @@ public sealed class AsyncEventBridgeAdapterGeneratorTests
         var result = RunGenerator(source);
         var generatedSource = Assert.Single(Assert.Single(result.Results).GeneratedSources).SourceText.ToString();
 
+        Assert.Contains("/// <summary>Contains generated async event extension methods.</summary>", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("/// <summary>Asynchronously waits for the next Changed event occurrence.</summary>", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("/// <summary>Creates an async stream for Changed event occurrences.</summary>", generatedSource, StringComparison.Ordinal);
         Assert.Contains("Task<global::Demo.SensorEventArgs> ChangedAsync", generatedSource, StringComparison.Ordinal);
         Assert.Contains("IAsyncEnumerable<global::Demo.SensorEventArgs> ChangedStream", generatedSource, StringComparison.Ordinal);
         Assert.Contains("new global::Demo.SensorChangedHandler", generatedSource, StringComparison.Ordinal);
