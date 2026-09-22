@@ -1,6 +1,6 @@
-# Public API — v0.4.0
+# Public API — v0.5.0
 
-AsyncEventBridge `0.4.0` keeps the .NET Standard 2.0 compatibility runtime aligned with the unified release contract.
+AsyncEventBridge `0.5.0` keeps the .NET Standard 2.0 compatibility runtime aligned with the unified release contract while adding the first portable event-workflow composition primitive.
 
 The generated event APIs are the normal Event -> async entry points. `ToEventBridge()` is the normal async -> events entry point.
 
@@ -125,6 +125,24 @@ DropNewest = 2
 
 `EventStream` is the low-level runtime API for manual integration.
 
+## Event-stream workflow composition
+
+Portable runtimes expose `EventStreamComposition.TakeUntil(...)` with the same lifecycle contract as modern .NET:
+
+```csharp
+await foreach (var value in sensor.ValueChangedStream()
+    .TakeUntil(
+        token => sensor.DisconnectedAsync(token),
+        cancellationToken))
+{
+    Process(value);
+}
+```
+
+The stop wait is created once per enumeration. It and the source enumerator share a coordination token. Whichever side finishes first causes the other side to be cancelled, observed, and cleaned up before completion is reported.
+
+A successful stop wait ends the sequence. A faulted or independently cancelled stop wait propagates its outcome. Cleanup failures remain observable after any primary failure.
+
 ## Task -> events
 
 ```csharp
@@ -216,6 +234,7 @@ GenerateAsyncEventsAttribute
 GenerateAsyncEventsForAttribute
 EventAwaiter
 EventStream
+EventStreamComposition
 EventStreamOptions
 EventStreamFullMode
 AsyncEventBridgeExtensions
