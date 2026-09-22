@@ -228,13 +228,13 @@ public sealed class EventStreamTests
     }
 
     [Fact]
-    public async Task DropNewestKeepsExistingBufferedValues()
+    public async Task DropWriteKeepsExistingBufferedValues()
     {
         var source = new TestEventSource<TestEventArgs>();
         var options = new EventStreamOptions
         {
             Capacity = 2,
-            FullMode = EventStreamFullMode.DropNewest,
+            FullMode = EventStreamFullMode.DropWrite,
         };
         var stream = EventStream.Create<TestEventArgs>(
             handler => source.Changed += handler,
