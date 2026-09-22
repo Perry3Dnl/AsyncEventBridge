@@ -363,6 +363,17 @@ jobs:
                       raise SystemExit("Modern dependency group must not depend on Microsoft.Bcl.AsyncInterfaces")
           PY
 
+      - name: Verify generator selection across compatible TFMs
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROJECT="tests/AsyncEventBridge.PackageTargetSelection/VerifyGeneratorSelection.proj"
+          dotnet msbuild "$PROJECT" -t:Verify -p:TargetFramework=netstandard2.0 -p:ExpectedGenerator=compat
+          dotnet msbuild "$PROJECT" -t:Verify -p:TargetFramework=net8.0 -p:ExpectedGenerator=compat
+          dotnet msbuild "$PROJECT" -t:Verify -p:TargetFramework=net10.0 -p:ExpectedGenerator=modern
+          dotnet msbuild "$PROJECT" -t:Verify -p:TargetFramework=net10.0-windows -p:ExpectedGenerator=modern
+          dotnet msbuild "$PROJECT" -t:Verify -p:TargetFramework=net11.0 -p:ExpectedGenerator=modern
+
       - name: Restore modern consumer from unified package
         run: dotnet restore tests/AsyncEventBridge.PackageSmoke/AsyncEventBridge.PackageSmoke.csproj --source "$PWD/artifacts/unified" --source https://api.nuget.org/v3/index.json -p:AsyncEventBridgePackageVersion="$VERSION"
 
