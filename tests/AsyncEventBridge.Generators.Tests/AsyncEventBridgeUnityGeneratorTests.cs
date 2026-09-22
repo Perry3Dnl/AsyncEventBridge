@@ -29,7 +29,7 @@ public sealed class AsyncEventBridgeUnityGeneratorTests
 
         namespace AsyncEventBridge
         {
-            [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
+            [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface, AllowMultiple = false, Inherited = false)]
             public sealed class GenerateAsyncEventsAttribute : Attribute
             {
             }
@@ -151,6 +151,31 @@ public sealed class AsyncEventBridgeUnityGeneratorTests
         Assert.Contains("ChangedAsync<TSource0>", generatedSource, StringComparison.Ordinal);
         Assert.Contains("where TSource0 : global::System.EventArgs, new()", generatedSource, StringComparison.Ordinal);
         Assert.Contains("global::UnityEngine.MonoBehaviour owner", generatedSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GeneratesAwaitableForAnnotatedInterface()
+    {
+        var source = RuntimeStubs + """
+            namespace Demo
+            {
+                [AsyncEventBridge.GenerateAsyncEvents]
+                public interface ISensor
+                {
+                    event EventHandler<SensorEventArgs>? ValueChanged;
+                }
+
+                public sealed class SensorEventArgs : EventArgs
+                {
+                }
+            }
+            """;
+
+        var result = RunGenerator(source);
+        var generatedSource = Assert.Single(Assert.Single(result.Results).GeneratedSources).SourceText.ToString();
+
+        Assert.Contains("Demo_DOT_ISensorUnityAsyncEventExtensions", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("ValueChangedAsync(this global::Demo.ISensor source", generatedSource, StringComparison.Ordinal);
     }
 
     [Fact]
