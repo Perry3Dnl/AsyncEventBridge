@@ -25,7 +25,7 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
     private static readonly DiagnosticDescriptor InvalidGenerationTarget = new(
         id: "AEB002",
         title: "Invalid async-event generation target",
-        messageFormat: "Type '{0}' cannot be targeted by GenerateAsyncEventsFor. Generated async-event adapters require a supported class type.",
+        messageFormat: "Type '{0}' cannot be targeted by GenerateAsyncEventsFor. Generated async-event adapters require a supported class or interface type.",
         category: "AsyncEventBridge",
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
