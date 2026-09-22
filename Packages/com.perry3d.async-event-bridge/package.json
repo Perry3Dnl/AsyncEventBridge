@@ -9,7 +9,7 @@
     "name": "Perry3Dnl",
     "url": "https://github.com/Perry3Dnl"
   },
-  "license": "MPL-2.0",
+  "license": "MIT",
   "keywords": [
     "async",
     "awaitable",
