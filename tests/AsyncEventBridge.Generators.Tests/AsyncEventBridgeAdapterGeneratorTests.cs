@@ -152,6 +152,30 @@ public sealed class AsyncEventBridgeAdapterGeneratorTests
     }
 
     [Fact]
+    public void PreservesNullableCustomDelegatePayload()
+    {
+        var source = RuntimeStubs + """
+            namespace Demo
+            {
+                public delegate void ValueHandler(object? sender, string? value);
+
+                [AsyncEventBridge.GenerateAsyncEvents]
+                public sealed class Sensor
+                {
+                    public event ValueHandler? Changed;
+                }
+            }
+            """;
+
+        var result = RunGenerator(source);
+        var generatedSource = Assert.Single(Assert.Single(result.Results).GeneratedSources).SourceText.ToString();
+
+        Assert.Contains("Task<global::System.String?> ChangedAsync", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("IAsyncEnumerable<global::System.String?> ChangedStream", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("Predicate<global::System.String?> predicate", generatedSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ReportsAeb001ForPayloadTypeParameterThatAllowsRefStruct()
     {
         var source = RuntimeStubs + """
