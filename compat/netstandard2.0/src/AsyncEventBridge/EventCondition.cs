@@ -83,6 +83,7 @@ public static class EventCondition
                         throw;
                     }
 
+                    await Task.Yield();
                     continue;
                 }
             }
