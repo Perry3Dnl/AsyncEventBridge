@@ -36,7 +36,10 @@ internal static class EventOccurrenceEmitter
         var methodName = eventName.TrimStart('@') + "OccurrenceAsync";
         var occurrenceType = $"global::AsyncEventBridge.EventOccurrence<{item.SenderType}, {item.PayloadType}>";
 
-        source.Append("    ")
+        source.Append("    /// <summary>Asynchronously waits for the next ")
+            .Append(item.EventSymbol.Name)
+            .AppendLine(" event occurrence while preserving sender and payload.</summary>")
+            .Append("    ")
             .Append(item.Accessibility)
             .Append(" static global::System.Threading.Tasks.Task<")
             .Append(occurrenceType)
@@ -152,7 +155,10 @@ internal static class EventOccurrenceEmitter
         var methodName = eventName.TrimStart('@') + "OccurrenceStream";
         var occurrenceType = $"global::AsyncEventBridge.EventOccurrence<{item.SenderType}, {item.PayloadType}>";
 
-        source.Append("    ")
+        source.Append("    /// <summary>Creates an async stream of ")
+            .Append(item.EventSymbol.Name)
+            .AppendLine(" event occurrences while preserving sender and payload.</summary>")
+            .Append("    ")
             .Append(item.Accessibility)
             .Append(" static global::System.Collections.Generic.IAsyncEnumerable<")
             .Append(occurrenceType)
