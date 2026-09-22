@@ -6,7 +6,7 @@ Starting with `0.3.0`, this distribution is maintained on `main` alongside the m
 
 ## Install from GitHub
 
-> **Development channel:** Unity package development now follows `main`. A release build should come from a validated 0.3.x release commit or tag.
+> **Development channel:** Unity package development follows `main`. Stable installations should pin a validated release tag rather than a moving branch.
 
 In Unity Package Manager, choose **Add package from git URL...** and use:
 
@@ -19,12 +19,12 @@ Or add it directly to the project's `Packages/manifest.json`:
 ```json
 {
   "dependencies": {
-    "com.perry3d.async-event-bridge": "https://github.com/Perry3Dnl/AsyncEventBridge.git?path=/Packages/com.perry3d.async-event-bridge#unity"
+    "com.perry3d.async-event-bridge": "https://github.com/Perry3Dnl/AsyncEventBridge.git?path=/Packages/com.perry3d.async-event-bridge#main"
   }
 }
 ```
 
-The Unity package and NuGet package share the same version. The current package version is `0.3.0`.
+The Unity package and NuGet package share the same release version. During 1.0 stabilization, the manifest remains on the current pre-1.0 development version until the final release gate closes.
 
 ## Baseline
 
@@ -112,7 +112,7 @@ await foreach (var score in scoreChanged.AsAsyncEnumerable(this, score => score 
 }
 ```
 
-The normal `EventStreamOptions` buffer modes apply. `Unbounded` is the lossless default and ignores `Capacity`; `DropOldest` and `DropNewest` are bounded by `Capacity`. The earlier `Grow` name was renamed to `Unbounded` in 0.4 before the 1.0 API freeze.
+The normal `EventStreamOptions` buffer modes apply. `Unbounded` is the lossless default and ignores `Capacity`; `DropOldest` and `DropWrite` are bounded by `Capacity`. `DropWrite` discards the incoming value when the buffer is full. The earlier `Grow` name was renamed to `Unbounded` in 0.4 before the 1.0 API freeze.
 
 ## Async work -> Inspector events
 
