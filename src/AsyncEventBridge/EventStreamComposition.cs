@@ -28,26 +28,29 @@ public static partial class EventStreamComposition
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(stopWait);
 
-        return new TakeUntilEnumerable<T>(source, stopWait, cancellationToken);
+        return new TakeUntilEnumerable<T>(source, stopWait, cancellationToken, completionObserver: null);
     }
 
     private sealed class TakeUntilEnumerable<T>(
         IAsyncEnumerable<T> source,
         Func<CancellationToken, Task> stopWait,
-        CancellationToken creationCancellationToken) : IAsyncEnumerable<T>
+        CancellationToken creationCancellationToken,
+        Action<EventStreamTakeUntilCompletion>? completionObserver) : IAsyncEnumerable<T>
     {
         public IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellationToken = default) =>
             new Enumerator(
                 source,
                 stopWait,
                 creationCancellationToken,
-                cancellationToken);
+                cancellationToken,
+                completionObserver);
 
         private sealed class Enumerator(
             IAsyncEnumerable<T> source,
             Func<CancellationToken, Task> stopWait,
             CancellationToken creationCancellationToken,
-            CancellationToken enumerationCancellationToken) : IAsyncEnumerator<T>
+            CancellationToken enumerationCancellationToken,
+            Action<EventStreamTakeUntilCompletion>? completionObserver) : IAsyncEnumerator<T>
         {
             private CancellationTokenSource? _lifetimeCancellation;
             private IAsyncEnumerator<T>? _sourceEnumerator;
@@ -221,6 +224,11 @@ public static partial class EventStreamComposition
                     primaryException = exception;
                 }
 
+                if (primaryException is null)
+                {
+                    completionObserver?.Invoke(EventStreamTakeUntilCompletion.Stop);
+                }
+
                 var cleanupErrors = await CleanupAsync(observeStopTask: false).ConfigureAwait(false);
                 _terminal = true;
                 ThrowPrimaryWithCleanup(primaryException, cleanupErrors);
@@ -229,6 +237,11 @@ public static partial class EventStreamComposition
 
             private async Task CompleteFromSourceAsync(Exception? primaryException)
             {
+                if (primaryException is null)
+                {
+                    completionObserver?.Invoke(EventStreamTakeUntilCompletion.SourceCompleted);
+                }
+
                 var cleanupErrors = await CleanupAsync(observeStopTask: true).ConfigureAwait(false);
                 _terminal = true;
                 ThrowPrimaryWithCleanup(primaryException, cleanupErrors);
