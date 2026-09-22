@@ -53,7 +53,14 @@ public sealed class EventStreamRepeatBetweenTests
         Assert.True(await secondMove);
         Assert.Equal(20, enumerator.Current.Value);
 
+        var cancelledMove = enumerator.MoveNextAsync().AsTask();
         cancellation.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => cancelledMove);
+        await WaitUntilAsync(() =>
+            values.HandlerCount == 0 &&
+            start.HandlerCount == 0 &&
+            stop.HandlerCount == 0);
     }
 
     [Fact]
@@ -94,6 +101,30 @@ public sealed class EventStreamRepeatBetweenTests
 
         Assert.True(await move);
         Assert.Equal(42, enumerator.Current.Value);
+
+        cancellation.Cancel();
+    }
+
+    [Fact]
+    public async Task NaturalSourceCompletionStartsFreshEnumerationOnNextCycle()
+    {
+        var source = new OneValuePerEnumeration();
+        using var cancellation = new CancellationTokenSource();
+
+        var stream = source.RepeatBetween(
+            _ => Task.CompletedTask,
+            token => Task.Delay(Timeout.InfiniteTimeSpan, token),
+            cancellation.Token);
+
+        await using var enumerator = stream.GetAsyncEnumerator();
+
+        Assert.True(await enumerator.MoveNextAsync());
+        Assert.Equal(1, enumerator.Current.Value);
+
+        Assert.True(await enumerator.MoveNextAsync());
+        Assert.Equal(2, enumerator.Current.Value);
+
+        Assert.Equal(2, source.EnumerationCount);
 
         cancellation.Cancel();
     }
@@ -199,6 +230,46 @@ public sealed class EventStreamRepeatBetweenTests
         }
 
         internal int Value { get; }
+    }
+
+    private sealed class OneValuePerEnumeration : IAsyncEnumerable<TestArgs>
+    {
+        private int _enumerationCount;
+
+        internal int EnumerationCount => Volatile.Read(ref _enumerationCount);
+
+        public IAsyncEnumerator<TestArgs> GetAsyncEnumerator(CancellationToken cancellationToken = default)
+        {
+            var value = Interlocked.Increment(ref _enumerationCount);
+            return new Enumerator(value);
+        }
+
+        private sealed class Enumerator : IAsyncEnumerator<TestArgs>
+        {
+            private readonly int _value;
+            private bool _yielded;
+
+            internal Enumerator(int value)
+            {
+                _value = value;
+            }
+
+            public TestArgs Current { get; private set; } = new TestArgs(0);
+
+            public ValueTask<bool> MoveNextAsync()
+            {
+                if (_yielded)
+                {
+                    return new ValueTask<bool>(false);
+                }
+
+                _yielded = true;
+                Current = new TestArgs(_value);
+                return new ValueTask<bool>(true);
+            }
+
+            public ValueTask DisposeAsync() => default;
+        }
     }
 
     private sealed class SingleValueSource : IAsyncEnumerable<TestArgs>
