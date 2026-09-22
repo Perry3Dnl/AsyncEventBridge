@@ -73,12 +73,12 @@ public sealed class EventStreamStressTests
         const int producedCount = producerCount * valuesPerProducer;
 
         EventHandler<StressEventArgs>? changed = null;
-        var observedDrops = 0L;
+        var observerCalls = 0L;
         var options = new EventStreamOptions
         {
             Capacity = capacity,
             FullMode = EventStreamFullMode.DropWrite,
-            DropObserver = dropped => Interlocked.Add(ref observedDrops, dropped),
+            DropObserver = _ => Interlocked.Increment(ref observerCalls),
         };
 
         var stream = EventStream.Create<StressEventArgs>(
@@ -108,7 +108,7 @@ public sealed class EventStreamStressTests
         await Task.WhenAll(producers);
 
         Assert.Equal(producedCount - capacity, options.DroppedCount);
-        Assert.Equal(options.DroppedCount, Volatile.Read(ref observedDrops));
+        Assert.Equal(options.DroppedCount, Volatile.Read(ref observerCalls));
 
         var buffered = new HashSet<int>();
 
