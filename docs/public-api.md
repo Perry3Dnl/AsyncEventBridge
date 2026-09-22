@@ -104,10 +104,10 @@ The fixed enum values are:
 ```text
 Unbounded = 0
 DropOldest = 1
-DropNewest = 2
+DropWrite = 2
 ```
 
-`Unbounded` is the canonical lossless mode and retains numeric value `0`. In 0.4 it replaces the earlier `Grow` name before the 1.0 API freeze. In this mode, `Capacity` is ignored completely; the default value of `100` is only the default hard limit used if a caller selects `DropOldest` or `DropNewest`.
+`Unbounded` is the canonical lossless mode and retains numeric value `0`. In 0.4 it replaces the earlier `Grow` name before the 1.0 API freeze. In this mode, `Capacity` is ignored completely; the default value of `100` is only the default hard limit used if a caller selects `DropOldest` or `DropWrite`.
 
 The unbounded default deliberately avoids silent event loss, but sustained producer throughput above consumer throughput can grow memory usage without a fixed upper bound. Applications that require a memory bound must opt into one of the two explicit drop policies. Bounded drop telemetry comes from the underlying channel's real dropped-item callback.
 
