@@ -132,7 +132,7 @@ var droppedCounts = new List<long>();
 var dropOptions = new EventStreamOptions
 {
     Capacity = 1,
-    FullMode = EventStreamFullMode.DropNewest,
+    FullMode = EventStreamFullMode.DropWrite,
     DropObserver = droppedCounts.Add,
 };
 await using (var modernStream = modernSensor.ValueChangedStream(dropOptions).GetAsyncEnumerator())
@@ -154,7 +154,7 @@ await using (var modernStream = modernSensor.ValueChangedStream(dropOptions).Get
 
     if (!await modernStream.MoveNextAsync() || modernStream.Current != 20)
     {
-        throw new InvalidOperationException("DropNewest changed the buffered event ordering.");
+        throw new InvalidOperationException("DropWrite changed the buffered event ordering.");
     }
 }
 
@@ -277,7 +277,7 @@ if (!lifecycleEvents.SequenceEqual(expectedLifecycle))
 
 var conditionState = true;
 var conditionWaitArmed = 0;
-var observedConditionState = await EventCondition.WaitUntilAsync(
+await EventCondition.WaitUntilAsync(
     () => conditionState,
     token =>
     {
@@ -285,7 +285,7 @@ var observedConditionState = await EventCondition.WaitUntilAsync(
         return Task.Delay(Timeout.InfiniteTimeSpan, token);
     });
 
-if (!observedConditionState || conditionWaitArmed != 1)
+if (!conditionState || conditionWaitArmed != 1)
 {
     throw new InvalidOperationException("The packaged EventCondition wait did not arm-before-check or return the satisfied state.");
 }
