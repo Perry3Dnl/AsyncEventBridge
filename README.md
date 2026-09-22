@@ -8,7 +8,7 @@
 
 `main` is the single development and release line for AsyncEventBridge starting with **0.3.0**. The modern .NET 10 implementation remains at the repository root, the .NET Standard 2.0 compatibility implementation lives under `compat/netstandard2.0`, and the Unity UPM package lives under `Packages/com.perry3d.async-event-bridge`.
 
-The `0.4.0` release candidate builds on that convergence model: all supported editions still share one version and one release process, while 0.4 hardens the generator architecture, cleanup/lifecycle semantics, stream buffering, subscriber exception handling, packaging, and cross-platform verification.
+The `0.5.0` development line builds on the hardened 0.4 contracts and expands AsyncEventBridge into a focused interoperability layer for event-driven async workflows. Waiting, streaming, adaptation, composition, and async-to-event bridging remain one package, without trying to become a general Rx or async-LINQ replacement.
 
 ## What it bridges
 
@@ -20,9 +20,10 @@ Task<T>              -> EventBridge<T>
 ValueTask            -> EventBridge
 ValueTask<T>         -> EventBridge<T>
 IAsyncEnumerable<T>  -> EventStreamBridge<T>
+Event stream + wait  -> lifecycle-safe async workflow
 ```
 
-The modern line also includes sender-aware event occurrences, lifecycle-safe event composition, bounded-stream telemetry, `System.Diagnostics.Metrics`, `TimeProvider`, and Native AOT/trimming verification.
+The modern line also includes sender-aware event occurrences, heterogeneous/N-way wait composition, bounded-stream telemetry, `System.Diagnostics.Metrics`, `TimeProvider`, and Native AOT/trimming verification. The first 0.5 stream-workflow primitive, `EventStreamComposition.TakeUntil`, is also available on the .NET Standard 2.0 and Unity portable runtimes.
 
 ## Package
 
@@ -32,10 +33,10 @@ Package ID:
 AsyncEventBridge
 ```
 
-For a project consuming the `0.4.0` package:
+For a project consuming the `0.5.0` package:
 
 ```xml
-<PackageReference Include="AsyncEventBridge" Version="0.4.0" />
+<PackageReference Include="AsyncEventBridge" Version="0.5.0" />
 ```
 
 The source generator ships in the same NuGet package; there is no separate analyzer package to install.
@@ -191,6 +192,26 @@ Console.WriteLine($"Total dropped: {options.DroppedCount}");
 `DroppedCount` is thread-safe and aggregates across uses of the same options instance. The drop callback is backed by the channel's actual dropped-item notification rather than inferred from timing or write outcomes.
 
 There is intentionally no producer-blocking mode: blocking a synchronous event callback can change event semantics or introduce deadlocks.
+
+## Compose event streams with event waits
+
+0.5 adds `EventStreamComposition.TakeUntil` for workflows where a stream should remain active until another event-driven condition occurs:
+
+```csharp
+await foreach (Reading reading in sensor.ReadingChangedStream()
+    .TakeUntil(
+        token => sensor.DisconnectedAsync(token),
+        cancellationToken))
+{
+    Process(reading);
+}
+```
+
+The stream and stop wait share a coordination lifetime. If the stop event arrives first, source enumeration is cancelled, observed, and disposed before the composed stream finishes. If the source completes or faults first, the stop wait is cancelled and observed before completion is reported.
+
+A faulted or independently cancelled stop wait propagates its outcome rather than being treated as a successful stop. Cleanup failures remain observable after the primary source/stop outcome. If both sides are complete at the same observed move boundary, the stop wait wins and that source value is not emitted.
+
+This is deliberately narrower than adding a general stream-operator library: 0.5 workflow APIs are intended for event-specific coordination and lifetime problems.
 
 ## Compose event waits
 
