@@ -183,6 +183,12 @@ AsyncEventBridge 1.0 is not:
 
 Those boundaries are intentional. The package owns the difficult event/async interoperability mechanics while leaving application-level policy to the application.
 
+## License
+
+AsyncEventBridge 1.0 is distributed under the MIT License.
+
+The project used MPL-2.0 during pre-1.0 development. The license was deliberately changed before the stable 1.0 contract to reduce adoption and redistribution friction.
+
 ## Stability policy
 
 After 1.0:
