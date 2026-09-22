@@ -145,7 +145,7 @@ if (!lifecycleEvents.SequenceEqual(expectedLifecycle))
 
 var conditionState = true;
 var conditionWaitArmed = 0;
-var observedConditionState = await EventCondition.WaitUntilAsync(
+await EventCondition.WaitUntilAsync(
     () => conditionState,
     token =>
     {
@@ -153,7 +153,7 @@ var observedConditionState = await EventCondition.WaitUntilAsync(
         return Task.Delay(Timeout.InfiniteTimeSpan, token);
     });
 
-if (!observedConditionState || conditionWaitArmed != 1)
+if (!conditionState || conditionWaitArmed != 1)
 {
     throw new InvalidOperationException("The packaged EventCondition wait did not arm-before-check or return the satisfied state.");
 }
