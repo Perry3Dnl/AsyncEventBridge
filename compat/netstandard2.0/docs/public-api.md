@@ -125,6 +125,20 @@ DropNewest = 2
 
 `EventStream` is the low-level runtime API for manual integration.
 
+## Event-driven state conditions
+
+Portable runtimes expose `EventCondition.WaitUntilAsync<TState>(...)` with the same subscribe-before-check contract as modern .NET:
+
+```csharp
+var state = await EventCondition.WaitUntilAsync(
+    () => client.State,
+    state => state == ConnectionState.Connected,
+    token => client.StateChangedAsync(token),
+    cancellationToken);
+```
+
+The change wait is armed before the state snapshot is read on every attempt. Already-satisfied state cancels and observes that temporary wait before returning; spurious changes rearm and recheck. This avoids the usual check-then-subscribe missed-transition race.
+
 ## Event-stream workflow composition
 
 Portable runtimes expose both lifecycle primitives with the same coordination contract as modern .NET.
@@ -253,6 +267,7 @@ The intended exported runtime type set is:
 GenerateAsyncEventsAttribute
 GenerateAsyncEventsForAttribute
 EventAwaiter
+EventCondition
 EventStream
 EventStreamComposition
 EventStreamLifecycleEvent<T>
