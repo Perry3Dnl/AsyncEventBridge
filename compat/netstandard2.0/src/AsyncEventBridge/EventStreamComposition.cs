@@ -40,7 +40,7 @@ public static partial class EventStreamComposition
             throw new ArgumentNullException(nameof(stopWait));
         }
 
-        return new TakeUntilEnumerable<T>(source, stopWait, cancellationToken, null);
+        return new TakeUntilEnumerable<T>(source, stopWait, cancellationToken, null, false);
     }
 
     private sealed class TakeUntilEnumerable<T> : IAsyncEnumerable<T>
@@ -49,17 +49,20 @@ public static partial class EventStreamComposition
         private readonly Func<CancellationToken, Task> _stopWait;
         private readonly CancellationToken _creationCancellationToken;
         private readonly Action<EventStreamTakeUntilCompletion>? _completionObserver;
+        private readonly bool _skipSourceIfStopAlreadyCompleted;
 
         internal TakeUntilEnumerable(
             IAsyncEnumerable<T> source,
             Func<CancellationToken, Task> stopWait,
             CancellationToken creationCancellationToken,
-            Action<EventStreamTakeUntilCompletion>? completionObserver)
+            Action<EventStreamTakeUntilCompletion>? completionObserver,
+            bool skipSourceIfStopAlreadyCompleted)
         {
             _source = source;
             _stopWait = stopWait;
             _creationCancellationToken = creationCancellationToken;
             _completionObserver = completionObserver;
+            _skipSourceIfStopAlreadyCompleted = skipSourceIfStopAlreadyCompleted;
         }
 
         public IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellationToken = default) =>
@@ -68,7 +71,8 @@ public static partial class EventStreamComposition
                 _stopWait,
                 _creationCancellationToken,
                 cancellationToken,
-                _completionObserver);
+                _completionObserver,
+                _skipSourceIfStopAlreadyCompleted);
 
         private sealed class Enumerator : IAsyncEnumerator<T>
         {
@@ -77,6 +81,7 @@ public static partial class EventStreamComposition
             private readonly CancellationToken _creationCancellationToken;
             private readonly CancellationToken _enumerationCancellationToken;
             private readonly Action<EventStreamTakeUntilCompletion>? _completionObserver;
+            private readonly bool _skipSourceIfStopAlreadyCompleted;
 
             private CancellationTokenSource? _lifetimeCancellation;
             private IAsyncEnumerator<T>? _sourceEnumerator;
@@ -92,13 +97,15 @@ public static partial class EventStreamComposition
                 Func<CancellationToken, Task> stopWait,
                 CancellationToken creationCancellationToken,
                 CancellationToken enumerationCancellationToken,
-                Action<EventStreamTakeUntilCompletion>? completionObserver)
+                Action<EventStreamTakeUntilCompletion>? completionObserver,
+                bool skipSourceIfStopAlreadyCompleted)
             {
                 _source = source;
                 _stopWait = stopWait;
                 _creationCancellationToken = creationCancellationToken;
                 _enumerationCancellationToken = enumerationCancellationToken;
                 _completionObserver = completionObserver;
+                _skipSourceIfStopAlreadyCompleted = skipSourceIfStopAlreadyCompleted;
             }
 
             public T Current => _current;
@@ -209,7 +216,7 @@ public static partial class EventStreamComposition
                         throw new InvalidOperationException("The event-stream stop wait factory returned null.");
                     }
 
-                    if (!_stopTask.IsCompleted)
+                    if (!_skipSourceIfStopAlreadyCompleted || !_stopTask.IsCompleted)
                     {
                         _sourceEnumerator = _source.GetAsyncEnumerator(lifetimeToken);
                     }
