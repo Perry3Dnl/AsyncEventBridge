@@ -779,4 +779,4 @@ dotnet pack src/AsyncEventBridge/AsyncEventBridge.csproj -c Release
 
 ## License
 
-AsyncEventBridge is licensed under the **Mozilla Public License 2.0 (MPL-2.0)**. See [`LICENSE`](LICENSE).
+AsyncEventBridge is licensed under the **MIT License**. See [`LICENSE`](LICENSE).
