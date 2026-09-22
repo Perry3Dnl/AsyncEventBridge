@@ -60,6 +60,7 @@ jobs:
           unzip -l "$PACKAGE" | tee artifacts/package-contents.txt
           unzip -l "$PACKAGE" | grep -q "lib/net10.0/AsyncEventBridge.dll"
           unzip -l "$PACKAGE" | grep -q "lib/net10.0/AsyncEventBridge.xml"
+          unzip -l "$PACKAGE" | grep -q "lib/net10.0/AsyncEventBridge.pdb"
           unzip -l "$PACKAGE" | grep -q "analyzers/dotnet/cs/AsyncEventBridge.Generators.dll"
           unzip -l "$PACKAGE" | grep -q "assets/AsyncEventBridge.png"
           unzip -l "$PACKAGE" | grep -q "README.md"
@@ -160,6 +161,7 @@ jobs:
           unzip -l "$PACKAGE" | tee artifacts/compat-package-contents.txt
           unzip -l "$PACKAGE" | grep -q "lib/netstandard2.0/AsyncEventBridge.dll"
           unzip -l "$PACKAGE" | grep -q "lib/netstandard2.0/AsyncEventBridge.xml"
+          unzip -l "$PACKAGE" | grep -q "lib/netstandard2.0/AsyncEventBridge.pdb"
           unzip -l "$PACKAGE" | grep -q "analyzers/dotnet/cs/AsyncEventBridge.Generators.dll"
           unzip -l "$PACKAGE" | grep -q "assets/AsyncEventBridge.png"
           unzip -l "$PACKAGE" | grep -q "README.md"
@@ -347,6 +349,15 @@ jobs:
           ns = {"n": "http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd"}
           groups = root.findall(".//n:dependencies/n:group", ns)
           by_tfm = {group.attrib.get("targetFramework"): group for group in groups}
+
+          metadata = root.find("n:metadata", ns)
+          repository = metadata.find("n:repository", ns) if metadata is not None else None
+          if repository is None:
+              raise SystemExit("Unified package is missing repository metadata")
+          if repository.attrib.get("url") != "https://github.com/Perry3Dnl/AsyncEventBridge.git":
+              raise SystemExit(f"Unexpected repository URL: {repository.attrib.get('url')!r}")
+          if not repository.attrib.get("commit"):
+              raise SystemExit("Unified package repository metadata is missing the commit SHA")
 
           netstandard = next((group for tfm, group in by_tfm.items() if tfm and "NETStandard2.0" in tfm), None)
           if netstandard is None:
