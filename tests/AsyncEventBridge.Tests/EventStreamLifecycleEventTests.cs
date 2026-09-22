@@ -162,6 +162,32 @@ public sealed class EventStreamLifecycleEventTests
     }
 
     [Fact]
+    public async Task SourceCompletionRemainsTheLifecycleReasonWhenStopFinishesOnlyDuringCleanup()
+    {
+        var source = new EmptyAsyncEnumerable<int>();
+        var stop = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var stream = source.RepeatBetweenWithLifecycle(
+            _ => Task.CompletedTask,
+            _ => stop.Task);
+
+        await using var enumerator = stream.GetAsyncEnumerator();
+
+        Assert.True(await enumerator.MoveNextAsync());
+        Assert.Equal(EventStreamLifecycleEventKind.Activated, enumerator.Current.Kind);
+
+        var completionMove = enumerator.MoveNextAsync().AsTask();
+
+        Assert.False(completionMove.IsCompleted);
+
+        stop.SetResult(true);
+
+        Assert.True(await completionMove);
+        Assert.Equal(EventStreamLifecycleEventKind.SourceCompleted, enumerator.Current.Kind);
+        Assert.Equal(1, enumerator.Current.Cycle);
+    }
+
+    [Fact]
     public void LifecycleEventKindNumericValuesStayStable()
     {
         Assert.Equal(0, (int)EventStreamLifecycleEventKind.Activated);
@@ -242,6 +268,21 @@ public sealed class EventStreamLifecycleEventTests
             }
 
             handlers?.Invoke(this, value);
+        }
+    }
+
+    private sealed class EmptyAsyncEnumerable<T> : IAsyncEnumerable<T>
+    {
+        public IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellationToken = default) =>
+            new Enumerator();
+
+        private sealed class Enumerator : IAsyncEnumerator<T>
+        {
+            public T Current => default!;
+
+            public ValueTask<bool> MoveNextAsync() => new ValueTask<bool>(false);
+
+            public ValueTask DisposeAsync() => default;
         }
     }
 
