@@ -1,6 +1,6 @@
-# Public API — v0.5.0
+# Public API — 1.0 stabilization baseline
 
-AsyncEventBridge `0.5.0` builds on the 0.4 lifecycle and generator contracts with a focused async-interoperability workflow layer.
+This document describes the public API being stabilized for AsyncEventBridge `1.0.0`. The repository may continue to use a pre-1.0 development version until the release gate is complete.
 
 The normal Event -> async entry points are generated APIs such as `<EventName>Async(...)`, `<EventName>Stream(...)`, and sender-aware `<EventName>OccurrenceAsync(...)` / `<EventName>OccurrenceStream(...)`. The normal async -> events entry point is `ToEventBridge()`.
 
