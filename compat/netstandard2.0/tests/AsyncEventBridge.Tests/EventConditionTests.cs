@@ -3,6 +3,27 @@ namespace AsyncEventBridge.Tests;
 public sealed class EventConditionTests
 {
     [Fact]
+    public async Task PreCancelledTokenDoesNotArmChangeWait()
+    {
+        var source = new BoolStateSource(false);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        var wait = EventCondition.WaitUntilAsync(
+            () => source.State,
+            state => state,
+            token => EventAwaiter.WaitAsync<TestArgs>(
+                handler => source.Changed += handler,
+                handler => source.Changed -= handler,
+                cancellationToken: token),
+            cancellation.Token);
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => wait);
+        Assert.Equal(0, source.AddCount);
+        Assert.Equal(0, source.HandlerCount);
+    }
+
+    [Fact]
     public async Task AlreadySatisfiedStateArmsAndCleansChangeWaitBeforeReturning()
     {
         var source = new BoolStateSource(true);
