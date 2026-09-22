@@ -23,7 +23,7 @@ IAsyncEnumerable<T>  -> EventStreamBridge<T>
 Event stream + wait  -> lifecycle-safe async workflow
 ```
 
-The modern line also includes sender-aware event occurrences, heterogeneous/N-way wait composition, bounded-stream telemetry, `System.Diagnostics.Metrics`, `TimeProvider`, and Native AOT/trimming verification. The 0.5 stream-workflow primitives, `EventStreamComposition.StartAfter` and `TakeUntil`, are also available on the .NET Standard 2.0 and Unity portable runtimes.
+The modern line also includes sender-aware event occurrences, heterogeneous/N-way wait composition, bounded-stream telemetry, `System.Diagnostics.Metrics`, `TimeProvider`, and Native AOT/trimming verification. The 0.5 stream-workflow primitives, `EventStreamComposition.StartAfter`, `TakeUntil`, and `RepeatBetween`, are also available on the .NET Standard 2.0 and Unity portable runtimes.
 
 ## Package
 
@@ -234,7 +234,22 @@ await foreach (Reading reading in sensor.ReadingChangedStream()
 
 Because `TakeUntil` owns the outer lifetime, a disconnect that happens before connection cancels and cleans the pending start wait without ever subscribing the value stream.
 
-Start and stop waits are created per enumeration and participate in the same deterministic cancellation/cleanup rules as the rest of AsyncEventBridge. Faulted or independently cancelled lifecycle waits propagate their outcomes; cleanup failures remain observable after the primary outcome.
+For systems that reconnect repeatedly, `RepeatBetween` turns those one-shot windows into one continuous async stream:
+
+```csharp
+await foreach (Reading reading in sensor.ReadingChangedStream()
+    .RepeatBetween(
+        token => sensor.ConnectedAsync(token),
+        token => sensor.DisconnectedAsync(token),
+        cancellationToken))
+{
+    Process(reading);
+}
+```
+
+Every successful activation starts a fresh source enumeration. A successful stop ends that active cycle, performs deterministic cleanup, and rearms activation. A stop that arrives while inactive closes that inactive cycle and rearms without subscribing the source. Source completion also ends only the current cycle; source or lifecycle faults terminate the repeating workflow.
+
+Start and stop waits participate in the same deterministic cancellation/cleanup rules as the rest of AsyncEventBridge. Faulted or independently cancelled lifecycle waits propagate their outcomes; cleanup failures remain observable after the primary outcome.
 
 This is deliberately narrower than adding a general stream-operator library: 0.5 workflow APIs are intended for event-specific coordination and lifetime problems.
 
