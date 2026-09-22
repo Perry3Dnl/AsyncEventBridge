@@ -1,0 +1,14 @@
+<Project>
+  <Import Project="../../packaging/AsyncEventBridge.Package/AsyncEventBridge.targets" />
+
+  <Target Name="Verify">
+    <Error Condition="'$(TargetFramework)' == ''"
+           Text="TargetFramework must be supplied." />
+    <Error Condition="'$(ExpectedGenerator)' == ''"
+           Text="ExpectedGenerator must be supplied." />
+    <Error Condition="'@(Analyzer)' == ''"
+           Text="No AsyncEventBridge generator was selected for $(TargetFramework)." />
+    <Error Condition="!$([System.String]::Copy('@(Analyzer)').Contains('$(ExpectedGenerator)'))"
+           Text="Expected the $(ExpectedGenerator) generator for $(TargetFramework), but selected @(Analyzer)." />
+  </Target>
+</Project>
