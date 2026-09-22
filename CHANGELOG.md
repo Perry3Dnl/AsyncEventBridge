@@ -13,6 +13,8 @@ All notable changes across the supported AsyncEventBridge release tracks are doc
 - Add `EventStreamComposition.RepeatBetween(...)` for reconnecting/re-entering lifecycles that continuously rearm activation after each deactivation or natural source completion.
 - Create a fresh source enumeration for every repeated active cycle; treat successful stop-before-start as an inactive-cycle boundary rather than terminal completion.
 - Keep repeated lifecycle faults and external cancellation terminal while preserving deterministic per-cycle cleanup.
+- Add `EventStreamComposition.RepeatBetweenWithLifecycle(...)` plus `EventStreamLifecycleEvent<T>` / `EventStreamLifecycleEventKind` so reconnecting workflows can observe activation, values, deactivation, natural source completion, and one-based cycle identity.
+- Distinguish `Deactivated` from `SourceCompleted`; keep stop-before-start silent and keep faults/cancellation as terminal outcomes rather than marker values.
 - Create the stop wait per enumeration and share a coordination token with the source enumerator.
 - Cancel, observe, and dispose the losing side before the composed sequence reports completion.
 - Preserve the 0.4 primary-outcome-first cleanup policy when the source, stop wait, cancellation callbacks, or enumerator disposal fail.
