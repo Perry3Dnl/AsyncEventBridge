@@ -120,6 +120,10 @@ public sealed class GeneratorEventShapeParityTests
             .Select(item => item.SourceText.ToString())
             .ToArray();
 
+        Assert.All(
+            generated,
+            sourceText => Assert.Contains("/// <summary>", sourceText, StringComparison.Ordinal));
+
         Assert.Contains(generated, sourceText =>
             sourceText.Contains("StandardAsync", StringComparison.Ordinal) &&
             sourceText.Contains("StandardStream", StringComparison.Ordinal));
