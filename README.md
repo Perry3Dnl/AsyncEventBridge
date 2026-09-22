@@ -379,7 +379,7 @@ The modern runtime uses `System.Threading.Channels` internally. The default is e
 ```text
 Unbounded   preserve accepted values with no fixed buffer limit
 DropOldest  discard the oldest buffered value at Capacity
-DropNewest  keep the existing buffer and discard the incoming value at Capacity
+DropWrite  keep the existing buffer and discard the incoming value at Capacity
 ```
 
 `Capacity` applies only to the two bounded drop modes. It is ignored by `Unbounded`. The property still defaults to `100` so switching to a bounded mode has a useful default; it does not impose a 100-item limit on the default stream.
@@ -390,7 +390,7 @@ Example bounded stream:
 var options = new EventStreamOptions
 {
     Capacity = 100,
-    FullMode = EventStreamFullMode.DropNewest,
+    FullMode = EventStreamFullMode.DropWrite,
     DropObserver = droppedCount =>
         Console.WriteLine($"Dropped events: {droppedCount}"),
 };
