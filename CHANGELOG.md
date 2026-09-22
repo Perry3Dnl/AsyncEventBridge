@@ -6,6 +6,7 @@ All notable changes across the supported AsyncEventBridge release tracks are doc
 
 ### 1.0 stabilization
 
+- Relicense the 1.0 line from MPL-2.0 to the MIT License to reduce adoption and redistribution friction before the stable contract is frozen.
 - Start the long-term 1.0 stabilization line with a feature-freeze rule: new public surface must close a concrete interop, safety, compatibility, or broad-adoption gap.
 - Change the boolean `EventCondition.WaitUntilAsync(...)` convenience overload from `Task<bool>` to `Task`; successful completion already means the condition became true, while the generic state overload continues to return the matching state snapshot.
 - Reserve `EventStreamLifecycleEventKind.Unspecified = 0` and move real lifecycle markers to non-zero values so `default(EventStreamLifecycleEvent<T>)` cannot masquerade as an activation.
