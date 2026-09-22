@@ -179,6 +179,86 @@ public sealed class AsyncEventBridgeUnityGeneratorTests
     }
 
     [Fact]
+    public void ReportsAeb002ForInvalidAssemblyTarget()
+    {
+        var source = RuntimeStubs + """
+            namespace Demo
+            {
+                public struct Sensor
+                {
+                }
+            }
+            """;
+
+        var result = RunGenerator(
+            source,
+            allowGeneratorWarnings: true,
+            assemblySource: "[assembly: AsyncEventBridge.GenerateAsyncEventsFor(typeof(Demo.Sensor))]");
+
+        var diagnostic = Assert.Single(result.Diagnostics.Where(diagnostic => diagnostic.Id == "AEB002"));
+        Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
+        Assert.Equal(
+            "https://github.com/Perry3Dnl/AsyncEventBridge/blob/main/docs/diagnostics.md#aeb002",
+            diagnostic.Descriptor.HelpLinkUri);
+        Assert.Contains("Demo.Sensor", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Empty(Assert.Single(result.Results).GeneratedSources);
+    }
+
+    [Fact]
+    public void ReportsAeb003ForDuplicateAssemblyTarget()
+    {
+        var source = RuntimeStubs + """
+            namespace Demo
+            {
+                public sealed class Sensor
+                {
+                    public event EventHandler? Changed;
+                }
+            }
+            """;
+
+        var result = RunGenerator(
+            source,
+            allowGeneratorWarnings: true,
+            assemblySource: """
+                [assembly: AsyncEventBridge.GenerateAsyncEventsFor(typeof(Demo.Sensor))]
+                [assembly: AsyncEventBridge.GenerateAsyncEventsFor(typeof(Demo.Sensor))]
+                """);
+
+        var diagnostic = Assert.Single(result.Diagnostics.Where(diagnostic => diagnostic.Id == "AEB003"));
+        Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
+        Assert.Equal(
+            "https://github.com/Perry3Dnl/AsyncEventBridge/blob/main/docs/diagnostics.md#aeb003",
+            diagnostic.Descriptor.HelpLinkUri);
+        Assert.Contains("Demo.Sensor", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Single(Assert.Single(result.Results).GeneratedSources);
+    }
+
+    [Fact]
+    public void ReportsAeb003WhenAssemblyTargetIsDirectlyAnnotated()
+    {
+        var source = RuntimeStubs + """
+            namespace Demo
+            {
+                [AsyncEventBridge.GenerateAsyncEvents]
+                public sealed class Sensor
+                {
+                    public event EventHandler? Changed;
+                }
+            }
+            """;
+
+        var result = RunGenerator(
+            source,
+            allowGeneratorWarnings: true,
+            assemblySource: "[assembly: AsyncEventBridge.GenerateAsyncEventsFor(typeof(Demo.Sensor))]");
+
+        var diagnostic = Assert.Single(result.Diagnostics.Where(diagnostic => diagnostic.Id == "AEB003"));
+        Assert.Contains("Demo.Sensor", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Single(Assert.Single(result.Results).GeneratedSources);
+    }
+
+    [Fact]
     public void ReportsAeb001ForUnsupportedDelegateShape()
     {
         var source = RuntimeStubs + """
