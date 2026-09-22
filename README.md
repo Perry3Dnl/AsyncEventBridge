@@ -47,6 +47,16 @@ AsyncEventBridge is designed so the **event API still looks like an event API** 
 
 The "without AsyncEventBridge" examples below are illustrative raw-.NET implementations of the same intent. Production code normally needs to handle additional failure and race cases as well.
 
+| Intent | Raw .NET/event plumbing | With AsyncEventBridge |
+| --- | --- | --- |
+| Wait for one event | `TaskCompletionSource` + subscribe/unsubscribe + cancellation cleanup | `await sensor.ValueChangedAsync(token)` |
+| Consume repeated events | queue/channel + event subscription + cancellation + disposal | `await foreach (... in sensor.ValueChangedStream(token))` |
+| Wait for current-or-future state | state check + event subscription + race handling | `await EventCondition.WaitUntilAsync(...)` |
+| Run only while connected/ready | manual state loop + subscribe/unsubscribe + reconnect handling | `.RepeatWhile(...)` |
+| Observe explicit sessions | custom lifecycle state machine | `.RepeatWhileWithLifecycle(...)` |
+| Expose a `Task<T>` as events | custom continuation/event wrapper | `task.ToEventBridge()` |
+| Expose an async stream as events | custom background consumer + events + lifetime management | `stream.ToEventBridge()` |
+
 ### Wait for one event
 
 Without AsyncEventBridge, turning an event into something awaitable usually means manually creating a completion source, managing the handler lifetime, wiring cancellation, and making sure cleanup happens on every path:
