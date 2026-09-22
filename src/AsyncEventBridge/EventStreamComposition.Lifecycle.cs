@@ -25,7 +25,8 @@ public static partial class EventStreamComposition
             source,
             stopWait,
             cancellationToken,
-            completionObserver);
+            completionObserver,
+            false);
     }
 
     /// <summary>
