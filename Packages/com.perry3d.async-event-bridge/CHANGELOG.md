@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.0-preview.1 - In progress
+
+- Move the Unity package onto the shared 1.0 stabilization series.
+- Support generated async façades for class and interface event sources.
+- Align generator diagnostics with the shared AEB001/AEB002/AEB003 vocabulary.
+- Add IntelliSense summaries to generated Unity async event extension APIs.
+- Keep the portable core aligned with the .NET Standard compatibility runtime.
+
 ## 0.4.0 - In progress
 
 - Rename the portable event-stream lossless mode from `Grow` to `Unbounded` and define `Capacity` as bounded-mode-only.
