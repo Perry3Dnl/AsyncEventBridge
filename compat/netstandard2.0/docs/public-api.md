@@ -161,6 +161,8 @@ The operators compose as `source.StartAfter(startWait).TakeUntil(stopWait)`. If 
 
 `RepeatBetween(startWait, stopWait, cancellationToken)` repeats that active window. Each activation creates a fresh source enumeration; successful stop or source completion cleans the current cycle and rearms activation. A stop while inactive rearms without subscribing the source. Faults and external cancellation terminate the repeating workflow.
 
+`RepeatBetweenWithLifecycle(...)` exposes the same repeated workflow as `IAsyncEnumerable<EventStreamLifecycleEvent<T>>`. Events report `Activated`, `Value`, `Deactivated`, or `SourceCompleted` together with a one-based cycle number. `Value` is accessible only for value events. Stop-before-start emits no marker and consumes no cycle number; faults and cancellation remain terminal exceptions.
+
 ## Task -> events
 
 ```csharp
@@ -253,6 +255,8 @@ GenerateAsyncEventsForAttribute
 EventAwaiter
 EventStream
 EventStreamComposition
+EventStreamLifecycleEvent<T>
+EventStreamLifecycleEventKind
 EventStreamOptions
 EventStreamFullMode
 AsyncEventBridgeExtensions
