@@ -40,7 +40,7 @@ public sealed class EventStreamLifecycleEventTests
 
         Assert.True(await value);
         Assert.Equal(EventStreamLifecycleEventKind.Value, enumerator.Current.Kind);
-        Assert.Equal(42, enumerator.Current.Value);
+        Assert.Equal(42, enumerator.Current.Value.Value);
 
         var deactivated = enumerator.MoveNextAsync().AsTask();
         stop.Raise(1);
