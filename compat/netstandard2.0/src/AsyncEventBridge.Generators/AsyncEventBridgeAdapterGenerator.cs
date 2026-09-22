@@ -464,7 +464,10 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
         var eventName = EscapeIdentifier(item.EventSymbol.Name);
         var methodName = item.EventSymbol.Name + "Stream";
 
-        source.Append("    ")
+        source.Append("    /// <summary>Creates an async stream for ")
+            .Append(item.EventSymbol.Name)
+            .AppendLine(" event occurrences.</summary>")
+            .Append("    ")
             .Append(item.Accessibility)
             .Append(" static global::System.Collections.Generic.IAsyncEnumerable<")
             .Append(item.EventArgsType)
