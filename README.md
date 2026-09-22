@@ -8,7 +8,7 @@
 
 `main` is the single development and release line for AsyncEventBridge starting with **0.3.0**. The modern .NET 10 implementation remains at the repository root, the .NET Standard 2.0 compatibility implementation lives under `compat/netstandard2.0`, and the Unity UPM package lives under `Packages/com.perry3d.async-event-bridge`.
 
-The `0.5.0` development line builds on the hardened 0.4 contracts and expands AsyncEventBridge into a focused interoperability layer for event-driven async workflows. Waiting, streaming, adaptation, composition, and async-to-event bridging remain one package, without trying to become a general Rx or async-LINQ replacement.
+The `0.5.0` development line builds on the hardened 0.4 contracts and expands AsyncEventBridge into a focused interoperability layer for event-driven async workflows. Waiting, streaming, state conditions, lifecycle composition, adaptation, and async-to-event bridging remain one package, without trying to become a general Rx or async-LINQ replacement.
 
 ## What it bridges
 
@@ -277,6 +277,39 @@ await foreach (var item in sensor.ReadingChangedStream()
 Cycle numbers are one-based and advance only after successful activation. `Deactivated` means the stop wait ended the active cycle; `SourceCompleted` means the source ended naturally. Redundant stop notifications while inactive do not emit fake transitions or consume cycle numbers.
 
 Start and stop waits participate in the same deterministic cancellation/cleanup rules as the rest of AsyncEventBridge. Faulted or independently cancelled lifecycle waits propagate their outcomes; cleanup failures remain observable after the primary outcome.
+
+## Wait for event-driven state safely
+
+Event-only waits are not enough when an API also exposes current state. If a client is already connected, waiting only for its next `Connected` event can hang. Checking the property first and subscribing second creates the opposite problem: the state can change between those operations.
+
+`EventCondition.WaitUntilAsync` arms the state-change wait first and then reads the current state:
+
+```csharp
+ConnectionState state = await EventCondition.WaitUntilAsync(
+    () => client.State,
+    state => state == ConnectionState.Connected,
+    token => client.StateChangedAsync(token),
+    cancellationToken);
+```
+
+If the condition is already true, the temporary change wait is cancelled, observed, and cleaned up before returning. If a transition happens while the wait is being armed, it is either visible in the subsequent state snapshot or captured by the armed event wait. Spurious change notifications simply cause another subscribe-before-check attempt.
+
+This composes directly with lifecycle workflows:
+
+```csharp
+await foreach (var reading in sensor.ReadingChangedStream()
+    .RepeatBetween(
+        token => EventCondition.WaitUntilAsync(
+            () => sensor.State,
+            state => state == SensorState.Connected,
+            waitToken => sensor.StateChangedAsync(waitToken),
+            token),
+        token => sensor.DisconnectedAsync(token),
+        cancellationToken))
+{
+    Process(reading);
+}
+```
 
 This is deliberately narrower than adding a general stream-operator library: 0.5 workflow APIs are intended for event-specific coordination and lifetime problems.
 
