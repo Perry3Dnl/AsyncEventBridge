@@ -14,7 +14,7 @@ public sealed class AsyncEventBridgeOccurrenceGeneratorTests
 
         namespace AsyncEventBridge
         {
-            [AttributeUsage(AttributeTargets.Class)]
+            [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)]
             public sealed class GenerateAsyncEventsAttribute : Attribute
             {
             }
@@ -128,6 +128,30 @@ public sealed class AsyncEventBridgeOccurrenceGeneratorTests
         Assert.Contains("TargetedOccurrenceAsyncEventExtensions", generated, StringComparison.Ordinal);
         Assert.Contains("ChangedOccurrenceAsync", generated, StringComparison.Ordinal);
         Assert.Contains("EventOccurrence<global::System.Object?, global::System.Int32>", generated, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GeneratesOccurrenceApisForInterface()
+    {
+        var source = RuntimeStubs + """
+            namespace Demo
+            {
+                public delegate void ReadingHandler(ISensor sender, string value);
+
+                [AsyncEventBridge.GenerateAsyncEvents]
+                public interface ISensor
+                {
+                    event ReadingHandler? Reading;
+                }
+            }
+            """;
+
+        var result = RunGenerator(source);
+        var generated = Assert.Single(Assert.Single(result.Results).GeneratedSources).SourceText.ToString();
+
+        Assert.Contains("ReadingOccurrenceAsync", generated, StringComparison.Ordinal);
+        Assert.Contains("this global::Demo.ISensor source", generated, StringComparison.Ordinal);
+        Assert.Contains("EventOccurrence<global::Demo.ISensor, global::System.String>", generated, StringComparison.Ordinal);
     }
 
     [Fact]
