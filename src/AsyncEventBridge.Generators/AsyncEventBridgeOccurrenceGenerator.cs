@@ -142,7 +142,8 @@ public sealed class AsyncEventBridgeOccurrenceGenerator : IIncrementalGenerator
             : "internal";
         var extensionClassName = GetExtensionClassName(typeSymbol, extensionSuffix);
 
-        source.Append(classAccessibility)
+        source.AppendLine("/// <summary>Contains generated sender-aware async event extension methods.</summary>")
+            .Append(classAccessibility)
             .Append(" static class ")
             .Append(extensionClassName)
             .AppendLine()
