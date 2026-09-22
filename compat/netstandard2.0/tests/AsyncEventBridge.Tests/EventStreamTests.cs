@@ -228,6 +228,44 @@ public sealed class EventStreamTests
     }
 
     [Fact]
+    public async Task OptionsAreSnapshottedAtStreamCreation()
+    {
+        var source = new TestEventSource<TestEventArgs>();
+        var options = new EventStreamOptions
+        {
+            Capacity = 1,
+            FullMode = EventStreamFullMode.DropOldest,
+        };
+        var stream = EventStream.Create<TestEventArgs>(
+            handler => source.Changed += handler,
+            handler => source.Changed -= handler,
+            options: options);
+
+        options.Capacity = 100;
+        options.FullMode = EventStreamFullMode.Unbounded;
+
+        var enumerator = stream.GetAsyncEnumerator();
+
+        try
+        {
+            var firstMove = enumerator.MoveNextAsync().AsTask();
+            source.Raise(new TestEventArgs(0));
+            Assert.True(await firstMove);
+            Assert.Equal(0, enumerator.Current.Value);
+
+            source.Raise(new TestEventArgs(1));
+            source.Raise(new TestEventArgs(2));
+
+            Assert.True(await enumerator.MoveNextAsync());
+            Assert.Equal(2, enumerator.Current.Value);
+        }
+        finally
+        {
+            await enumerator.DisposeAsync();
+        }
+    }
+
+    [Fact]
     public async Task DropWriteKeepsExistingBufferedValues()
     {
         var source = new TestEventSource<TestEventArgs>();
