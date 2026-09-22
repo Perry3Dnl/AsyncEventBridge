@@ -120,6 +120,22 @@ public sealed class EventStreamLifecycleEventTests
     }
 
     [Fact]
+    public void LifecycleEventKindAndDefaultStateStayStable()
+    {
+        Assert.Equal(0, (int)EventStreamLifecycleEventKind.Unspecified);
+        Assert.Equal(1, (int)EventStreamLifecycleEventKind.Activated);
+        Assert.Equal(2, (int)EventStreamLifecycleEventKind.Value);
+        Assert.Equal(3, (int)EventStreamLifecycleEventKind.Deactivated);
+        Assert.Equal(4, (int)EventStreamLifecycleEventKind.SourceCompleted);
+
+        var lifecycleEvent = default(EventStreamLifecycleEvent<TestArgs>);
+        Assert.Equal(EventStreamLifecycleEventKind.Unspecified, lifecycleEvent.Kind);
+        Assert.Equal(0, lifecycleEvent.Cycle);
+        Assert.False(lifecycleEvent.HasValue);
+        Assert.Throws<InvalidOperationException>(() => _ = lifecycleEvent.Value);
+    }
+
+    [Fact]
     public void LifecycleEventValueIsOnlyAvailableForValueKind()
     {
         var source = new SingleValueSource();
