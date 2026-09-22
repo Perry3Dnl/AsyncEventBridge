@@ -24,7 +24,7 @@ namespace AsyncEventBridge
 
         /// <summary>
         /// Gets or sets the hard buffer limit for <see cref="EventStreamFullMode.DropOldest"/> and
-        /// <see cref="EventStreamFullMode.DropNewest"/>.
+        /// <see cref="EventStreamFullMode.DropWrite"/>.
         /// This value is ignored when <see cref="FullMode"/> is <see cref="EventStreamFullMode.Unbounded"/>.
         /// </summary>
         public int Capacity { get; set; } = DefaultCapacity;
@@ -72,6 +72,6 @@ namespace AsyncEventBridge
         /// <summary>
         /// Keeps the buffer bounded by dropping the newly arriving value when the buffer is already at capacity.
         /// </summary>
-        DropNewest = 2,
+        DropWrite = 2,
     }
 }
