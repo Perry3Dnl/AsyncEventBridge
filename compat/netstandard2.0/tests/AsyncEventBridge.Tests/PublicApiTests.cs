@@ -50,9 +50,9 @@ public sealed class PublicApiTests
             "ToEventBridge",
             "ToEventBridge");
         AssertMethodNames(typeof(EventAwaiter), "WaitAsync", "WaitAsync");
-        AssertMethodNames(typeof(EventCondition), "WaitUntilAsync");
+        AssertMethodNames(typeof(EventCondition), "WaitUntilAsync", "WaitUntilAsync");
         AssertMethodNames(typeof(EventStream), "Create", "Create");
-        AssertMethodNames(typeof(EventStreamComposition), "RepeatBetween", "RepeatBetweenWithLifecycle", "StartAfter", "TakeUntil");
+        AssertMethodNames(typeof(EventStreamComposition), "RepeatBetween", "RepeatBetweenWithLifecycle", "RepeatWhile", "RepeatWhile", "RepeatWhileWithLifecycle", "RepeatWhileWithLifecycle", "StartAfter", "TakeUntil");
         AssertMethodNames(typeof(EventBridge), "Connect", "Dispose");
         AssertMethodNames(typeof(EventBridge<int>), "Connect", "Dispose");
         AssertMethodNames(typeof(EventStreamBridge<int>), "Connect", "Dispose", "DisposeAsync");
