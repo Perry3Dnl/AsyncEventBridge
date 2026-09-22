@@ -62,7 +62,7 @@ public sealed class PublicApiTests
         AssertMethodNames(typeof(EventOccurrenceStream), "Create");
         AssertMethodNames(typeof(EventComposition), "WaitAllAsync", "WaitAllAsync", "WaitAnyAsync", "WaitAnyAsync");
         AssertMethodNames(typeof(EventStream), "Create", "Create");
-        AssertMethodNames(typeof(EventStreamComposition), "StartAfter", "TakeUntil");
+        AssertMethodNames(typeof(EventStreamComposition), "RepeatBetween", "StartAfter", "TakeUntil");
         AssertMethodNames(typeof(EventBridge), "Connect", "Dispose");
         AssertMethodNames(typeof(EventBridge<int>), "Connect", "Dispose");
         AssertMethodNames(typeof(EventStreamBridge<int>), "Connect", "Dispose", "DisposeAsync");
@@ -83,6 +83,7 @@ public sealed class PublicApiTests
 
         AssertMethodSignatures(
             typeof(EventStreamComposition),
+            "System.Collections.Generic.IAsyncEnumerable<T> RepeatBetween<T>(System.Collections.Generic.IAsyncEnumerable<T> source, System.Func<System.Threading.CancellationToken,System.Threading.Tasks.Task> startWait, System.Func<System.Threading.CancellationToken,System.Threading.Tasks.Task> stopWait, System.Threading.CancellationToken cancellationToken optional)",
             "System.Collections.Generic.IAsyncEnumerable<T> StartAfter<T>(System.Collections.Generic.IAsyncEnumerable<T> source, System.Func<System.Threading.CancellationToken,System.Threading.Tasks.Task> startWait, System.Threading.CancellationToken cancellationToken optional)",
             "System.Collections.Generic.IAsyncEnumerable<T> TakeUntil<T>(System.Collections.Generic.IAsyncEnumerable<T> source, System.Func<System.Threading.CancellationToken,System.Threading.Tasks.Task> stopWait, System.Threading.CancellationToken cancellationToken optional)");
 
