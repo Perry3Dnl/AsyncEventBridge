@@ -69,11 +69,13 @@ public static partial class EventStreamComposition
 
             var activationSignal = new TaskCompletionSource<bool>(
                 TaskCreationOptions.RunContinuationsAsynchronously);
+            var activationSucceeded = 0;
             var stopSucceeded = 0;
 
             async Task ObserveStartAsync(CancellationToken token)
             {
                 await startWait(token).ConfigureAwait(false);
+                Interlocked.Exchange(ref activationSucceeded, 1);
                 activationSignal.TrySetResult(true);
             }
 
@@ -93,7 +95,7 @@ public static partial class EventStreamComposition
 
                 await Task.WhenAny(moveTask, activationSignal.Task).ConfigureAwait(false);
 
-                if (!activationSignal.Task.IsCompletedSuccessfully)
+                if (Volatile.Read(ref activationSucceeded) == 0)
                 {
                     // Stop-before-start, startup failure, cancellation, or another terminal condition.
                     // Awaiting the move preserves the one-shot composition outcome and cleanup semantics.
