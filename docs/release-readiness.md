@@ -18,6 +18,32 @@ Version 1.0 is a stability and adoption release. New functionality is accepted o
 
 The repository may use prerelease package versions while this gate is incomplete. The final stable version must not be published until every applicable gate below is satisfied.
 
+## Release-candidate policy
+
+The intended progression is:
+
+```text
+1.0.0-preview.1
+    ↓
+1.0.0-rc.1
+    ↓
+1.0.0
+```
+
+Move to `1.0.0-rc.1` only after the public API is frozen, the automated repository/package gates are green, and the long-term license decision is settled.
+
+Once `rc.1` is cut:
+
+- no public API changes are accepted unless RC validation exposes a concrete defect;
+- run the complete normal CI gate on the RC commit;
+- run the manual Unity 1.0 Acceptance workflow on that RC commit;
+- use the RC package for final consumer/manual validation;
+- update release notes from draft to final.
+
+If RC validation is clean, the stable release should differ only in release/version metadata and any documentation wording that cannot affect runtime/package behavior.
+
+The stable `1.0.0` commit must still rerun the complete automated release gate on `main` before tagging/publication.
+
 ## Branch policy
 
 `release/1.0.0-stabilization` is the 1.0 integration line.
