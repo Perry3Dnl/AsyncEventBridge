@@ -41,7 +41,7 @@ The following items cannot be finalized safely from repository code alone:
 
 1. **Publisher namespace** — confirm that Unity assigns/reserves a namespace compatible with `com.perry3d.async-event-bridge`. If Unity assigns a different namespace, rename the package folder and manifest together before submission.
 2. **Publisher author name** — `package.json` currently uses `Perry3Dnl`. Unity requires the manifest author to match the Asset Store publisher name, so update it if the Publisher Portal name differs.
-3. **Asset Store licensing presentation** — the development package currently declares `MPL-2.0`. Decide the exact Asset Store licensing/dual-licensing treatment before upload; do not silently relabel already-distributed MPL code.
+3. **Asset Store licensing presentation** — the 1.0 package declares `MIT`. Pre-1.0 snapshots that were distributed under MPL-2.0 remain subject to the license terms under which they were distributed; the 1.0 relicensing does not rewrite that historical distribution.
 4. **Publisher enrollment / identity verification** — complete Unity's UPM publisher enrollment requirements.
 
 ## Release gates
