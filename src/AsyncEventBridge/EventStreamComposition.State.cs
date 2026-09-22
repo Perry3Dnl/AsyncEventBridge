@@ -9,6 +9,33 @@ namespace AsyncEventBridge
 
 public static partial class EventStreamComposition
 {
+    private static IAsyncEnumerable<T> TakeUntilForState<T>(
+        IAsyncEnumerable<T> source,
+        Func<CancellationToken, Task> stopWait,
+        CancellationToken cancellationToken)
+    {
+        return new TakeUntilEnumerable<T>(
+            source,
+            stopWait,
+            cancellationToken,
+            null,
+            true);
+    }
+
+    private static IAsyncEnumerable<T> TakeUntilForState<T>(
+        IAsyncEnumerable<T> source,
+        Func<CancellationToken, Task> stopWait,
+        Action<EventStreamTakeUntilCompletion> completionObserver,
+        CancellationToken cancellationToken)
+    {
+        return new TakeUntilEnumerable<T>(
+            source,
+            stopWait,
+            cancellationToken,
+            completionObserver,
+            true);
+    }
+
     /// <summary>
     /// Repeatedly consumes the source while a boolean state is true.
     /// </summary>
@@ -160,7 +187,8 @@ public static partial class EventStreamComposition
                     cancellationToken)
                 .ConfigureAwait(false);
 
-            var window = source.TakeUntil(
+            var window = TakeUntilForState(
+                source,
                 token => EventCondition.WaitUntilAsync(
                     getState,
                     isInactive,
@@ -220,7 +248,7 @@ public static partial class EventStreamComposition
                 Volatile.Write(ref completion, (int)value);
             }
 
-            var window = TakeUntilWithCompletion(
+            var window = TakeUntilForState(
                 source,
                 token => EventCondition.WaitUntilAsync(
                     getState,
