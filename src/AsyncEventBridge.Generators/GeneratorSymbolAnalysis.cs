@@ -11,6 +11,16 @@ internal static class GeneratorSymbolAnalysis
         INamedTypeSymbol typeSymbol,
         Func<INamedTypeSymbol, bool>? shouldStopAtBaseType)
     {
+        if (typeSymbol.TypeKind == TypeKind.Interface)
+        {
+            foreach (var eventSymbol in typeSymbol.GetMembers().OfType<IEventSymbol>())
+            {
+                yield return eventSymbol;
+            }
+
+            yield break;
+        }
+
         var hiddenNames = new HashSet<string>(StringComparer.Ordinal);
         INamedTypeSymbol? current = typeSymbol;
         var isTargetType = true;
@@ -117,7 +127,7 @@ internal static class GeneratorSymbolAnalysis
 
     internal static bool CanGenerateForType(INamedTypeSymbol typeSymbol)
     {
-        if (typeSymbol.TypeKind != TypeKind.Class)
+        if (typeSymbol.TypeKind is not (TypeKind.Class or TypeKind.Interface))
         {
             return false;
         }
