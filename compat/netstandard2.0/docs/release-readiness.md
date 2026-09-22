@@ -8,7 +8,7 @@ This document records the release contract for AsyncEventBridge `0.1.0`, the fir
 - Baseline target: `.NET Standard 2.0`
 - Package ID: `AsyncEventBridge`
 - Source generator: included in the same package
-- License: `MPL-2.0`
+- License: `MIT`
 
 Version `0.1.0` establishes the first public .NET Standard 2.0 baseline. The baseline is the complete runtime contract, not a reduced compatibility build.
 
@@ -22,7 +22,7 @@ The package is expected to contain:
 - `README.md`;
 - `assets/AsyncEventBridge.png`.
 
-The package metadata declares `MPL-2.0`. Consumers install one package; a second source-generator package is not required.
+The package metadata declares `MIT`. Consumers install one package; a second source-generator package is not required.
 
 ## Automated release gates
 
