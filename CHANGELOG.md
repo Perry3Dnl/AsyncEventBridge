@@ -8,12 +8,15 @@ All notable changes across the supported AsyncEventBridge release tracks are doc
 
 - Start the 0.5 development line from the frozen 0.4 release candidate.
 - Add `EventStreamComposition.TakeUntil(...)` for lifecycle-safe coordination between an async event stream and a cancellable asynchronous stop wait.
+- Add `EventStreamComposition.StartAfter(...)` to defer source enumeration/subscription until a cancellable activation wait completes successfully.
+- Make `StartAfter(...).TakeUntil(...)` a composable inactive/active/stopped lifecycle: a stop that wins before activation cancels the pending start and never subscribes the source.
 - Create the stop wait per enumeration and share a coordination token with the source enumerator.
 - Cancel, observe, and dispose the losing side before the composed sequence reports completion.
 - Preserve the 0.4 primary-outcome-first cleanup policy when the source, stop wait, cancellation callbacks, or enumerator disposal fail.
 - Define stop completion as the winner when both a source move and the stop wait are already complete at the observed move boundary.
 - Add runtime coverage for normal stop completion, source completion, stop faults, external cancellation, deterministic boundary behavior, and combined source/cleanup failures.
-- Port the same `TakeUntil` contract to the .NET Standard 2.0 and Unity portable core and lock the compatibility public surface.
+- Port the same `StartAfter` and `TakeUntil` contracts to the .NET Standard 2.0 and Unity portable core and lock the compatibility public surface.
+- Exercise `StartAfter` through packaged modern and compatibility runtime consumers in addition to direct runtime tests.
 - Document the 0.5 interoperability direction and explicitly keep general async-LINQ/Rx functionality out of scope.
 
 ### 0.4 generator architecture
