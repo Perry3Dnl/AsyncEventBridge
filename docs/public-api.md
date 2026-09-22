@@ -145,7 +145,21 @@ Composition owns coordination cancellation. Losing or pending waits are cancelle
 
 ## Event-stream workflow composition
 
-`EventStreamComposition.TakeUntil(...)` coordinates a source async stream with another cancellable async wait:
+`EventStreamComposition.StartAfter(...)` delays source enumeration until a cancellable activation wait completes successfully:
+
+```csharp
+await foreach (var value in sensor.ValueChangedStream()
+    .StartAfter(
+        token => sensor.ConnectedAsync(token),
+        cancellationToken))
+{
+    Process(value);
+}
+```
+
+The source enumerator is not created before activation, so an event-backed source does not subscribe its underlying event before the start wait succeeds. A faulted or cancelled start wait propagates and the source never starts.
+
+`EventStreamComposition.TakeUntil(...)` coordinates a source async stream with another cancellable stop wait:
 
 ```csharp
 await foreach (var value in sensor.ValueChangedStream()
@@ -161,7 +175,9 @@ The stop wait is created per enumeration. The source and stop wait share a coord
 
 If a source move and the stop wait are both complete when the move boundary is observed, the stop wait wins and that value is not published. Source/stop cleanup follows the same primary-outcome-first aggregation policy as the rest of the runtime.
 
-This API is intentionally event-workflow-specific. 0.5 does not introduce a parallel general-purpose async LINQ or Rx operator set.
+The operators compose directly: `source.StartAfter(startWait).TakeUntil(stopWait)` models an inactive/active/stopped lifecycle. Because `TakeUntil` is outermost, a stop that occurs before activation cancels and observes the pending start wait without subscribing the source.
+
+These APIs are intentionally event-workflow-specific. 0.5 does not introduce a parallel general-purpose async LINQ or Rx operator set.
 
 ## Task / ValueTask -> events
 
