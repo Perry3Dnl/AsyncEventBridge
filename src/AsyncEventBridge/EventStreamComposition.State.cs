@@ -168,7 +168,6 @@ public static partial class EventStreamComposition
                 .ConfigureAwait(false);
 
             cycle++;
-            yield return EventStreamLifecycleEvent<T>.Activated(cycle);
 
             var completion = 0;
 
@@ -189,11 +188,26 @@ public static partial class EventStreamComposition
 
             await using (var enumerator = window.GetAsyncEnumerator(cancellationToken))
             {
-                while (await enumerator.MoveNextAsync().ConfigureAwait(false))
+                var moveTask = enumerator.MoveNextAsync().AsTask();
+
+                // The active window is armed before Activated is exposed so event-backed sources cannot miss
+                // values while the consumer handles the lifecycle marker.
+                yield return EventStreamLifecycleEvent<T>.Activated(cycle);
+
+                while (true)
                 {
+                    var moved = await moveTask.ConfigureAwait(false);
+
+                    if (!moved)
+                    {
+                        break;
+                    }
+
                     yield return EventStreamLifecycleEvent<T>.FromValue(
                         cycle,
                         enumerator.Current);
+
+                    moveTask = enumerator.MoveNextAsync().AsTask();
                 }
             }
 
