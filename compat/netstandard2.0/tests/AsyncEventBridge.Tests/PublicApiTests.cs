@@ -27,6 +27,8 @@ public sealed class PublicApiTests
             "AsyncEventBridge.EventStreamBridge`1",
             "AsyncEventBridge.EventStreamComposition",
             "AsyncEventBridge.EventStreamFullMode",
+            "AsyncEventBridge.EventStreamLifecycleEvent`1",
+            "AsyncEventBridge.EventStreamLifecycleEventKind",
             "AsyncEventBridge.EventStreamOptions",
             "AsyncEventBridge.GenerateAsyncEventsAttribute",
             "AsyncEventBridge.GenerateAsyncEventsForAttribute",
@@ -48,7 +50,7 @@ public sealed class PublicApiTests
             "ToEventBridge");
         AssertMethodNames(typeof(EventAwaiter), "WaitAsync", "WaitAsync");
         AssertMethodNames(typeof(EventStream), "Create", "Create");
-        AssertMethodNames(typeof(EventStreamComposition), "RepeatBetween", "StartAfter", "TakeUntil");
+        AssertMethodNames(typeof(EventStreamComposition), "RepeatBetween", "RepeatBetweenWithLifecycle", "StartAfter", "TakeUntil");
         AssertMethodNames(typeof(EventBridge), "Connect", "Dispose");
         AssertMethodNames(typeof(EventBridge<int>), "Connect", "Dispose");
         AssertMethodNames(typeof(EventStreamBridge<int>), "Connect", "Dispose", "DisposeAsync");
@@ -64,6 +66,7 @@ public sealed class PublicApiTests
         AssertPropertyNames(typeof(AsyncValueEventArgs<int>), "Value");
         AssertPropertyNames(typeof(AsyncFaultedEventArgs), "Exception");
         AssertPropertyNames(typeof(EventStreamOptions), "Capacity", "FullMode");
+        AssertPropertyNames(typeof(EventStreamLifecycleEvent<int>), "Cycle", "HasValue", "Kind", "Value");
         AssertPropertyNames(
             typeof(EventBridgeOptions),
             "SubscriberExceptionObserver",
@@ -76,6 +79,9 @@ public sealed class PublicApiTests
         Assert.Equal(
             new[] { "IgnoreAndContinue", "ReportAndContinue", "TraceAndContinue" },
             Enum.GetNames<EventBridgeSubscriberExceptionPolicy>().OrderBy(name => name, StringComparer.Ordinal));
+        Assert.Equal(
+            new[] { "Activated", "Deactivated", "SourceCompleted", "Value" },
+            Enum.GetNames<EventStreamLifecycleEventKind>().OrderBy(name => name, StringComparer.Ordinal));
     }
 
     [Fact]
