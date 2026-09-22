@@ -138,7 +138,7 @@ public sealed class PublicApiTests
         AssertPropertyNames(typeof(GenerateAsyncEventsForAttribute), "TargetType");
 
         Assert.Equal(
-            new[] { "DropWrite", "DropOldest", "Unbounded" },
+            new[] { "DropOldest", "DropWrite", "Unbounded" },
             Enum.GetNames<EventStreamFullMode>().OrderBy(name => name, StringComparer.Ordinal));
         Assert.Equal(
             new[] { "IgnoreAndContinue", "ReportAndContinue", "TraceAndContinue" },
