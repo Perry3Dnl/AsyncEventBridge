@@ -97,7 +97,7 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
                 shape,
                 typeParameters,
                 GetMethodAccessibility(typeSymbol, eventSymbol),
-                preserveNullableAnnotations: false));
+                preserveNullableAnnotations: true));
         }
 
         GenerateSource(
@@ -208,7 +208,7 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
                     shape,
                     typeParameters,
                     GetMethodAccessibility(typeSymbol, eventSymbol),
-                    preserveNullableAnnotations: false));
+                    preserveNullableAnnotations: true));
             }
 
             GenerateSource(
