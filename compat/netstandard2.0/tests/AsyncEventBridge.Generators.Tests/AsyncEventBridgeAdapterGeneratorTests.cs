@@ -122,6 +122,7 @@ public sealed class AsyncEventBridgeAdapterGeneratorTests
         var diagnostic = Assert.Single(result.Diagnostics.Where(diagnostic => diagnostic.Id == "AEB001"));
 
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
+        Assert.Equal("https://github.com/Perry3Dnl/AsyncEventBridge/blob/main/docs/diagnostics.md#aeb001", diagnostic.Descriptor.HelpLinkUri);
         Assert.Contains("Changed", diagnostic.GetMessage(), StringComparison.Ordinal);
         Assert.Contains("ValueHandler", diagnostic.GetMessage(), StringComparison.Ordinal);
         Assert.Empty(Assert.Single(result.Results).GeneratedSources);
@@ -210,6 +211,7 @@ public sealed class AsyncEventBridgeAdapterGeneratorTests
         var diagnostic = Assert.Single(result.Diagnostics.Where(diagnostic => diagnostic.Id == "AEB002"));
 
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
+        Assert.Equal("https://github.com/Perry3Dnl/AsyncEventBridge/blob/main/docs/diagnostics.md#aeb002", diagnostic.Descriptor.HelpLinkUri);
         Assert.Contains("Demo.Sensor", diagnostic.GetMessage(), StringComparison.Ordinal);
         Assert.Empty(Assert.Single(result.Results).GeneratedSources);
     }
@@ -236,6 +238,7 @@ public sealed class AsyncEventBridgeAdapterGeneratorTests
         var diagnostic = Assert.Single(result.Diagnostics.Where(diagnostic => diagnostic.Id == "AEB003"));
 
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
+        Assert.Equal("https://github.com/Perry3Dnl/AsyncEventBridge/blob/main/docs/diagnostics.md#aeb003", diagnostic.Descriptor.HelpLinkUri);
         Assert.Contains("Demo.Sensor", diagnostic.GetMessage(), StringComparison.Ordinal);
         Assert.Single(Assert.Single(result.Results).GeneratedSources);
     }
