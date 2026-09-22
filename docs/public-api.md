@@ -77,6 +77,15 @@ int value = occurrence.Payload;
 
 Low-level integration uses `EventOccurrenceAwaiter.WaitAsync<TSender, TPayload>(...)`.
 
+Generated occurrence waits and streams expose the same filtering shape as the low-level APIs. Predicates receive the full occurrence, so filtering can depend on either sender, payload, or both:
+
+```csharp
+EventOccurrence<Sensor, int> occurrence =
+    await sensor.ValueChangedOccurrenceAsync(
+        item => ReferenceEquals(item.Sender, expectedSensor) && item.Payload >= 100,
+        cancellationToken);
+```
+
 ## Event -> IAsyncEnumerable<T>
 
 Generated event streams expose repeated payloads:
