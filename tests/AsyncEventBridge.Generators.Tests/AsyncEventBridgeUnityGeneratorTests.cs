@@ -109,6 +109,8 @@ public sealed class AsyncEventBridgeUnityGeneratorTests
         var generatedSource = Assert.Single(Assert.Single(result.Results).GeneratedSources).SourceText.ToString();
 
         Assert.Contains("namespace AsyncEventBridge.Unity", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("/// <summary>Contains generated Unity async event extension methods.</summary>", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("/// <summary>Asynchronously waits for the next ValueChanged event occurrence using Unity Awaitable.</summary>", generatedSource, StringComparison.Ordinal);
         Assert.Contains("Demo_DOT_SensorUnityAsyncEventExtensions", generatedSource, StringComparison.Ordinal);
         Assert.Contains(
             "global::UnityEngine.Awaitable<global::Demo.SensorEventArgs> ValueChangedAsync",
