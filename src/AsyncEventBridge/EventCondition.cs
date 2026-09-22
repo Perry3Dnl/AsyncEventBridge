@@ -15,7 +15,7 @@ public static class EventCondition
     /// <summary>
     /// Waits until a boolean state becomes true.
     /// </summary>
-    public static Task<bool> WaitUntilAsync(
+    public static Task WaitUntilAsync(
         Func<bool> condition,
         Func<CancellationToken, Task> waitForChange,
         CancellationToken cancellationToken = default)
