@@ -1,6 +1,6 @@
-# Public API — v0.4.0
+# Public API — v0.5.0
 
-AsyncEventBridge `0.4.0` keeps the native .NET 10 runtime on the unified release line and hardens behavioral contracts before 1.0.
+AsyncEventBridge `0.5.0` builds on the 0.4 lifecycle and generator contracts with a focused async-interoperability workflow layer.
 
 The normal Event -> async entry points are generated APIs such as `<EventName>Async(...)`, `<EventName>Stream(...)`, and sender-aware `<EventName>OccurrenceAsync(...)` / `<EventName>OccurrenceStream(...)`. The normal async -> events entry point is `ToEventBridge()`.
 
@@ -143,6 +143,26 @@ IReadOnlyList<int> values = await EventComposition.WaitAllAsync(
 
 Composition owns coordination cancellation. Losing or pending waits are cancelled and observed so hidden event subscriptions are not left behind. Startup failures and cleanup failures remain observable.
 
+## Event-stream workflow composition
+
+`EventStreamComposition.TakeUntil(...)` coordinates a source async stream with another cancellable async wait:
+
+```csharp
+await foreach (var value in sensor.ValueChangedStream()
+    .TakeUntil(
+        token => sensor.DisconnectedAsync(token),
+        cancellationToken))
+{
+    Process(value);
+}
+```
+
+The stop wait is created per enumeration. The source and stop wait share a coordination token so whichever side finishes first can deterministically cancel and observe the other side. A successful stop wait ends the sequence; a faulted or independently cancelled stop wait propagates its outcome.
+
+If a source move and the stop wait are both complete when the move boundary is observed, the stop wait wins and that value is not published. Source/stop cleanup follows the same primary-outcome-first aggregation policy as the rest of the runtime.
+
+This API is intentionally event-workflow-specific. 0.5 does not introduce a parallel general-purpose async LINQ or Rx operator set.
+
 ## Task / ValueTask -> events
 
 ```csharp
@@ -224,6 +244,7 @@ GenerateAsyncEventsAttribute
 GenerateAsyncEventsForAttribute
 EventAwaiter
 EventStream
+EventStreamComposition
 EventStreamOptions
 EventStreamFullMode
 EventOccurrence<TSender, TPayload>
