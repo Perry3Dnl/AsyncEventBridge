@@ -143,6 +143,24 @@ IReadOnlyList<int> values = await EventComposition.WaitAllAsync(
 
 Composition owns coordination cancellation. Losing or pending waits are cancelled and observed so hidden event subscriptions are not left behind. Startup failures and cleanup failures remain observable.
 
+## Event-driven state conditions
+
+`EventCondition.WaitUntilAsync<TState>(...)` coordinates a current-state snapshot with a cancellable event-driven change wait:
+
+```csharp
+ConnectionState state = await EventCondition.WaitUntilAsync(
+    () => client.State,
+    state => state == ConnectionState.Connected,
+    token => client.StateChangedAsync(token),
+    cancellationToken);
+```
+
+The method arms `waitForChange` before calling `getState` on every attempt. This prevents a state transition from being lost between checking state and subscribing for changes.
+
+If the predicate is already satisfied, the temporary change wait is cancelled and observed before the method returns the matching state snapshot. If a change notification arrives while the predicate is still false, the method rearms and rechecks. Spurious notifications are therefore supported without polling.
+
+State access, predicate, change-wait, cancellation, and cleanup failures remain observable. Change waits should honor the supplied cancellation token so deterministic cleanup can complete.
+
 ## Event-stream workflow composition
 
 `EventStreamComposition.StartAfter(...)` delays source enumeration until a cancellable activation wait completes successfully:
@@ -274,6 +292,7 @@ The public surface is protected by API-lock tests and includes:
 GenerateAsyncEventsAttribute
 GenerateAsyncEventsForAttribute
 EventAwaiter
+EventCondition
 EventStream
 EventStreamComposition
 EventStreamLifecycleEvent<T>
