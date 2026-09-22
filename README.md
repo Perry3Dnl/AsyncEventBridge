@@ -290,26 +290,46 @@ ConnectionState state = await EventCondition.WaitUntilAsync(
     state => state == ConnectionState.Connected,
     token => client.StateChangedAsync(token),
     cancellationToken);
+
+// Boolean state has a shorter overload.
+await EventCondition.WaitUntilAsync(
+    () => client.IsConnected,
+    token => client.ConnectionChangedAsync(token),
+    cancellationToken);
 ```
 
 If the condition is already true, the temporary change wait is cancelled, observed, and cleaned up before returning. If a transition happens while the wait is being armed, it is either visible in the subsequent state snapshot or captured by the armed event wait. Spurious change notifications simply cause another subscribe-before-check attempt.
 
-This composes directly with lifecycle workflows:
+For state-driven lifecycles, callers normally do not need to compose those waits manually. `RepeatWhile` combines current-state checks, change events, activation, deactivation, and reactivation:
 
 ```csharp
 await foreach (var reading in sensor.ReadingChangedStream()
-    .RepeatBetween(
-        token => EventCondition.WaitUntilAsync(
-            () => sensor.State,
-            state => state == SensorState.Connected,
-            waitToken => sensor.StateChangedAsync(waitToken),
-            token),
-        token => sensor.DisconnectedAsync(token),
+    .RepeatWhile(
+        () => sensor.State,
+        state => state == SensorState.Connected,
+        token => sensor.StateChangedAsync(token),
         cancellationToken))
 {
     Process(reading);
 }
 ```
+
+For ordinary boolean properties the call is shorter:
+
+```csharp
+await foreach (var reading in sensor.ReadingChangedStream()
+    .RepeatWhile(
+        () => sensor.IsConnected,
+        token => sensor.ConnectionChangedAsync(token),
+        cancellationToken))
+{
+    Process(reading);
+}
+```
+
+`RepeatWhileWithLifecycle` exposes the same state-driven stream with `Activated`, `Value`, `Deactivated`, and `SourceCompleted` markers when the application needs explicit session boundaries.
+
+The design goal is that neither programming model feels foreign: existing events remain normal events, generated async methods follow normal async naming, event streams read like ordinary `await foreach`, and async work can still be surfaced back through normal .NET events with `ToEventBridge()`. The coordination machinery stays behind those familiar call shapes.
 
 This is deliberately narrower than adding a general stream-operator library: 0.5 workflow APIs are intended for event-specific coordination and lifetime problems.
 
