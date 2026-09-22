@@ -7,7 +7,7 @@ public sealed class EventConditionTests
     {
         var source = new BoolStateSource(initialState: true);
 
-        var result = await EventCondition.WaitUntilAsync(
+        await EventCondition.WaitUntilAsync(
             () => source.State,
             state => state,
             token => EventAwaiter.WaitAsync<int>(
@@ -15,7 +15,7 @@ public sealed class EventConditionTests
                 handler => source.Changed -= handler,
                 cancellationToken: token));
 
-        Assert.True(result);
+        Assert.True(source.State);
         Assert.Equal(1, source.AddCount);
         Assert.Equal(0, source.HandlerCount);
     }
@@ -25,7 +25,7 @@ public sealed class EventConditionTests
     {
         var source = new BoolStateSource(initialState: false);
 
-        var result = await EventCondition.WaitUntilAsync(
+        await EventCondition.WaitUntilAsync(
             () => source.State,
             state => state,
             token => EventAwaiter.WaitAsync<int>(
@@ -33,7 +33,6 @@ public sealed class EventConditionTests
                 handler => source.Changed -= handler,
                 cancellationToken: token));
 
-        Assert.True(result);
         Assert.True(source.State);
         Assert.Equal(1, source.AddCount);
         Assert.Equal(0, source.HandlerCount);
@@ -63,7 +62,8 @@ public sealed class EventConditionTests
         source.SetState(true);
         source.Raise();
 
-        Assert.True(await wait);
+        await wait;
+        Assert.True(source.State);
         Assert.True(source.AddCount >= 3);
         Assert.Equal(0, source.HandlerCount);
     }
