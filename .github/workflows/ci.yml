@@ -60,7 +60,6 @@ jobs:
           unzip -l "$PACKAGE" | tee artifacts/package-contents.txt
           unzip -l "$PACKAGE" | grep -q "lib/net10.0/AsyncEventBridge.dll"
           unzip -l "$PACKAGE" | grep -q "lib/net10.0/AsyncEventBridge.xml"
-          unzip -l "$PACKAGE" | grep -q "lib/net10.0/AsyncEventBridge.pdb"
           unzip -l "$PACKAGE" | grep -q "analyzers/dotnet/cs/AsyncEventBridge.Generators.dll"
           unzip -l "$PACKAGE" | grep -q "assets/AsyncEventBridge.png"
           unzip -l "$PACKAGE" | grep -q "README.md"
@@ -157,14 +156,16 @@ jobs:
         run: |
           set -euo pipefail
           PACKAGE="artifacts/compat-packages/AsyncEventBridge.${VERSION}.nupkg"
+          SYMBOL_PACKAGE="artifacts/compat-packages/AsyncEventBridge.${VERSION}.snupkg"
           test -f "$PACKAGE"
+          test -f "$SYMBOL_PACKAGE"
           unzip -l "$PACKAGE" | tee artifacts/compat-package-contents.txt
           unzip -l "$PACKAGE" | grep -q "lib/netstandard2.0/AsyncEventBridge.dll"
           unzip -l "$PACKAGE" | grep -q "lib/netstandard2.0/AsyncEventBridge.xml"
-          unzip -l "$PACKAGE" | grep -q "lib/netstandard2.0/AsyncEventBridge.pdb"
           unzip -l "$PACKAGE" | grep -q "analyzers/dotnet/cs/AsyncEventBridge.Generators.dll"
           unzip -l "$PACKAGE" | grep -q "assets/AsyncEventBridge.png"
           unzip -l "$PACKAGE" | grep -q "README.md"
+          unzip -l "$SYMBOL_PACKAGE" | grep -q "lib/netstandard2.0/AsyncEventBridge.pdb"
 
       - name: Restore packaged compatibility consumer
         run: dotnet restore compat/netstandard2.0/tests/AsyncEventBridge.PackageSmoke/AsyncEventBridge.PackageSmoke.csproj --source "$PWD/artifacts/compat-packages" --source https://api.nuget.org/v3/index.json -p:AsyncEventBridgePackageVersion="$VERSION"
@@ -182,7 +183,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: AsyncEventBridge-netstandard2.0-${{ env.VERSION }}
-          path: artifacts/compat-packages/AsyncEventBridge.${{ env.VERSION }}.nupkg
+          path: |
+            artifacts/compat-packages/AsyncEventBridge.${{ env.VERSION }}.nupkg
+            artifacts/compat-packages/AsyncEventBridge.${{ env.VERSION }}.snupkg
           if-no-files-found: error
 
   unity:
