@@ -102,6 +102,32 @@ public sealed class AsyncEventBridgeGeneratorTests
     }
 
     [Fact]
+    public void PreservesNullableEventArgsPayload()
+    {
+        var source = RuntimeStubs + """
+            namespace Demo
+            {
+                [AsyncEventBridge.GenerateAsyncEvents]
+                public sealed class Sensor
+                {
+                    public event EventHandler<SensorEventArgs?>? Changed;
+                }
+
+                public sealed class SensorEventArgs : EventArgs
+                {
+                }
+            }
+            """;
+
+        var result = RunGenerator(source);
+        var generatedSource = Assert.Single(Assert.Single(result.Results).GeneratedSources).SourceText.ToString();
+
+        Assert.Contains("Task<global::Demo.SensorEventArgs?> ChangedAsync", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("IAsyncEnumerable<global::Demo.SensorEventArgs?> ChangedStream", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("Predicate<global::Demo.SensorEventArgs?> predicate", generatedSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void GeneratedSourceCompilesWithCSharp8()
     {
         var source = RuntimeStubs + """
