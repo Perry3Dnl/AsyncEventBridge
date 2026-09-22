@@ -71,7 +71,9 @@ internal static class GeneratorTypeSystem
         if (typeSymbol is ITypeParameterSymbol nullableTypeParameter &&
             typeParameters.Names.TryGetValue(nullableTypeParameter, out var mappedName))
         {
-            return mappedName;
+            return nullableTypeParameter.NullableAnnotation == NullableAnnotation.Annotated
+                ? mappedName + "?"
+                : mappedName;
         }
 
         if (typeSymbol is IArrayTypeSymbol arrayType)
