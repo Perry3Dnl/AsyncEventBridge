@@ -313,7 +313,10 @@ public sealed class AsyncEventBridgeGenerator : IIncrementalGenerator
         bool includePredicate,
         bool includeTimeout)
     {
-        source.Append("    ")
+        source.Append("    /// <summary>Asynchronously waits for the next ")
+            .Append(eventName.TrimStart('@'))
+            .AppendLine(" event occurrence.</summary>")
+            .Append("    ")
             .Append(accessibility)
             .Append(" static global::System.Threading.Tasks.Task");
 
