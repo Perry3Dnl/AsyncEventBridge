@@ -38,14 +38,14 @@ public sealed class EventStreamObservabilityTests
     }
 
     [Fact]
-    public async Task DropNewestTracksDroppedValuesWithoutChangingBufferedValues()
+    public async Task DropWriteTracksDroppedValuesWithoutChangingBufferedValues()
     {
         var source = new TestEventSource<TestEventArgs>();
         var observedCounts = new List<long>();
         var options = new EventStreamOptions
         {
             Capacity = 2,
-            FullMode = EventStreamFullMode.DropNewest,
+            FullMode = EventStreamFullMode.DropWrite,
             DropObserver = observedCounts.Add,
         };
         var stream = EventStream.Create<TestEventArgs>(
