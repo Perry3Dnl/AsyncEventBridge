@@ -18,7 +18,8 @@ The unified NuGet package selects the most capable compatible runtime and genera
 | --- | --- | --- | --- |
 | One-shot CLR event wait | Generated `Task<T>` + low-level API | Generated `Task<T>` + low-level API | Generated `Awaitable<T>` + Unity-aware low-level API |
 | CLR event payload model | Normal non-ref-like payloads, including value types | `EventArgs`-based payloads | `EventArgs`-based generated CLR waits |
-| Third-party class generation | Yes | Yes | Yes |
+| Class/interface generation | Yes | Yes | Yes |
+| Third-party class/interface generation | Yes | Yes | Yes |
 | Compatible custom two-parameter delegates | Yes | Yes, with `EventArgs` payload | Yes, with `EventArgs` payload |
 | Generated CLR event streams | Yes | Yes | Use portable low-level stream APIs; UnityEvent streams are Unity-native |
 | `UnityEvent` waits/streams | — | — | Yes |
