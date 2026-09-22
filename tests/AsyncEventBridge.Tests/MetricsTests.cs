@@ -60,7 +60,7 @@ public sealed class MetricsTests
 
     [Theory]
     [InlineData(EventStreamFullMode.DropOldest, "drop_oldest")]
-    [InlineData(EventStreamFullMode.DropNewest, "drop_newest")]
+    [InlineData(EventStreamFullMode.DropWrite, "drop_write")]
     public async Task BoundedStreamDropsExposeFullMode(
         EventStreamFullMode fullMode,
         string expectedTagValue)
