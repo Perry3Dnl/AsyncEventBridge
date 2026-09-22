@@ -318,7 +318,7 @@ See `docs/metrics.md` for instrument names, tags, and semantics.
 
 ## Generated API rules
 
-The generator preserves normal C# accessibility, inheritance, generic constraints, member hiding, source-method precedence, and collision-safe extension naming. It supports directly annotated classes and public third-party targets selected at assembly level.
+The generator preserves normal C# accessibility, inheritance, generic constraints, member hiding, source-method precedence, and collision-safe extension naming. It supports directly annotated classes and interfaces plus public third-party class/interface targets selected at assembly level. Interface generation covers events declared directly on the targeted interface; base interfaces can be targeted independently.
 
 Generated async payloads must be safe to escape the synchronous event callback. Ref-like values are therefore deliberately not supported as async results.
 
