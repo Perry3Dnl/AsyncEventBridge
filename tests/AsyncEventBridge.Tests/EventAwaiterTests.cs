@@ -358,6 +358,27 @@ public sealed class EventAwaiterTests
     }
 
     [Fact]
+    public async Task TimeoutAndUnsubscribeFailureAreAggregatedInOrder()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var cleanupFailure = new InvalidOperationException("unsubscribe failed");
+        var wait = EventAwaiter.WaitAsync<TestEventArgs>(
+            _ => { },
+            _ => throw cleanupFailure,
+            timeout: TimeSpan.FromMinutes(1),
+            timeProvider: timeProvider);
+
+        timeProvider.Fire();
+
+        var actual = await Assert.ThrowsAsync<AggregateException>(() => wait);
+
+        Assert.Equal(2, actual.InnerExceptions.Count);
+        Assert.IsType<TimeoutException>(actual.InnerExceptions[0]);
+        Assert.Same(cleanupFailure, actual.InnerExceptions[1]);
+        Assert.True(wait.IsFaulted);
+    }
+
+    [Fact]
     public async Task SuccessfulWaitWithUnsubscribeFailureFaultsWithCleanupException()
     {
         EventHandler<TestEventArgs>? handler = null;
