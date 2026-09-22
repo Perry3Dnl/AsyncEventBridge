@@ -64,9 +64,9 @@ public sealed class PublicApiTests
         AssertMethodNames(typeof(EventOccurrenceAwaiter), "WaitAsync");
         AssertMethodNames(typeof(EventOccurrenceStream), "Create");
         AssertMethodNames(typeof(EventComposition), "WaitAllAsync", "WaitAllAsync", "WaitAnyAsync", "WaitAnyAsync");
-        AssertMethodNames(typeof(EventCondition), "WaitUntilAsync");
+        AssertMethodNames(typeof(EventCondition), "WaitUntilAsync", "WaitUntilAsync");
         AssertMethodNames(typeof(EventStream), "Create", "Create");
-        AssertMethodNames(typeof(EventStreamComposition), "RepeatBetween", "RepeatBetweenWithLifecycle", "StartAfter", "TakeUntil");
+        AssertMethodNames(typeof(EventStreamComposition), "RepeatBetween", "RepeatBetweenWithLifecycle", "RepeatWhile", "RepeatWhile", "RepeatWhileWithLifecycle", "RepeatWhileWithLifecycle", "StartAfter", "TakeUntil");
         AssertMethodNames(typeof(EventBridge), "Connect", "Dispose");
         AssertMethodNames(typeof(EventBridge<int>), "Connect", "Dispose");
         AssertMethodNames(typeof(EventStreamBridge<int>), "Connect", "Dispose", "DisposeAsync");
@@ -89,11 +89,16 @@ public sealed class PublicApiTests
             typeof(EventStreamComposition),
             "System.Collections.Generic.IAsyncEnumerable<T> RepeatBetween<T>(System.Collections.Generic.IAsyncEnumerable<T> source, System.Func<System.Threading.CancellationToken,System.Threading.Tasks.Task> startWait, System.Func<System.Threading.CancellationToken,System.Threading.Tasks.Task> stopWait, System.Threading.CancellationToken cancellationToken optional)",
             "System.Collections.Generic.IAsyncEnumerable<AsyncEventBridge.EventStreamLifecycleEvent<T>> RepeatBetweenWithLifecycle<T>(System.Collections.Generic.IAsyncEnumerable<T> source, System.Func<System.Threading.CancellationToken,System.Threading.Tasks.Task> startWait, System.Func<System.Threading.CancellationToken,System.Threading.Tasks.Task> stopWait, System.Threading.CancellationToken cancellationToken optional)",
+            "System.Collections.Generic.IAsyncEnumerable<T> RepeatWhile<T,TState>(System.Collections.Generic.IAsyncEnumerable<T> source, System.Func<TState> getState, System.Predicate<TState> isActive, System.Func<System.Threading.CancellationToken,System.Threading.Tasks.Task> waitForStateChange, System.Threading.CancellationToken cancellationToken optional)",
+            "System.Collections.Generic.IAsyncEnumerable<T> RepeatWhile<T>(System.Collections.Generic.IAsyncEnumerable<T> source, System.Func<System.Boolean> isActive, System.Func<System.Threading.CancellationToken,System.Threading.Tasks.Task> waitForStateChange, System.Threading.CancellationToken cancellationToken optional)",
+            "System.Collections.Generic.IAsyncEnumerable<AsyncEventBridge.EventStreamLifecycleEvent<T>> RepeatWhileWithLifecycle<T,TState>(System.Collections.Generic.IAsyncEnumerable<T> source, System.Func<TState> getState, System.Predicate<TState> isActive, System.Func<System.Threading.CancellationToken,System.Threading.Tasks.Task> waitForStateChange, System.Threading.CancellationToken cancellationToken optional)",
+            "System.Collections.Generic.IAsyncEnumerable<AsyncEventBridge.EventStreamLifecycleEvent<T>> RepeatWhileWithLifecycle<T>(System.Collections.Generic.IAsyncEnumerable<T> source, System.Func<System.Boolean> isActive, System.Func<System.Threading.CancellationToken,System.Threading.Tasks.Task> waitForStateChange, System.Threading.CancellationToken cancellationToken optional)",
             "System.Collections.Generic.IAsyncEnumerable<T> StartAfter<T>(System.Collections.Generic.IAsyncEnumerable<T> source, System.Func<System.Threading.CancellationToken,System.Threading.Tasks.Task> startWait, System.Threading.CancellationToken cancellationToken optional)",
             "System.Collections.Generic.IAsyncEnumerable<T> TakeUntil<T>(System.Collections.Generic.IAsyncEnumerable<T> source, System.Func<System.Threading.CancellationToken,System.Threading.Tasks.Task> stopWait, System.Threading.CancellationToken cancellationToken optional)");
 
         AssertMethodSignatures(
             typeof(EventCondition),
+            "System.Threading.Tasks.Task<System.Boolean> WaitUntilAsync(System.Func<System.Boolean> condition, System.Func<System.Threading.CancellationToken,System.Threading.Tasks.Task> waitForChange, System.Threading.CancellationToken cancellationToken optional)",
             "System.Threading.Tasks.Task<TState> WaitUntilAsync<TState>(System.Func<TState> getState, System.Predicate<TState> predicate, System.Func<System.Threading.CancellationToken,System.Threading.Tasks.Task> waitForChange, System.Threading.CancellationToken cancellationToken optional)");
 
         AssertMethodSignatures(
