@@ -159,6 +159,8 @@ A successful stop wait ends the sequence. A faulted or independently cancelled l
 
 The operators compose as `source.StartAfter(startWait).TakeUntil(stopWait)`. If stop happens before start, the pending activation wait is cancelled and observed and the source is never subscribed.
 
+`RepeatBetween(startWait, stopWait, cancellationToken)` repeats that active window. Each activation creates a fresh source enumeration; successful stop or source completion cleans the current cycle and rearms activation. A stop while inactive rearms without subscribing the source. Faults and external cancellation terminate the repeating workflow.
+
 ## Task -> events
 
 ```csharp
