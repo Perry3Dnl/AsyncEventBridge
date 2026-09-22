@@ -35,8 +35,8 @@ internal static class AsyncEventBridgeMetrics
     private static readonly KeyValuePair<string, object?> DropOldestTag =
         new("asynceventbridge.stream.full_mode", "drop_oldest");
 
-    private static readonly KeyValuePair<string, object?> DropNewestTag =
-        new("asynceventbridge.stream.full_mode", "drop_newest");
+    private static readonly KeyValuePair<string, object?> DropWriteTag =
+        new("asynceventbridge.stream.full_mode", "drop_write");
 
     internal static void RecordWaitSuccess() =>
         WaitOutcomes.Add(1, WaitSuccessTag);
@@ -57,8 +57,8 @@ internal static class AsyncEventBridgeMetrics
             case EventStreamFullMode.DropOldest:
                 StreamDrops.Add(1, DropOldestTag);
                 break;
-            case EventStreamFullMode.DropNewest:
-                StreamDrops.Add(1, DropNewestTag);
+            case EventStreamFullMode.DropWrite:
+                StreamDrops.Add(1, DropWriteTag);
                 break;
         }
     }
