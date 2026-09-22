@@ -41,6 +41,16 @@ For a project consuming the `0.5.0` package:
 
 The source generator ships in the same NuGet package; there is no separate analyzer package to install.
 
+### Supported editions
+
+| Edition | Baseline | Notes |
+| --- | --- | --- |
+| Modern .NET | `net10.0` | Full modern feature set, Native AOT/trimming gate |
+| .NET compatibility | `netstandard2.0` | Core event/async workflow surface |
+| Unity | `2023.1.0f1+` | UPM package with `Awaitable`, `UnityEvent`, lifecycle integration |
+
+See the [support matrix](docs/support-matrix.md) for the exact capability differences. Feature parity is intentionally not forced where a capability depends on a newer runtime or Unity-specific primitive.
+
 ## Before and after
 
 AsyncEventBridge is designed so the **event API still looks like an event API** and the **async API still looks like normal async .NET**. The package owns the subscription, cancellation, race, cleanup, and lifecycle plumbing between them.
