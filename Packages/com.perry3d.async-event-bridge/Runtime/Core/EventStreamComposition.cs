@@ -40,7 +40,7 @@ public static partial class EventStreamComposition
             throw new ArgumentNullException(nameof(stopWait));
         }
 
-        return new TakeUntilEnumerable<T>(source, stopWait, cancellationToken);
+        return new TakeUntilEnumerable<T>(source, stopWait, cancellationToken, null);
     }
 
     private sealed class TakeUntilEnumerable<T> : IAsyncEnumerable<T>
@@ -48,15 +48,18 @@ public static partial class EventStreamComposition
         private readonly IAsyncEnumerable<T> _source;
         private readonly Func<CancellationToken, Task> _stopWait;
         private readonly CancellationToken _creationCancellationToken;
+        private readonly Action<EventStreamTakeUntilCompletion>? _completionObserver;
 
         internal TakeUntilEnumerable(
             IAsyncEnumerable<T> source,
             Func<CancellationToken, Task> stopWait,
-            CancellationToken creationCancellationToken)
+            CancellationToken creationCancellationToken,
+            Action<EventStreamTakeUntilCompletion>? completionObserver)
         {
             _source = source;
             _stopWait = stopWait;
             _creationCancellationToken = creationCancellationToken;
+            _completionObserver = completionObserver;
         }
 
         public IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellationToken = default) =>
@@ -64,7 +67,8 @@ public static partial class EventStreamComposition
                 _source,
                 _stopWait,
                 _creationCancellationToken,
-                cancellationToken);
+                cancellationToken,
+                _completionObserver);
 
         private sealed class Enumerator : IAsyncEnumerator<T>
         {
@@ -72,6 +76,7 @@ public static partial class EventStreamComposition
             private readonly Func<CancellationToken, Task> _stopWait;
             private readonly CancellationToken _creationCancellationToken;
             private readonly CancellationToken _enumerationCancellationToken;
+            private readonly Action<EventStreamTakeUntilCompletion>? _completionObserver;
 
             private CancellationTokenSource? _lifetimeCancellation;
             private IAsyncEnumerator<T>? _sourceEnumerator;
@@ -86,12 +91,14 @@ public static partial class EventStreamComposition
                 IAsyncEnumerable<T> source,
                 Func<CancellationToken, Task> stopWait,
                 CancellationToken creationCancellationToken,
-                CancellationToken enumerationCancellationToken)
+                CancellationToken enumerationCancellationToken,
+                Action<EventStreamTakeUntilCompletion>? completionObserver)
             {
                 _source = source;
                 _stopWait = stopWait;
                 _creationCancellationToken = creationCancellationToken;
                 _enumerationCancellationToken = enumerationCancellationToken;
+                _completionObserver = completionObserver;
             }
 
             public T Current => _current;
@@ -229,6 +236,11 @@ public static partial class EventStreamComposition
                     primaryException = exception;
                 }
 
+                if (primaryException is null && _completionObserver is not null)
+                {
+                    _completionObserver(EventStreamTakeUntilCompletion.Stop);
+                }
+
                 var cleanupErrors = await CleanupAsync(observeStopTask: false).ConfigureAwait(false);
                 _terminal = true;
                 ThrowPrimaryWithCleanup(primaryException, cleanupErrors);
@@ -237,6 +249,11 @@ public static partial class EventStreamComposition
 
             private async Task CompleteFromSourceAsync(Exception? primaryException)
             {
+                if (primaryException is null && _completionObserver is not null)
+                {
+                    _completionObserver(EventStreamTakeUntilCompletion.SourceCompleted);
+                }
+
                 var cleanupErrors = await CleanupAsync(observeStopTask: true).ConfigureAwait(false);
                 _terminal = true;
                 ThrowPrimaryWithCleanup(primaryException, cleanupErrors);
