@@ -102,6 +102,23 @@ if (!ReferenceEquals(occurrence.Sender, strongSenderSensor) || occurrence.Payloa
     throw new InvalidOperationException("The packaged sender-aware generated wait lost sender or payload information.");
 }
 
+var filteredOccurrenceWait = strongSenderSensor.ValueChangedOccurrenceAsync(
+    item => ReferenceEquals(item.Sender, strongSenderSensor) && item.Payload == 325);
+strongSenderSensor.Raise(324);
+
+if (filteredOccurrenceWait.IsCompleted)
+{
+    throw new InvalidOperationException("The packaged sender-aware predicate accepted the wrong occurrence.");
+}
+
+strongSenderSensor.Raise(325);
+var filteredOccurrence = await filteredOccurrenceWait;
+if (filteredOccurrence.Payload != 325 ||
+    !ReferenceEquals(filteredOccurrence.Sender, strongSenderSensor))
+{
+    throw new InvalidOperationException("The packaged sender-aware predicate wait returned the wrong occurrence.");
+}
+
 await using (var occurrenceStream = strongSenderSensor.ValueChangedOccurrenceStream().GetAsyncEnumerator())
 {
     var occurrenceMove = occurrenceStream.MoveNextAsync().AsTask();
@@ -111,6 +128,26 @@ await using (var occurrenceStream = strongSenderSensor.ValueChangedOccurrenceStr
         occurrenceStream.Current.Payload != 323)
     {
         throw new InvalidOperationException("The packaged sender-aware generated stream lost sender or payload information.");
+    }
+}
+
+await using (var filteredOccurrenceStream = strongSenderSensor
+    .ValueChangedOccurrenceStream(item => item.Payload >= 330)
+    .GetAsyncEnumerator())
+{
+    var filteredMove = filteredOccurrenceStream.MoveNextAsync().AsTask();
+    strongSenderSensor.Raise(329);
+
+    if (filteredMove.IsCompleted)
+    {
+        throw new InvalidOperationException("The packaged sender-aware stream predicate accepted the wrong occurrence.");
+    }
+
+    strongSenderSensor.Raise(330);
+
+    if (!await filteredMove || filteredOccurrenceStream.Current.Payload != 330)
+    {
+        throw new InvalidOperationException("The packaged sender-aware stream predicate returned the wrong occurrence.");
     }
 }
 
