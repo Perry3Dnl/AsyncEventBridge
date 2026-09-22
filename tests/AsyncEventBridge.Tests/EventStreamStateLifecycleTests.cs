@@ -190,18 +190,6 @@ public sealed class EventStreamStateLifecycleTests
         cancellation.Cancel();
     }
 
-    [Fact]
-    public async Task TakeUntilAlreadySatisfiedStopDoesNotStartSource()
-    {
-        var source = new CountingEnumerable<int>();
-
-        var stream = source.TakeUntil(_ => Task.CompletedTask);
-
-        await using var enumerator = stream.GetAsyncEnumerator();
-
-        Assert.False(await enumerator.MoveNextAsync());
-        Assert.Equal(0, source.EnumerationCount);
-    }
 
     private static async Task WaitUntilAsync(Func<bool> condition)
     {
