@@ -5,13 +5,16 @@
     <IncludeBuildOutput>false</IncludeBuildOutput>
 
     <PackageId>AsyncEventBridge</PackageId>
+    <Title>AsyncEventBridge</Title>
     <Authors>Perry3Dnl</Authors>
-    <Description>Bridge event-driven and async code across modern .NET, .NET Standard compatibility, and generated event facades.</Description>
-    <PackageTags>async;events;task;valuetask;iasyncenumerable;source-generator;netstandard;net10;nativeaot</PackageTags>
+    <Description>Bridge .NET events and async/await in both directions: await events, stream events with IAsyncEnumerable, generate event facades, and expose Task, ValueTask, and async streams as events.</Description>
+    <PackageTags>async;await;events;eventhandler;task;valuetask;iasyncenumerable;source-generator;roslyn;netstandard;net10;nativeaot;trimming</PackageTags>
     <PackageProjectUrl>https://github.com/Perry3Dnl/AsyncEventBridge</PackageProjectUrl>
     <RepositoryUrl>https://github.com/Perry3Dnl/AsyncEventBridge.git</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>assets/AsyncEventBridge.png</PackageIcon>
     <PackageLicenseExpression>MPL-2.0</PackageLicenseExpression>
