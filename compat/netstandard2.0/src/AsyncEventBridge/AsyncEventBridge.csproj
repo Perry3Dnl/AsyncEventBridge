@@ -6,6 +6,8 @@
     <AssemblyName>AsyncEventBridge</AssemblyName>
     <RootNamespace>AsyncEventBridge</RootNamespace>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
 
     <PackageId>AsyncEventBridge</PackageId>
     <Authors>Perry3Dnl</Authors>
