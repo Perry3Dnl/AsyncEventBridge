@@ -11,6 +11,7 @@ All notable changes to the .NET Standard 2.0 baseline of AsyncEventBridge are do
 - Support composing `StartAfter(...).TakeUntil(...)` into an inactive/active/stopped lifecycle where stop-before-start never subscribes the source.
 - Add portable `RepeatBetween(...)` support for reconnecting lifecycles with fresh per-cycle source enumeration and deterministic cleanup.
 - Add portable `RepeatBetweenWithLifecycle(...)`, `EventStreamLifecycleEvent<T>`, and lifecycle event kinds for observing activation/value/deactivation/source-completion boundaries with cycle identity.
+- Add portable `EventCondition.WaitUntilAsync(...)` with subscribe-before-check semantics for already-active state and missed-transition-safe state changes.
 - Coordinate source enumeration and the stop wait through a shared cancellation lifetime.
 - Cancel, observe, and dispose the losing side before reporting completion.
 - Preserve primary source/stop failures ahead of cleanup failures.
