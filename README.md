@@ -23,7 +23,7 @@ IAsyncEnumerable<T>  -> EventStreamBridge<T>
 Event stream + wait  -> lifecycle-safe async workflow
 ```
 
-The modern line also includes sender-aware event occurrences, heterogeneous/N-way wait composition, bounded-stream telemetry, `System.Diagnostics.Metrics`, `TimeProvider`, and Native AOT/trimming verification. The first 0.5 stream-workflow primitive, `EventStreamComposition.TakeUntil`, is also available on the .NET Standard 2.0 and Unity portable runtimes.
+The modern line also includes sender-aware event occurrences, heterogeneous/N-way wait composition, bounded-stream telemetry, `System.Diagnostics.Metrics`, `TimeProvider`, and Native AOT/trimming verification. The 0.5 stream-workflow primitives, `EventStreamComposition.StartAfter` and `TakeUntil`, are also available on the .NET Standard 2.0 and Unity portable runtimes.
 
 ## Package
 
@@ -195,7 +195,21 @@ There is intentionally no producer-blocking mode: blocking a synchronous event c
 
 ## Compose event streams with event waits
 
-0.5 adds `EventStreamComposition.TakeUntil` for workflows where a stream should remain active until another event-driven condition occurs:
+0.5 adds a small lifecycle vocabulary for event-backed streams.
+
+`StartAfter` delays source enumeration until an activation wait succeeds. For generated event streams, that means the underlying event is not even subscribed until activation:
+
+```csharp
+await foreach (Reading reading in sensor.ReadingChangedStream()
+    .StartAfter(
+        token => sensor.ConnectedAsync(token),
+        cancellationToken))
+{
+    Process(reading);
+}
+```
+
+`TakeUntil` keeps a stream active until a termination wait succeeds:
 
 ```csharp
 await foreach (Reading reading in sensor.ReadingChangedStream()
@@ -207,9 +221,20 @@ await foreach (Reading reading in sensor.ReadingChangedStream()
 }
 ```
 
-The stream and stop wait share a coordination lifetime. If the stop event arrives first, source enumeration is cancelled, observed, and disposed before the composed stream finishes. If the source completes or faults first, the stop wait is cancelled and observed before completion is reported.
+The two primitives compose into a complete event-driven lifetime:
 
-A faulted or independently cancelled stop wait propagates its outcome rather than being treated as a successful stop. Cleanup failures remain observable after the primary source/stop outcome. If both sides are complete at the same observed move boundary, the stop wait wins and that source value is not emitted.
+```csharp
+await foreach (Reading reading in sensor.ReadingChangedStream()
+    .StartAfter(token => sensor.ConnectedAsync(token))
+    .TakeUntil(token => sensor.DisconnectedAsync(token)))
+{
+    Process(reading);
+}
+```
+
+Because `TakeUntil` owns the outer lifetime, a disconnect that happens before connection cancels and cleans the pending start wait without ever subscribing the value stream.
+
+Start and stop waits are created per enumeration and participate in the same deterministic cancellation/cleanup rules as the rest of AsyncEventBridge. Faulted or independently cancelled lifecycle waits propagate their outcomes; cleanup failures remain observable after the primary outcome.
 
 This is deliberately narrower than adding a general stream-operator library: 0.5 workflow APIs are intended for event-specific coordination and lifetime problems.
 
