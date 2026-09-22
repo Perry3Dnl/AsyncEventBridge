@@ -424,7 +424,7 @@ public static class EventStream
                     return false;
                 }
 
-                if (_fullMode == EventStreamFullMode.DropNewest && _queue.Count >= _capacity)
+                if (_fullMode == EventStreamFullMode.DropWrite && _queue.Count >= _capacity)
                 {
                     return false;
                 }
