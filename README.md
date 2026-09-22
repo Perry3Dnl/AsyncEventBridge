@@ -8,7 +8,7 @@
 
 `main` is the single development and release line for AsyncEventBridge starting with **0.3.0**. The modern .NET 10 implementation remains at the repository root, the .NET Standard 2.0 compatibility implementation lives under `compat/netstandard2.0`, and the Unity UPM package lives under `Packages/com.perry3d.async-event-bridge`.
 
-The `0.5.0` development line builds on the hardened 0.4 contracts and expands AsyncEventBridge into a focused interoperability layer for event-driven async workflows. Waiting, streaming, state conditions, lifecycle composition, adaptation, and async-to-event bridging remain one package, without trying to become a general Rx or async-LINQ replacement.
+The current work is stabilizing that 0.5 interoperability surface for **1.0.0**. The 1.0 line is intentionally feature-frozen: new public API is accepted only when it closes a concrete interoperability, safety, compatibility, or broad-adoption gap. Waiting, streaming, state conditions, lifecycle composition, adaptation, and async-to-event bridging remain one focused package rather than expanding into a general Rx or async-LINQ replacement.
 
 ## What it bridges
 
@@ -647,7 +647,7 @@ asynceventbridge.event_wait.outcomes
   asynceventbridge.wait.outcome = success | cancelled | timeout | faulted
 
 asynceventbridge.event_stream.dropped
-  asynceventbridge.stream.full_mode = drop_oldest | drop_newest
+  asynceventbridge.stream.full_mode = drop_oldest | drop_write
 ```
 
 Tags are intentionally bounded and low-cardinality. Applications can collect these instruments with `MeterListener`, `dotnet-counters`, OpenTelemetry, or another `System.Diagnostics.Metrics` consumer.
