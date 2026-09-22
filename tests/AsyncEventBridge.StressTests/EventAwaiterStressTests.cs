@@ -146,8 +146,9 @@ public sealed class EventAwaiterStressTests
 
             internal void Fire()
             {
+                var state = Volatile.Read(ref _state);
                 var callback = Interlocked.Exchange(ref _callback, null);
-                callback?.Invoke(_state);
+                callback?.Invoke(state);
             }
 
             public void Dispose()
