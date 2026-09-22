@@ -4,6 +4,10 @@ All notable changes to the .NET Standard 2.0 baseline of AsyncEventBridge are do
 
 ## Unreleased
 
+### 1.0 stabilization
+
+- Relicense the compatibility 1.0 line from MPL-2.0 to the MIT License in sync with the unified package.
+
 ### 0.5 async interoperability
 
 - Add `EventStreamComposition.TakeUntil(...)` to the .NET Standard 2.0 runtime.
