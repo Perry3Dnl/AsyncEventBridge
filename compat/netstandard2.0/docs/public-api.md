@@ -127,7 +127,21 @@ DropNewest = 2
 
 ## Event-stream workflow composition
 
-Portable runtimes expose `EventStreamComposition.TakeUntil(...)` with the same lifecycle contract as modern .NET:
+Portable runtimes expose both lifecycle primitives with the same coordination contract as modern .NET.
+
+`StartAfter(...)` defers source enumeration until activation succeeds, so event-backed streams do not subscribe before the start event:
+
+```csharp
+await foreach (var value in sensor.ValueChangedStream()
+    .StartAfter(
+        token => sensor.ConnectedAsync(token),
+        cancellationToken))
+{
+    Process(value);
+}
+```
+
+`TakeUntil(...)` terminates an active stream from another cancellable event wait:
 
 ```csharp
 await foreach (var value in sensor.ValueChangedStream()
@@ -141,7 +155,9 @@ await foreach (var value in sensor.ValueChangedStream()
 
 The stop wait is created once per enumeration. It and the source enumerator share a coordination token. Whichever side finishes first causes the other side to be cancelled, observed, and cleaned up before completion is reported.
 
-A successful stop wait ends the sequence. A faulted or independently cancelled stop wait propagates its outcome. Cleanup failures remain observable after any primary failure.
+A successful stop wait ends the sequence. A faulted or independently cancelled lifecycle wait propagates its outcome. Cleanup failures remain observable after any primary failure.
+
+The operators compose as `source.StartAfter(startWait).TakeUntil(stopWait)`. If stop happens before start, the pending activation wait is cancelled and observed and the source is never subscribed.
 
 ## Task -> events
 
