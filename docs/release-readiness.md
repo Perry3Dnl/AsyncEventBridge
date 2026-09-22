@@ -14,7 +14,7 @@ Version 1.0 is a stability and adoption release. New functionality is accepted o
 - Roslyn generator host target: `netstandard2.0`
 - Unity package ID: `com.perry3d.async-event-bridge`
 - Unity baseline: `2023.1.0f1+`
-- License: `MPL-2.0`
+- License: `MIT`
 
 The repository may use prerelease package versions while this gate is incomplete. The final stable version must not be published until every applicable gate below is satisfied.
 
