@@ -190,10 +190,22 @@ public sealed class EventStreamLifecycleEventTests
     [Fact]
     public void LifecycleEventKindNumericValuesStayStable()
     {
-        Assert.Equal(0, (int)EventStreamLifecycleEventKind.Activated);
-        Assert.Equal(1, (int)EventStreamLifecycleEventKind.Value);
-        Assert.Equal(2, (int)EventStreamLifecycleEventKind.Deactivated);
-        Assert.Equal(3, (int)EventStreamLifecycleEventKind.SourceCompleted);
+        Assert.Equal(0, (int)EventStreamLifecycleEventKind.Unspecified);
+        Assert.Equal(1, (int)EventStreamLifecycleEventKind.Activated);
+        Assert.Equal(2, (int)EventStreamLifecycleEventKind.Value);
+        Assert.Equal(3, (int)EventStreamLifecycleEventKind.Deactivated);
+        Assert.Equal(4, (int)EventStreamLifecycleEventKind.SourceCompleted);
+    }
+
+    [Fact]
+    public void DefaultLifecycleEventIsUnspecified()
+    {
+        var lifecycleEvent = default(EventStreamLifecycleEvent<int>);
+
+        Assert.Equal(EventStreamLifecycleEventKind.Unspecified, lifecycleEvent.Kind);
+        Assert.Equal(0, lifecycleEvent.Cycle);
+        Assert.False(lifecycleEvent.HasValue);
+        Assert.Throws<InvalidOperationException>(() => _ = lifecycleEvent.Value);
     }
 
     private static async Task WaitUntilAsync(Func<bool> condition)
