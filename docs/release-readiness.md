@@ -116,6 +116,8 @@ Before 1.0 final, repository validation must cover:
 
 Stub compilation is not a substitute for actual Unity/IL2CPP acceptance.
 
+Run the manual `Unity 1.0 Acceptance` workflow and follow `docs/unity-1.0-acceptance.md` for the credential and pass criteria.
+
 ## Reliability gate
 
 Regression coverage must explicitly exercise:
