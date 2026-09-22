@@ -82,7 +82,7 @@ public sealed class PublicApiTests
             new[] { "IgnoreAndContinue", "ReportAndContinue", "TraceAndContinue" },
             Enum.GetNames<EventBridgeSubscriberExceptionPolicy>().OrderBy(name => name, StringComparer.Ordinal));
         Assert.Equal(
-            new[] { "Activated", "Deactivated", "SourceCompleted", "Value" },
+            new[] { "Activated", "Deactivated", "SourceCompleted", "Unspecified", "Value" },
             Enum.GetNames<EventStreamLifecycleEventKind>().OrderBy(name => name, StringComparer.Ordinal));
     }
 
