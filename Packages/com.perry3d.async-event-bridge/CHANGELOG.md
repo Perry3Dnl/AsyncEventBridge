@@ -2,6 +2,7 @@
 
 ## 1.0.0-preview.1 - In progress
 
+- Relicense the Unity 1.0 package from MPL-2.0 to the MIT License in sync with the shared release line.
 - Move the Unity package onto the shared 1.0 stabilization series.
 - Support generated async façades for class and interface event sources.
 - Align generator diagnostics with the shared AEB001/AEB002/AEB003 vocabulary.
