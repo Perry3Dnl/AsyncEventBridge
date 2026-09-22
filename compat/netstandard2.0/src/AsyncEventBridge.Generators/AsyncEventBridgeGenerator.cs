@@ -497,7 +497,10 @@ public sealed class AsyncEventBridgeGenerator : IIncrementalGenerator
             return false;
         }
 
-        eventArgsType = RenderType(delegateType.TypeArguments[0], typeParameters);
+        eventArgsType = RenderType(
+            delegateType.TypeArguments[0],
+            typeParameters,
+            preserveNullableAnnotations: true);
         isGenericEventHandler = true;
         return true;
     }
@@ -641,27 +644,90 @@ public sealed class AsyncEventBridgeGenerator : IIncrementalGenerator
         return new TypeParameterContext(parameters, names);
     }
 
-    private static string RenderType(ITypeSymbol typeSymbol, TypeParameterContext typeParameters)
+    private static string RenderType(
+        ITypeSymbol typeSymbol,
+        TypeParameterContext typeParameters,
+        bool preserveNullableAnnotations = false)
     {
-        if (typeSymbol is ITypeParameterSymbol typeParameter &&
-            typeParameters.Names.TryGetValue(typeParameter, out var parameterName))
+        if (!preserveNullableAnnotations)
         {
-            return parameterName;
+            if (typeSymbol is ITypeParameterSymbol typeParameter &&
+                typeParameters.Names.TryGetValue(typeParameter, out var parameterName))
+            {
+                return parameterName;
+            }
+
+            var displayBuilder = new StringBuilder();
+
+            foreach (var part in typeSymbol.ToDisplayParts(SymbolDisplayFormat.FullyQualifiedFormat))
+            {
+                if (part.Symbol is ITypeParameterSymbol partTypeParameter &&
+                    typeParameters.Names.TryGetValue(partTypeParameter, out var replacement))
+                {
+                    displayBuilder.Append(replacement);
+                }
+                else
+                {
+                    displayBuilder.Append(part.ToString());
+                }
+            }
+
+            return displayBuilder.ToString();
+        }
+
+        if (typeSymbol is ITypeParameterSymbol nullableTypeParameter &&
+            typeParameters.Names.TryGetValue(nullableTypeParameter, out var mappedName))
+        {
+            return nullableTypeParameter.NullableAnnotation == NullableAnnotation.Annotated
+                ? mappedName + "?"
+                : mappedName;
+        }
+
+        if (typeSymbol is IArrayTypeSymbol arrayType)
+        {
+            var array = RenderType(arrayType.ElementType, typeParameters, preserveNullableAnnotations: true) +
+                "[" + new string(',', arrayType.Rank - 1) + "]";
+            return arrayType.NullableAnnotation == NullableAnnotation.Annotated ? array + "?" : array;
+        }
+
+        if (typeSymbol is not INamedTypeSymbol namedType)
+        {
+            return typeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
         }
 
         var builder = new StringBuilder();
 
-        foreach (var part in typeSymbol.ToDisplayParts(SymbolDisplayFormat.FullyQualifiedFormat))
+        if (namedType.ContainingType is not null)
         {
-            if (part.Symbol is ITypeParameterSymbol partTypeParameter &&
-                typeParameters.Names.TryGetValue(partTypeParameter, out var replacement))
-            {
-                builder.Append(replacement);
-            }
-            else
-            {
-                builder.Append(part.ToString());
-            }
+            builder.Append(RenderType(namedType.ContainingType, typeParameters, preserveNullableAnnotations: true))
+                .Append('.');
+        }
+        else if (!namedType.ContainingNamespace.IsGlobalNamespace)
+        {
+            builder.Append("global::")
+                .Append(namedType.ContainingNamespace.ToDisplayString())
+                .Append('.');
+        }
+        else
+        {
+            builder.Append("global::");
+        }
+
+        builder.Append(EscapeTypeIdentifier(namedType.Name));
+
+        if (namedType.TypeArguments.Length > 0)
+        {
+            builder.Append('<')
+                .Append(string.Join(
+                    ", ",
+                    namedType.TypeArguments.Select(argument =>
+                        RenderType(argument, typeParameters, preserveNullableAnnotations: true))))
+                .Append('>');
+        }
+
+        if (namedType.NullableAnnotation == NullableAnnotation.Annotated && namedType.IsReferenceType)
+        {
+            builder.Append('?');
         }
 
         return builder.ToString();
@@ -736,7 +802,10 @@ public sealed class AsyncEventBridgeGenerator : IIncrementalGenerator
 
         foreach (var constraintType in parameter.ConstraintTypes)
         {
-            constraints.Add(RenderType(constraintType, typeParameters));
+            constraints.Add(RenderType(
+                constraintType,
+                typeParameters,
+                preserveNullableAnnotations: true));
         }
 
         if (parameter.HasConstructorConstraint &&
@@ -813,6 +882,12 @@ public sealed class AsyncEventBridgeGenerator : IIncrementalGenerator
 
     private static string EscapeIdentifier(string identifier) =>
         SyntaxFacts.GetKeywordKind(identifier) == SyntaxKind.None ? identifier : "@" + identifier;
+
+    private static string EscapeTypeIdentifier(string identifier) =>
+        SyntaxFacts.GetKeywordKind(identifier) != SyntaxKind.None ||
+        SyntaxFacts.GetContextualKeywordKind(identifier) != SyntaxKind.None
+            ? "@" + identifier
+            : identifier;
 
     private sealed class TypeParameterContext
     {
