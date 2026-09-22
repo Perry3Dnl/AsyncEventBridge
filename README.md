@@ -51,6 +51,8 @@ The source generator ships in the same NuGet package; there is no separate analy
 
 See the [support matrix](docs/support-matrix.md) for the exact capability differences. Feature parity is intentionally not forced where a capability depends on a newer runtime or Unity-specific primitive.
 
+Upgrading from a pre-1.0 build? See [Migrating to AsyncEventBridge 1.0](docs/migrating-to-1.0.md) for the intentional source and behavioral cleanups made before the stable API freeze.
+
 ## Before and after
 
 AsyncEventBridge is designed so the **event API still looks like an event API** and the **async API still looks like normal async .NET**. The package owns the subscription, cancellation, race, cleanup, and lifecycle plumbing between them.
