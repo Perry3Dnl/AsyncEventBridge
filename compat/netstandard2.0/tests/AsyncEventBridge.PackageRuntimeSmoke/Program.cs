@@ -104,6 +104,44 @@ if (!repeatedValues.SequenceEqual(new[] { 1, 2, 3, 1 }))
     throw new InvalidOperationException("The packaged RepeatBetween workflow did not create a fresh source enumeration for the next lifecycle cycle.");
 }
 
+
+var lifecycleEvents = new List<(EventStreamLifecycleEventKind Kind, long Cycle, int? Value)>();
+await using (var lifecycle = Values()
+    .RepeatBetweenWithLifecycle(
+        _ => Task.CompletedTask,
+        token => Task.Delay(Timeout.InfiniteTimeSpan, token))
+    .GetAsyncEnumerator())
+{
+    for (var index = 0; index < 6; index++)
+    {
+        if (!await lifecycle.MoveNextAsync())
+        {
+            throw new InvalidOperationException("The packaged observable lifecycle ended unexpectedly.");
+        }
+
+        var current = lifecycle.Current;
+        lifecycleEvents.Add((
+            current.Kind,
+            current.Cycle,
+            current.HasValue ? current.Value : null));
+    }
+}
+
+var expectedLifecycle = new[]
+{
+    (EventStreamLifecycleEventKind.Activated, 1L, (int?)null),
+    (EventStreamLifecycleEventKind.Value, 1L, (int?)1),
+    (EventStreamLifecycleEventKind.Value, 1L, (int?)2),
+    (EventStreamLifecycleEventKind.Value, 1L, (int?)3),
+    (EventStreamLifecycleEventKind.SourceCompleted, 1L, (int?)null),
+    (EventStreamLifecycleEventKind.Activated, 2L, (int?)null),
+};
+
+if (!lifecycleEvents.SequenceEqual(expectedLifecycle))
+{
+    throw new InvalidOperationException("The packaged observable lifecycle returned the wrong transition/value sequence.");
+}
+
 Console.WriteLine("AsyncEventBridge packaged runtime smoke test passed.");
 
 static async IAsyncEnumerable<int> Values()
