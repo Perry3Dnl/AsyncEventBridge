@@ -276,6 +276,8 @@ GenerateAsyncEventsForAttribute
 EventAwaiter
 EventStream
 EventStreamComposition
+EventStreamLifecycleEvent<T>
+EventStreamLifecycleEventKind
 EventStreamOptions
 EventStreamFullMode
 EventOccurrence<TSender, TPayload>
