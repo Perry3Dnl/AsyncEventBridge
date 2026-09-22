@@ -1,10 +1,10 @@
 <Project>
-  <ItemGroup Condition="'$(TargetFrameworkIdentifier)' == '.NETCoreApp' and '$(TargetFrameworkVersion)' == 'v10.0'">
+  <ItemGroup Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net10.0'))">
     <Analyzer Include="$(MSBuildThisFileDirectory)..\tools\generators\modern\AsyncEventBridge.Generators.dll"
               Visible="false" />
   </ItemGroup>
 
-  <ItemGroup Condition="!('$(TargetFrameworkIdentifier)' == '.NETCoreApp' and '$(TargetFrameworkVersion)' == 'v10.0')">
+  <ItemGroup Condition="!$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net10.0'))">
     <Analyzer Include="$(MSBuildThisFileDirectory)..\tools\generators\compat\AsyncEventBridge.Generators.dll"
               Visible="false" />
   </ItemGroup>
