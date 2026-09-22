@@ -1,6 +1,7 @@
 using AsyncEventBridge;
 
 [assembly: GenerateAsyncEventsFor(typeof(CustomSensor))]
+[assembly: GenerateAsyncEventsFor(typeof(System.ComponentModel.INotifyPropertyChanged))]
 
 var sensor = new Sensor();
 var wait = sensor.ValueChangedAsync();
@@ -10,6 +11,41 @@ var observed = await wait;
 if (observed.Value != 42)
 {
     throw new InvalidOperationException("The packaged Event -> Task bridge returned the wrong value.");
+}
+
+var observableModel = new ObservableModel();
+System.ComponentModel.INotifyPropertyChanged observable = observableModel;
+var propertyWait = observable.PropertyChangedAsync(
+    eventArgs => eventArgs.PropertyName == "Value");
+observableModel.Raise("Other");
+
+if (propertyWait.IsCompleted)
+{
+    throw new InvalidOperationException("The packaged interface-generated predicate completed for the wrong property.");
+}
+
+observableModel.Raise("Value");
+var propertyChanged = await propertyWait;
+
+if (propertyChanged.PropertyName != "Value" || observableModel.HandlerCount != 0)
+{
+    throw new InvalidOperationException("The packaged interface-generated wait returned the wrong value or leaked a subscription.");
+}
+
+await using (var propertyStream = observable.PropertyChangedStream().GetAsyncEnumerator())
+{
+    var propertyMove = propertyStream.MoveNextAsync().AsTask();
+    observableModel.Raise("Name");
+
+    if (!await propertyMove || propertyStream.Current.PropertyName != "Name")
+    {
+        throw new InvalidOperationException("The packaged interface-generated stream returned the wrong value.");
+    }
+}
+
+if (observableModel.HandlerCount != 0)
+{
+    throw new InvalidOperationException("The packaged interface-generated stream did not unsubscribe.");
 }
 
 var customSensor = new CustomSensor();
@@ -332,6 +368,24 @@ public sealed class Sensor
     public void Raise(int value)
     {
         ValueChanged?.Invoke(this, new SensorEventArgs(value));
+    }
+}
+
+public sealed class ObservableModel : System.ComponentModel.INotifyPropertyChanged
+{
+    private System.ComponentModel.PropertyChangedEventHandler? _propertyChanged;
+
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged
+    {
+        add => _propertyChanged += value;
+        remove => _propertyChanged -= value;
+    }
+
+    public int HandlerCount => _propertyChanged?.GetInvocationList().Length ?? 0;
+
+    public void Raise(string propertyName)
+    {
+        _propertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(propertyName));
     }
 }
 
