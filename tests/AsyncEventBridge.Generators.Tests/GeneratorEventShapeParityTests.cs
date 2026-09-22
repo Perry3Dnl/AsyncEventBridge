@@ -15,7 +15,7 @@ public sealed class GeneratorEventShapeParityTests
 
         namespace AsyncEventBridge
         {
-            [AttributeUsage(AttributeTargets.Class)]
+            [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)]
             public sealed class GenerateAsyncEventsAttribute : Attribute
             {
             }
@@ -141,6 +141,40 @@ public sealed class GeneratorEventShapeParityTests
     }
 
     [Fact]
+    public void TypedGeneratedApisKeepCompleteOverloadMatrix()
+    {
+        var source = RuntimeStubs + """
+            namespace Demo
+            {
+                public delegate void ReadingHandler(Sensor sender, string value);
+
+                [AsyncEventBridge.GenerateAsyncEvents]
+                public sealed class Sensor
+                {
+                    public event EventHandler<int>? Standard;
+                    public event ReadingHandler? Custom;
+                }
+            }
+            """;
+
+        var result = RunGenerators(source);
+        var generated = string.Join(
+            "\n",
+            result.Results
+                .SelectMany(item => item.GeneratedSources)
+                .Select(item => item.SourceText.ToString()));
+
+        Assert.Equal(4, CountOccurrences(generated, " StandardAsync("));
+        Assert.Equal(4, CountOccurrences(generated, " StandardStream("));
+        Assert.Equal(4, CountOccurrences(generated, " CustomAsync("));
+        Assert.Equal(4, CountOccurrences(generated, " CustomStream("));
+        Assert.Equal(4, CountOccurrences(generated, " StandardOccurrenceAsync("));
+        Assert.Equal(4, CountOccurrences(generated, " StandardOccurrenceStream("));
+        Assert.Equal(4, CountOccurrences(generated, " CustomOccurrenceAsync("));
+        Assert.Equal(4, CountOccurrences(generated, " CustomOccurrenceStream("));
+    }
+
+    [Fact]
     public void SharedTypeSystemPreservesNestedGenericsConstraintsNullabilityAndKeywords()
     {
         var source = RuntimeStubs + """
@@ -258,6 +292,20 @@ public sealed class GeneratorEventShapeParityTests
         Assert.Equal(3, generated.Length);
         Assert.DoesNotContain(generated, sourceText =>
             sourceText.Contains("this global::Demo.Sensor source", StringComparison.Ordinal));
+    }
+
+    private static int CountOccurrences(string value, string search)
+    {
+        var count = 0;
+        var index = 0;
+
+        while ((index = value.IndexOf(search, index, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            index += search.Length;
+        }
+
+        return count;
     }
 
     private static GeneratorDriverRunResult RunGenerators(string source)
