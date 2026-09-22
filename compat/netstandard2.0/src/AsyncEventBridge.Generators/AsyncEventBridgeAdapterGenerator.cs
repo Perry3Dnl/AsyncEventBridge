@@ -23,7 +23,7 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
     private static readonly DiagnosticDescriptor InvalidGenerationTarget = new(
         id: "AEB002",
         title: "Invalid async-event generation target",
-        messageFormat: "Type '{0}' cannot be targeted by GenerateAsyncEventsFor. Generated async-event adapters require a supported class type.",
+        messageFormat: "Type '{0}' cannot be targeted by GenerateAsyncEventsFor. Generated async-event adapters require a supported class or interface type.",
         category: "AsyncEventBridge",
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
@@ -668,6 +668,16 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
         INamedTypeSymbol typeSymbol,
         ISet<INamedTypeSymbol>? stopAtTargetTypes)
     {
+        if (typeSymbol.TypeKind == TypeKind.Interface)
+        {
+            foreach (var eventSymbol in typeSymbol.GetMembers().OfType<IEventSymbol>())
+            {
+                yield return eventSymbol;
+            }
+
+            yield break;
+        }
+
         var hiddenNames = new HashSet<string>(StringComparer.Ordinal);
         INamedTypeSymbol? current = typeSymbol;
         var isTargetType = true;
@@ -791,7 +801,7 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
 
     private static bool CanGenerateForType(INamedTypeSymbol typeSymbol)
     {
-        if (typeSymbol.TypeKind != TypeKind.Class)
+        if (typeSymbol.TypeKind is not (TypeKind.Class or TypeKind.Interface))
         {
             return false;
         }
