@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Threading;
 using System.Threading.Tasks;
 using AsyncEventBridge;
 
 [assembly: GenerateAsyncEventsFor(typeof(System.Timers.Timer))]
+[assembly: GenerateAsyncEventsFor(typeof(INotifyPropertyChanged))]
 
 namespace AsyncEventBridge.PackageSmoke
 {
@@ -27,6 +29,16 @@ namespace AsyncEventBridge.PackageSmoke
         }
 
         public int Value { get; }
+    }
+
+    public sealed class ObservableModel : INotifyPropertyChanged
+    {
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        public void Raise(string propertyName)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
     }
 
     public static class PackageConsumer
@@ -65,6 +77,22 @@ namespace AsyncEventBridge.PackageSmoke
             CancellationToken cancellationToken = default)
         {
             return timer.ElapsedStream(cancellationToken);
+        }
+
+        public static Task<PropertyChangedEventArgs> WaitForPropertyChangeAsync(
+            INotifyPropertyChanged model,
+            CancellationToken cancellationToken = default)
+        {
+            return model.PropertyChangedAsync(
+                eventArgs => eventArgs.PropertyName == "Value",
+                cancellationToken);
+        }
+
+        public static IAsyncEnumerable<PropertyChangedEventArgs> ReadPropertyChanges(
+            INotifyPropertyChanged model,
+            CancellationToken cancellationToken = default)
+        {
+            return model.PropertyChangedStream(cancellationToken);
         }
 
         public static EventBridge<int> BridgeTask(Task<int> task)
