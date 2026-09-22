@@ -147,7 +147,6 @@ var conditionState = true;
 var conditionWaitArmed = 0;
 var observedConditionState = await EventCondition.WaitUntilAsync(
     () => conditionState,
-    state => state,
     token =>
     {
         Interlocked.Increment(ref conditionWaitArmed);
@@ -157,6 +156,30 @@ var observedConditionState = await EventCondition.WaitUntilAsync(
 if (!observedConditionState || conditionWaitArmed != 1)
 {
     throw new InvalidOperationException("The packaged EventCondition wait did not arm-before-check or return the satisfied state.");
+}
+
+
+var stateDrivenValues = new List<int>();
+await using (var stateDriven = Values()
+    .RepeatWhile(
+        () => conditionState,
+        token => Task.Delay(Timeout.InfiniteTimeSpan, token))
+    .GetAsyncEnumerator())
+{
+    for (var index = 0; index < 4; index++)
+    {
+        if (!await stateDriven.MoveNextAsync())
+        {
+            throw new InvalidOperationException("The packaged state-driven lifecycle ended unexpectedly.");
+        }
+
+        stateDrivenValues.Add(stateDriven.Current);
+    }
+}
+
+if (!stateDrivenValues.SequenceEqual(new[] { 1, 2, 3, 1 }))
+{
+    throw new InvalidOperationException("The packaged RepeatWhile lifecycle did not preserve the active state across fresh source enumerations.");
 }
 
 Console.WriteLine("AsyncEventBridge packaged runtime smoke test passed.");
