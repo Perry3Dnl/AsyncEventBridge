@@ -351,6 +351,15 @@ await foreach (EventOccurrence<Sensor, Reading> item in
 }
 ```
 
+Occurrence waits and streams can also filter on the full sender/payload pair:
+
+```csharp
+EventOccurrence<Sensor, Reading> occurrence =
+    await sensor.ReadingChangedOccurrenceAsync(
+        item => ReferenceEquals(item.Sender, sensor) && item.Payload.IsValid,
+        cancellationToken);
+```
+
 The low-level equivalents are `EventOccurrenceAwaiter` and `EventOccurrenceStream`.
 
 ## Third-party event sources
