@@ -72,7 +72,17 @@ public static class EventCondition
 
                 if (!satisfied)
                 {
-                    await changeTask.ConfigureAwait(false);
+                    try
+                    {
+                        await changeTask.ConfigureAwait(false);
+                    }
+                    catch
+                    {
+                        // The wait itself is the primary observed outcome. Do not observe it again as cleanup.
+                        changeTask = null;
+                        throw;
+                    }
+
                     continue;
                 }
             }
