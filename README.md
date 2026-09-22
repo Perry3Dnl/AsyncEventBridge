@@ -23,7 +23,7 @@ IAsyncEnumerable<T>  -> EventStreamBridge<T>
 Event stream + wait  -> lifecycle-safe async workflow
 ```
 
-The modern line also includes sender-aware event occurrences, heterogeneous/N-way wait composition, bounded-stream telemetry, `System.Diagnostics.Metrics`, `TimeProvider`, and Native AOT/trimming verification. The 0.5 stream-workflow primitives, `EventStreamComposition.StartAfter`, `TakeUntil`, and `RepeatBetween`, are also available on the .NET Standard 2.0 and Unity portable runtimes.
+The modern line also includes sender-aware event occurrences, heterogeneous/N-way wait composition, bounded-stream telemetry, `System.Diagnostics.Metrics`, `TimeProvider`, and Native AOT/trimming verification. The 0.5 stream-workflow primitives, `EventStreamComposition.StartAfter`, `TakeUntil`, `RepeatBetween`, and `RepeatBetweenWithLifecycle`, are also available on the .NET Standard 2.0 and Unity portable runtimes.
 
 ## Package
 
@@ -248,6 +248,33 @@ await foreach (Reading reading in sensor.ReadingChangedStream()
 ```
 
 Every successful activation starts a fresh source enumeration. A successful stop ends that active cycle, performs deterministic cleanup, and rearms activation. A stop that arrives while inactive closes that inactive cycle and rearms without subscribing the source. Source completion also ends only the current cycle; source or lifecycle faults terminate the repeating workflow.
+
+When callers need to observe the lifecycle itself instead of only its values, `RepeatBetweenWithLifecycle` emits strongly typed lifecycle events:
+
+```csharp
+await foreach (var item in sensor.ReadingChangedStream()
+    .RepeatBetweenWithLifecycle(
+        token => sensor.ConnectedAsync(token),
+        token => sensor.DisconnectedAsync(token),
+        cancellationToken))
+{
+    switch (item.Kind)
+    {
+        case EventStreamLifecycleEventKind.Activated:
+            BeginSession(item.Cycle);
+            break;
+        case EventStreamLifecycleEventKind.Value:
+            Process(item.Cycle, item.Value);
+            break;
+        case EventStreamLifecycleEventKind.Deactivated:
+        case EventStreamLifecycleEventKind.SourceCompleted:
+            EndSession(item.Cycle, item.Kind);
+            break;
+    }
+}
+```
+
+Cycle numbers are one-based and advance only after successful activation. `Deactivated` means the stop wait ended the active cycle; `SourceCompleted` means the source ended naturally. Redundant stop notifications while inactive do not emit fake transitions or consume cycle numbers.
 
 Start and stop waits participate in the same deterministic cancellation/cleanup rules as the rest of AsyncEventBridge. Faulted or independently cancelled lifecycle waits propagate their outcomes; cleanup failures remain observable after the primary outcome.
 
