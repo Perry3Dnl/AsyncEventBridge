@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Threading;
 using System.Threading.Tasks;
 using AsyncEventBridge;
 
 [assembly: GenerateAsyncEventsFor(typeof(System.Timers.Timer))]
+[assembly: GenerateAsyncEventsFor(typeof(INotifyPropertyChanged))]
 
 namespace AsyncEventBridge.PackageMultiTargetSmoke
 {
@@ -43,6 +45,20 @@ namespace AsyncEventBridge.PackageMultiTargetSmoke
             CancellationToken cancellationToken = default)
         {
             return sensor.ValueChangedStream(cancellationToken);
+        }
+
+        public static Task<PropertyChangedEventArgs> WaitForPropertyChangeAsync(
+            INotifyPropertyChanged model,
+            CancellationToken cancellationToken = default)
+        {
+            return model.PropertyChangedAsync(cancellationToken);
+        }
+
+        public static IAsyncEnumerable<PropertyChangedEventArgs> ReadPropertyChanges(
+            INotifyPropertyChanged model,
+            CancellationToken cancellationToken = default)
+        {
+            return model.PropertyChangedStream(cancellationToken);
         }
 
         public static Task<System.Timers.ElapsedEventArgs> WaitForElapsedAsync(
