@@ -7,6 +7,7 @@ Version 1.0 is a stability and adoption release. New functionality is accepted o
 ## Release identity
 
 - Release target: `1.0.0`
+- Current stabilization package version: `1.0.0-preview.1`
 - NuGet package ID: `AsyncEventBridge`
 - Modern runtime target: `.NET 10` (`net10.0`)
 - Compatibility runtime target: `.NET Standard 2.0` (`netstandard2.0`)
