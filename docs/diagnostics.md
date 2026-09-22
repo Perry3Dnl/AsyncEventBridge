@@ -32,13 +32,13 @@ A type supplied to:
 
 cannot be used as a generated extension target.
 
-The 1.0 generator supports class targets. Interface, struct, enum, delegate, and otherwise inaccessible targets are not accepted.
+The 1.0 generator supports class and interface targets. Struct, enum, delegate, and otherwise inaccessible targets are not accepted.
 
 ### Resolution
 
-Target a supported class type. If the API surface is exposed only through an interface, use the concrete class when practical or use the low-level wait/stream APIs.
+Target a supported class or interface type. Struct targets remain unsupported because extension-based event subscription to copied value types would have unsafe lifetime semantics.
 
-Interface-target generation is intentionally not part of the 1.0 contract; it may be evaluated later if real usage demonstrates a broad need.
+For interfaces, generation covers events declared directly on the targeted interface. Target a base interface directly when its inherited events also need generated APIs.
 
 ## AEB003 — Redundant async-event generation request
 
