@@ -9,6 +9,25 @@ namespace AsyncEventBridge
 
 public static partial class EventStreamComposition
 {
+    private enum EventStreamTakeUntilCompletion
+    {
+        Stop = 1,
+        SourceCompleted = 2,
+    }
+
+    private static IAsyncEnumerable<T> TakeUntilWithCompletion<T>(
+        IAsyncEnumerable<T> source,
+        Func<CancellationToken, Task> stopWait,
+        Action<EventStreamTakeUntilCompletion> completionObserver,
+        CancellationToken cancellationToken)
+    {
+        return new TakeUntilEnumerable<T>(
+            source,
+            stopWait,
+            cancellationToken,
+            completionObserver);
+    }
+
     /// <summary>
     /// Repeats an activation/deactivation lifecycle while exposing activation, value, and cycle-end markers.
     /// </summary>
@@ -70,7 +89,7 @@ public static partial class EventStreamComposition
             var activationSignal = new TaskCompletionSource<bool>(
                 TaskCreationOptions.RunContinuationsAsynchronously);
             var activationSucceeded = 0;
-            var stopSucceeded = 0;
+            var completion = 0;
 
             async Task ObserveStartAsync(CancellationToken token)
             {
@@ -79,15 +98,17 @@ public static partial class EventStreamComposition
                 activationSignal.TrySetResult(true);
             }
 
-            async Task ObserveStopAsync(CancellationToken token)
+            void ObserveCompletion(EventStreamTakeUntilCompletion value)
             {
-                await stopWait(token).ConfigureAwait(false);
-                Interlocked.Exchange(ref stopSucceeded, 1);
+                Volatile.Write(ref completion, (int)value);
             }
 
-            var window = source
-                .StartAfter(ObserveStartAsync, cancellationToken)
-                .TakeUntil(ObserveStopAsync, cancellationToken);
+            var started = source.StartAfter(ObserveStartAsync, cancellationToken);
+            var window = TakeUntilWithCompletion(
+                started,
+                stopWait,
+                ObserveCompletion,
+                cancellationToken);
 
             await using (var enumerator = window.GetAsyncEnumerator(cancellationToken))
             {
@@ -119,13 +140,20 @@ public static partial class EventStreamComposition
 
                     if (!moved)
                     {
-                        if (Volatile.Read(ref stopSucceeded) != 0)
+                        var completedBy = (EventStreamTakeUntilCompletion)Volatile.Read(ref completion);
+
+                        if (completedBy == EventStreamTakeUntilCompletion.Stop)
                         {
                             yield return EventStreamLifecycleEvent<T>.Deactivated(cycle);
                         }
-                        else
+                        else if (completedBy == EventStreamTakeUntilCompletion.SourceCompleted)
                         {
                             yield return EventStreamLifecycleEvent<T>.SourceCompleted(cycle);
+                        }
+                        else
+                        {
+                            throw new InvalidOperationException(
+                                "The lifecycle window completed without a recorded completion boundary.");
                         }
 
                         break;
