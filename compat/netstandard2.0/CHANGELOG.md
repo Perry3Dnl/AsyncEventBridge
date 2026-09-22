@@ -4,6 +4,14 @@ All notable changes to the .NET Standard 2.0 baseline of AsyncEventBridge are do
 
 ## Unreleased
 
+### 0.5 async interoperability
+
+- Add `EventStreamComposition.TakeUntil(...)` to the .NET Standard 2.0 runtime.
+- Coordinate source enumeration and the stop wait through a shared cancellation lifetime.
+- Cancel, observe, and dispose the losing side before reporting completion.
+- Preserve primary source/stop failures ahead of cleanup failures.
+- Keep the implementation C# 9-compatible so Unity can share the same portable source.
+
 ### 0.4 behavioral hardening
 
 - Rename `EventStreamFullMode.Grow` to `Unbounded` before the 1.0 API freeze while retaining numeric value `0`.
