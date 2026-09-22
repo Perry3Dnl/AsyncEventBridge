@@ -76,7 +76,7 @@ IAsyncEnumerable<T>  -> EventStreamBridge<T>
 Event stream + wait  -> lifecycle-safe async workflow
 ```
 
-The modern line also includes sender-aware event occurrences, heterogeneous/N-way wait composition, bounded-stream telemetry, `System.Diagnostics.Metrics`, `TimeProvider`, and Native AOT/trimming verification. The 0.5 stream-workflow primitives, `EventStreamComposition.StartAfter`, `TakeUntil`, `RepeatBetween`, and `RepeatBetweenWithLifecycle`, are also available on the .NET Standard 2.0 and Unity portable runtimes.
+The modern line also includes sender-aware event occurrences, heterogeneous/N-way wait composition, bounded-stream telemetry, `System.Diagnostics.Metrics`, `TimeProvider`, and Native AOT/trimming verification. The stream-workflow primitives `EventStreamComposition.StartAfter`, `TakeUntil`, `RepeatBetween`, and `RepeatBetweenWithLifecycle` are also available on the .NET Standard 2.0 and Unity portable runtimes.
 
 ## Supported editions
 
@@ -447,7 +447,7 @@ await foreach (int value in sensor.ValueChangedStream(cancellationToken))
 
 The modern runtime uses `System.Threading.Channels` internally. The default is explicitly **unbounded and lossless**: accepted values are preserved, but sustained producer/consumer imbalance can grow memory usage without a fixed upper bound.
 
-`EventStreamOptions` exposes these buffering modes. In 0.4, the previous `Grow` enum member was renamed to `Unbounded` before the 1.0 API freeze:
+`EventStreamOptions` exposes these buffering modes:
 
 ```text
 Unbounded   preserve accepted values with no fixed buffer limit
@@ -482,7 +482,7 @@ There is intentionally no producer-blocking mode: blocking a synchronous event c
 
 ## Compose event streams with event waits
 
-0.5 adds a small lifecycle vocabulary for event-backed streams.
+AsyncEventBridge includes a small lifecycle vocabulary for event-backed streams.
 
 `StartAfter` delays source enumeration until an activation wait succeeds. For generated event streams, that means the underlying event is not even subscribed until activation:
 
@@ -618,7 +618,7 @@ await foreach (var reading in sensor.ReadingChangedStream()
 
 The design goal is that neither programming model feels foreign: existing events remain normal events, generated async methods follow normal async naming, event streams read like ordinary `await foreach`, and async work can still be surfaced back through normal .NET events with `ToEventBridge()`. The coordination machinery stays behind those familiar call shapes.
 
-This is deliberately narrower than adding a general stream-operator library: 0.5 workflow APIs are intended for event-specific coordination and lifetime problems.
+This is deliberately narrower than adding a general stream-operator library: these workflow APIs are intended for event-specific coordination and lifetime problems.
 
 ## Compose event waits
 
@@ -677,7 +677,7 @@ Bridge event publication uses subscriber snapshots. Adding or removing a subscri
 
 `EventBridge.Dispose()` and `EventStreamBridge.Dispose()` suppress future publication but do not interrupt a handler snapshot already in flight. `EventStreamBridge.DisposeAsync()` additionally waits for bridge-owned enumeration cleanup and in-flight publication; after it completes, no further bridge handler can run.
 
-Bridges do not replay values or terminal events to late subscribers. See [`docs/0.4-bridge-lifecycle.md`](docs/0.4-bridge-lifecycle.md) for the full lifecycle and threading contract.
+Bridges do not replay values or terminal events to late subscribers. See the [1.0 cancellation, lifecycle, and cleanup contract](docs/1.0-cancellation-lifecycle-cleanup.md) for the stable lifecycle and threading rules.
 
 ## Async work back to events
 
@@ -754,13 +754,13 @@ CI runs the release gate on pushes to `main` and `release/**`, and on pull reque
 - independently restore/build/test modern and compatibility code on Windows and macOS;
 - validate the Unity manifest/version, portable-core parity, asset metadata, Unity generator build, and runtime compilation against Unity API stubs.
 
-The automated Unity job is a repository/compile gate, not a substitute for a real Unity Editor. Unity Test Framework execution, IL2CPP acceptance, and sample validation in a supported Unity Editor remain manual release checks.
+The automated Unity job is a repository/compile gate, not a substitute for a real Unity Editor. Real EditMode/PlayMode execution and IL2CPP acceptance are covered by the credential-gated `Unity 1.0 Acceptance` workflow documented in [`docs/unity-1.0-acceptance.md`](docs/unity-1.0-acceptance.md).
 
 See [`docs/release-readiness.md`](docs/release-readiness.md) for the complete release contract and [`docs/public-api.md`](docs/public-api.md) for the public surface.
 
 ## Release model
 
-Starting with `0.3.0`, all supported editions are developed from `main`:
+All supported editions share one release line:
 
 - modern .NET 10 runtime and NuGet work at the repository root;
 - .NET Standard 2.0 compatibility work under `compat/netstandard2.0`;
