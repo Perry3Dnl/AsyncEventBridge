@@ -383,6 +383,8 @@ PropertyChangedEventArgs change =
 
 For interfaces, 1.0 generates events declared directly on the targeted interface. Target a base interface independently when its declared events also need a façade.
 
+A runnable repository sample demonstrates this against the BCL `INotifyPropertyChanged` contract while keeping ordinary event subscribers active at the same time: `samples/PropertyChangedInterop`.
+
 Generator diagnostics make unsupported requests visible instead of silently omitting APIs:
 
 ```text
