@@ -13,6 +13,13 @@ All notable changes across the supported AsyncEventBridge release tracks are doc
 - Rename the bounded-drop metric tag from `drop_newest` to `drop_write` to match the public buffering contract.
 - Make unified-package generator selection forward-compatible so TFMs compatible with `net10.0` use the modern generator rather than requiring an exact `net10.0` target.
 - Strengthen public-API locks, including constructor coverage on modern .NET and exact method/event/property signatures on the .NET Standard compatibility line.
+- Add class and interface generation targets across modern .NET, .NET Standard compatibility, and Unity; keep struct targets rejected because copied value-type subscription lifetimes are unsafe for a general generated façade.
+- Add generated predicate overloads for sender-aware occurrence waits and streams so filtering can depend on sender and payload without dropping to low-level subscription plumbing.
+- Lock modern and compatibility nullable-reference contracts in the public API tests.
+- Align Unity generator diagnostics with AEB001/AEB002/AEB003 and stable help links.
+- Add IntelliSense summaries to generated extension classes and methods across modern, compatibility, and Unity generators.
+- Align validation packages with NuGet symbol-package conventions and produce compatibility `.snupkg` artifacts.
+- Move the stabilization line to `1.0.0-preview.1` so CI/package artifacts are unambiguously part of the 1.0 series.
 
 ### 0.5 async interoperability
 
