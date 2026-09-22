@@ -76,7 +76,8 @@ public sealed class AsyncEventBridgeGenerator : IIncrementalGenerator
             ? "public"
             : "internal";
 
-        source.Append(extensionAccessibility)
+        source.AppendLine("/// <summary>Contains generated async event extension methods.</summary>")
+            .Append(extensionAccessibility)
             .Append(" static class ")
             .Append(GetExtensionClassName(typeSymbol))
             .AppendLine()
