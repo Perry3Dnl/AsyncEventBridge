@@ -42,10 +42,10 @@ The `asynceventbridge.stream.full_mode` tag has two bounded values:
 
 ```text
 drop_oldest
-drop_newest
+drop_write
 ```
 
-`Grow` streams do not emit drop measurements.
+`Unbounded` streams do not emit drop measurements.
 
 `EventStreamOptions.DroppedCount` remains useful for per-options-instance application logic. The metrics counter is process-wide telemetry intended for monitoring systems and is aggregated by the configured metrics consumer/exporter.
 
