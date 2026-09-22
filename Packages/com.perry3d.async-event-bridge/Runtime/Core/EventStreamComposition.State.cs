@@ -10,6 +10,50 @@ namespace AsyncEventBridge
 public static partial class EventStreamComposition
 {
     /// <summary>
+    /// Repeatedly consumes the source while a boolean state is true.
+    /// </summary>
+    public static IAsyncEnumerable<T> RepeatWhile<T>(
+        this IAsyncEnumerable<T> source,
+        Func<bool> isActive,
+        Func<CancellationToken, Task> waitForStateChange,
+        CancellationToken cancellationToken = default)
+    {
+        if (isActive is null)
+        {
+            throw new ArgumentNullException(nameof(isActive));
+        }
+
+        return RepeatWhile(
+            source,
+            isActive,
+            state => state,
+            waitForStateChange,
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// Repeatedly consumes the source while a boolean state is true and emits lifecycle markers.
+    /// </summary>
+    public static IAsyncEnumerable<EventStreamLifecycleEvent<T>> RepeatWhileWithLifecycle<T>(
+        this IAsyncEnumerable<T> source,
+        Func<bool> isActive,
+        Func<CancellationToken, Task> waitForStateChange,
+        CancellationToken cancellationToken = default)
+    {
+        if (isActive is null)
+        {
+            throw new ArgumentNullException(nameof(isActive));
+        }
+
+        return RepeatWhileWithLifecycle(
+            source,
+            isActive,
+            state => state,
+            waitForStateChange,
+            cancellationToken);
+    }
+
+    /// <summary>
     /// Repeatedly consumes the source while the supplied state predicate is true.
     /// </summary>
     /// <remarks>
