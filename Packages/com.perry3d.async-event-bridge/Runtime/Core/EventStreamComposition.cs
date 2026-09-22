@@ -10,7 +10,7 @@ namespace AsyncEventBridge
 /// <summary>
 /// Provides lifecycle-safe composition helpers for async event streams.
 /// </summary>
-public static class EventStreamComposition
+public static partial class EventStreamComposition
 {
     /// <summary>
     /// Returns values from <paramref name="source"/> until the asynchronous stop wait completes.
