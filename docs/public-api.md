@@ -161,6 +161,44 @@ If the predicate is already satisfied, the temporary change wait is cancelled an
 
 State access, predicate, change-wait, cancellation, and cleanup failures remain observable. Change waits should honor the supplied cancellation token so deterministic cleanup can complete.
 
+A boolean convenience overload removes the identity predicate:
+
+```csharp
+await EventCondition.WaitUntilAsync(
+    () => client.IsConnected,
+    token => client.ConnectionChangedAsync(token),
+    cancellationToken);
+```
+
+## State-driven stream lifecycles
+
+`RepeatWhile(...)` is the normal high-level API when a stream should be active while current state satisfies a predicate:
+
+```csharp
+await foreach (var value in sensor.ValueChangedStream()
+    .RepeatWhile(
+        () => sensor.State,
+        state => state == SensorState.Connected,
+        token => sensor.StateChangedAsync(token),
+        cancellationToken))
+{
+    Process(value);
+}
+```
+
+Boolean state uses the shorter overload:
+
+```csharp
+source.RepeatWhile(
+    () => sensor.IsConnected,
+    token => sensor.ConnectionChangedAsync(token),
+    cancellationToken);
+```
+
+The source is not enumerated while inactive. Already-active state starts immediately. Deactivation cleans the current source enumeration and rearms the state condition; reactivation creates a fresh source enumeration.
+
+`RepeatWhileWithLifecycle(...)` returns `EventStreamLifecycleEvent<T>` markers for the same state-driven workflow. The active source/stop window is armed before `Activated` is emitted.
+
 ## Event-stream workflow composition
 
 `EventStreamComposition.StartAfter(...)` delays source enumeration until a cancellable activation wait completes successfully:
