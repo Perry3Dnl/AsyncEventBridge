@@ -13,6 +13,26 @@ namespace AsyncEventBridge
 public static class EventCondition
 {
     /// <summary>
+    /// Waits until a boolean state becomes true.
+    /// </summary>
+    public static Task<bool> WaitUntilAsync(
+        Func<bool> condition,
+        Func<CancellationToken, Task> waitForChange,
+        CancellationToken cancellationToken = default)
+    {
+        if (condition is null)
+        {
+            throw new ArgumentNullException(nameof(condition));
+        }
+
+        return WaitUntilAsync(
+            condition,
+            state => state,
+            waitForChange,
+            cancellationToken);
+    }
+
+    /// <summary>
     /// Waits until a state snapshot satisfies the supplied predicate.
     /// </summary>
     /// <remarks>
