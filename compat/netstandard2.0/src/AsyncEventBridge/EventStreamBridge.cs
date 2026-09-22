@@ -225,7 +225,9 @@ public sealed class EventStreamBridge<T> : IDisposable, IAsyncDisposable
             {
                 PublishCompleted();
             }
-            else if (cleanupException is null && terminalException is OperationCanceledException)
+            else if (cleanupException is null &&
+                     terminalException is OperationCanceledException &&
+                     lifetimeCts.IsCancellationRequested)
             {
                 PublishCancelled();
             }
