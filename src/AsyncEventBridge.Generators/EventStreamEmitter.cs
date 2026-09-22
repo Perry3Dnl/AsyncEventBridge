@@ -56,7 +56,7 @@ internal static class EventStreamEmitter
         }
 
         source.Append("global::System.Threading.CancellationToken cancellationToken = default)");
-        AppendMethodConstraints(source, typeParameters);
+        AppendMethodConstraints(source, typeParameters, preserveNullableAnnotations: true);
         source.AppendLine()
             .AppendLine("    {")
             .AppendLine("        if (source is null)")
