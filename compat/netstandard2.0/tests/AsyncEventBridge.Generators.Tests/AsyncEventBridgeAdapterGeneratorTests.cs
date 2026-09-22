@@ -16,7 +16,7 @@ public sealed class AsyncEventBridgeAdapterGeneratorTests
 
         namespace AsyncEventBridge
         {
-            [AttributeUsage(AttributeTargets.Class)]
+            [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)]
             public sealed class GenerateAsyncEventsAttribute : Attribute
             {
             }
@@ -219,6 +219,21 @@ public sealed class AsyncEventBridgeAdapterGeneratorTests
         Assert.Contains("Task<global::System.ComponentModel.PropertyChangedEventArgs> PropertyChangedAsync", generatedSource, StringComparison.Ordinal);
         Assert.Contains("IAsyncEnumerable<global::System.ComponentModel.PropertyChangedEventArgs> PropertyChangedStream", generatedSource, StringComparison.Ordinal);
         Assert.Contains("new global::System.ComponentModel.PropertyChangedEventHandler", generatedSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AssemblyAttributeGeneratesForThirdPartyInterface()
+    {
+        var source = RuntimeWithAssemblyAttribute(
+            "[assembly: AsyncEventBridge.GenerateAsyncEventsFor(typeof(System.ComponentModel.INotifyPropertyChanged))]");
+
+        var result = RunGenerator(source);
+        var generatedSource = Assert.Single(Assert.Single(result.Results).GeneratedSources).SourceText.ToString();
+
+        Assert.Contains("System_DOT_ComponentModel_DOT_INotifyPropertyChangedTargetedAsyncEventExtensions", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("PropertyChangedAsync(this global::System.ComponentModel.INotifyPropertyChanged source", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("PropertyChangedStream(this global::System.ComponentModel.INotifyPropertyChanged source", generatedSource, StringComparison.Ordinal);
+        Assert.DoesNotContain(result.Diagnostics, diagnostic => diagnostic.Id == "AEB002");
     }
 
     [Fact]
