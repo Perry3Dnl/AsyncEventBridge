@@ -28,14 +28,15 @@ public static partial class EventStreamComposition
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(stopWait);
 
-        return new TakeUntilEnumerable<T>(source, stopWait, cancellationToken, completionObserver: null);
+        return new TakeUntilEnumerable<T>(source, stopWait, cancellationToken, completionObserver: null, skipSourceIfStopAlreadyCompleted: false);
     }
 
     private sealed class TakeUntilEnumerable<T>(
         IAsyncEnumerable<T> source,
         Func<CancellationToken, Task> stopWait,
         CancellationToken creationCancellationToken,
-        Action<EventStreamTakeUntilCompletion>? completionObserver) : IAsyncEnumerable<T>
+        Action<EventStreamTakeUntilCompletion>? completionObserver,
+        bool skipSourceIfStopAlreadyCompleted) : IAsyncEnumerable<T>
     {
         public IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellationToken = default) =>
             new Enumerator(
@@ -43,14 +44,16 @@ public static partial class EventStreamComposition
                 stopWait,
                 creationCancellationToken,
                 cancellationToken,
-                completionObserver);
+                completionObserver,
+                skipSourceIfStopAlreadyCompleted);
 
         private sealed class Enumerator(
             IAsyncEnumerable<T> source,
             Func<CancellationToken, Task> stopWait,
             CancellationToken creationCancellationToken,
             CancellationToken enumerationCancellationToken,
-            Action<EventStreamTakeUntilCompletion>? completionObserver) : IAsyncEnumerator<T>
+            Action<EventStreamTakeUntilCompletion>? completionObserver,
+            bool skipSourceIfStopAlreadyCompleted) : IAsyncEnumerator<T>
         {
             private CancellationTokenSource? _lifetimeCancellation;
             private IAsyncEnumerator<T>? _sourceEnumerator;
@@ -197,7 +200,7 @@ public static partial class EventStreamComposition
                     _stopTask = stopWait(lifetimeToken)
                         ?? throw new InvalidOperationException("The event-stream stop wait factory returned null.");
 
-                    if (!_stopTask.IsCompleted)
+                    if (!skipSourceIfStopAlreadyCompleted || !_stopTask.IsCompleted)
                     {
                         _sourceEnumerator = source.GetAsyncEnumerator(lifetimeToken);
                     }
