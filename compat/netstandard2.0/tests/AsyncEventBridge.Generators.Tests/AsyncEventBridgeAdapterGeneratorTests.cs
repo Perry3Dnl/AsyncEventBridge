@@ -103,6 +103,34 @@ public sealed class AsyncEventBridgeAdapterGeneratorTests
     }
 
     [Fact]
+    public void PreservesNullableCustomDelegatePayload()
+    {
+        var source = RuntimeStubs + """
+            namespace Demo
+            {
+                public delegate void SensorChangedHandler(object? sender, SensorEventArgs? e);
+
+                [AsyncEventBridge.GenerateAsyncEvents]
+                public sealed class Sensor
+                {
+                    public event SensorChangedHandler? Changed;
+                }
+
+                public sealed class SensorEventArgs : EventArgs
+                {
+                }
+            }
+            """;
+
+        var result = RunGenerator(source);
+        var generatedSource = Assert.Single(Assert.Single(result.Results).GeneratedSources).SourceText.ToString();
+
+        Assert.Contains("Task<global::Demo.SensorEventArgs?> ChangedAsync", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("IAsyncEnumerable<global::Demo.SensorEventArgs?> ChangedStream", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("Predicate<global::Demo.SensorEventArgs?> predicate", generatedSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ReportsAeb001ForUnsupportedDelegateShape()
     {
         var source = RuntimeStubs + """
