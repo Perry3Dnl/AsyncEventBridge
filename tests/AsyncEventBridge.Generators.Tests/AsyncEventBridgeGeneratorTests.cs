@@ -126,6 +126,51 @@ public sealed class AsyncEventBridgeGeneratorTests
     }
 
     [Fact]
+    public void PreservesNullablePayloadAnnotations()
+    {
+        var source = RuntimeStubs + """
+            namespace Demo
+            {
+                [AsyncEventBridge.GenerateAsyncEvents]
+                public sealed class Sensor
+                {
+                    public event EventHandler<string?>? Changed;
+                }
+            }
+            """;
+
+        var result = RunGenerator(source);
+        var generatedSource = Assert.Single(Assert.Single(result.Results).GeneratedSources).SourceText.ToString();
+
+        Assert.Contains("Task<global::System.String?> ChangedAsync", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("IAsyncEnumerable<global::System.String?> ChangedStream", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("Predicate<global::System.String?> predicate", generatedSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PreservesNullableGenericPayloadAnnotations()
+    {
+        var source = RuntimeStubs + """
+            namespace Demo
+            {
+                [AsyncEventBridge.GenerateAsyncEvents]
+                public sealed class Sensor<TPayload>
+                    where TPayload : class
+                {
+                    public event EventHandler<TPayload?>? Changed;
+                }
+            }
+            """;
+
+        var result = RunGenerator(source);
+        var generatedSource = Assert.Single(Assert.Single(result.Results).GeneratedSources).SourceText.ToString();
+
+        Assert.Contains("Task<TSource0?> ChangedAsync", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("IAsyncEnumerable<TSource0?> ChangedStream", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("where TSource0 : class", generatedSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void DoesNotGenerateForPayloadTypeParameterThatAllowsRefStruct()
     {
         var source = RuntimeStubs + """
