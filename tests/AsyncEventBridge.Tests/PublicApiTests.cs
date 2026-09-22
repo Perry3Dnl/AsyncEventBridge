@@ -98,7 +98,7 @@ public sealed class PublicApiTests
 
         AssertMethodSignatures(
             typeof(EventCondition),
-            "System.Threading.Tasks.Task<System.Boolean> WaitUntilAsync(System.Func<System.Boolean> condition, System.Func<System.Threading.CancellationToken,System.Threading.Tasks.Task> waitForChange, System.Threading.CancellationToken cancellationToken optional)",
+            "System.Threading.Tasks.Task WaitUntilAsync(System.Func<System.Boolean> condition, System.Func<System.Threading.CancellationToken,System.Threading.Tasks.Task> waitForChange, System.Threading.CancellationToken cancellationToken optional)",
             "System.Threading.Tasks.Task<TState> WaitUntilAsync<TState>(System.Func<TState> getState, System.Predicate<TState> predicate, System.Func<System.Threading.CancellationToken,System.Threading.Tasks.Task> waitForChange, System.Threading.CancellationToken cancellationToken optional)");
 
         AssertMethodSignatures(
@@ -174,7 +174,7 @@ public sealed class PublicApiTests
             new[] { "IgnoreAndContinue", "ReportAndContinue", "TraceAndContinue" },
             Enum.GetNames<EventBridgeSubscriberExceptionPolicy>().OrderBy(name => name, StringComparer.Ordinal));
         Assert.Equal(
-            new[] { "Activated", "Deactivated", "SourceCompleted", "Value" },
+            new[] { "Activated", "Deactivated", "SourceCompleted", "Unspecified", "Value" },
             Enum.GetNames<EventStreamLifecycleEventKind>().OrderBy(name => name, StringComparer.Ordinal));
     }
 
