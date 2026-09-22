@@ -15,7 +15,7 @@ public sealed class AsyncEventBridgeGeneratorTests
 
         namespace AsyncEventBridge
         {
-            [AttributeUsage(AttributeTargets.Class)]
+            [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)]
             public sealed class GenerateAsyncEventsAttribute : Attribute
             {
             }
@@ -551,6 +551,32 @@ public sealed class AsyncEventBridgeGeneratorTests
 
         Assert.Contains("Demo_DOT_SensorAsyncEventExtensions", allGenerated, StringComparison.Ordinal);
         Assert.Contains("Demo_DOT_Sensor_A1AsyncEventExtensions", allGenerated, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GeneratesForAnnotatedInterface()
+    {
+        var source = RuntimeStubs + """
+            namespace Demo
+            {
+                [AsyncEventBridge.GenerateAsyncEvents]
+                public interface ISensor
+                {
+                    event EventHandler<SensorEventArgs>? ValueChanged;
+                }
+
+                public sealed class SensorEventArgs : EventArgs
+                {
+                }
+            }
+            """;
+
+        var result = RunGenerator(source);
+        var generatedSource = Assert.Single(Assert.Single(result.Results).GeneratedSources).SourceText.ToString();
+
+        Assert.Contains("Demo_DOT_ISensorAsyncEventExtensions", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("ValueChangedAsync(this global::Demo.ISensor source", generatedSource, StringComparison.Ordinal);
+        Assert.Contains("ValueChangedStream(this global::Demo.ISensor source", generatedSource, StringComparison.Ordinal);
     }
 
     [Fact]
