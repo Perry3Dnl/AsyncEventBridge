@@ -210,7 +210,8 @@ public sealed class AsyncEventBridgeUnityGenerator : ISourceGenerator
             : "internal";
         var extensionClassName = GetExtensionClassName(typeSymbol);
 
-        source.Append(extensionAccessibility)
+        source.AppendLine("/// <summary>Contains generated Unity async event extension methods.</summary>")
+            .Append(extensionAccessibility)
             .Append(" static class ")
             .Append(extensionClassName)
             .AppendLine()
