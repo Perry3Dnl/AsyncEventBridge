@@ -6,3 +6,5 @@
 Rule ID | Category | Severity | Notes
 --------|----------|----------|--------------------
 AEB001 | AsyncEventBridge | Warning | Reports event delegates that cannot be bridged by generated APIs.
+AEB002 | AsyncEventBridge | Warning | Reports invalid `GenerateAsyncEventsFor` target types.
+AEB003 | AsyncEventBridge | Warning | Reports duplicate or redundant async-event generation requests.
