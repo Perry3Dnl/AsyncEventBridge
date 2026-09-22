@@ -209,7 +209,11 @@ public static partial class EventStreamComposition
                         throw new InvalidOperationException("The event-stream stop wait factory returned null.");
                     }
 
-                    _sourceEnumerator = _source.GetAsyncEnumerator(lifetimeToken);
+                    if (!_stopTask.IsCompleted)
+                    {
+                        _sourceEnumerator = _source.GetAsyncEnumerator(lifetimeToken);
+                    }
+
                     _started = true;
                     return;
                 }
