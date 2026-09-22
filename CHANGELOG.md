@@ -4,6 +4,16 @@ All notable changes across the supported AsyncEventBridge release tracks are doc
 
 ## Unreleased
 
+### 1.0 stabilization
+
+- Start the long-term 1.0 stabilization line with a feature-freeze rule: new public surface must close a concrete interop, safety, compatibility, or broad-adoption gap.
+- Change the boolean `EventCondition.WaitUntilAsync(...)` convenience overload from `Task<bool>` to `Task`; successful completion already means the condition became true, while the generic state overload continues to return the matching state snapshot.
+- Reserve `EventStreamLifecycleEventKind.Unspecified = 0` and move real lifecycle markers to non-zero values so `default(EventStreamLifecycleEvent<T>)` cannot masquerade as an activation.
+- Rename `EventStreamFullMode.DropNewest` to `DropWrite` before the 1.0 freeze. The behavior already matches `System.Threading.Channels.BoundedChannelFullMode.DropWrite`: the incoming value is discarded at capacity. This keeps the name aligned with the BCL and leaves room for the distinct Channels `DropNewest` behavior to be added later without ambiguity.
+- Rename the bounded-drop metric tag from `drop_newest` to `drop_write` to match the public buffering contract.
+- Make unified-package generator selection forward-compatible so TFMs compatible with `net10.0` use the modern generator rather than requiring an exact `net10.0` target.
+- Strengthen public-API locks, including constructor coverage on modern .NET and exact method/event/property signatures on the .NET Standard compatibility line.
+
 ### 0.5 async interoperability
 
 - Start the 0.5 development line from the frozen 0.4 release candidate.
