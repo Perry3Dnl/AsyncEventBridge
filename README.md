@@ -6,9 +6,62 @@
 
 <p align="center"><strong>Bridge classic .NET events and modern async code in both directions.</strong></p>
 
-`main` is the single development and release line for AsyncEventBridge starting with **0.3.0**. The modern .NET 10 implementation remains at the repository root, the .NET Standard 2.0 compatibility implementation lives under `compat/netstandard2.0`, and the Unity UPM package lives under `Packages/com.perry3d.async-event-bridge`.
+AsyncEventBridge lets existing event-first APIs participate in normal async .NET without replacing their event model. Await one event, consume repeated events as `IAsyncEnumerable<T>`, coordinate event-driven lifecycles safely, or expose async work back to event-oriented consumers.
 
-The current work is stabilizing that 0.5 interoperability surface for **1.0.0**. The 1.0 line is intentionally feature-frozen: new public API is accepted only when it closes a concrete interoperability, safety, compatibility, or broad-adoption gap. Waiting, streaming, state conditions, lifecycle composition, adaptation, and async-to-event bridging remain one focused package rather than expanding into a general Rx or async-LINQ replacement.
+The package stays deliberately focused on event/async interoperability rather than becoming a general Rx or async-LINQ framework.
+
+## Install
+
+Current 1.0 stabilization preview:
+
+```bash
+dotnet add package AsyncEventBridge --version 1.0.0-preview.1
+```
+
+or:
+
+```xml
+<PackageReference Include="AsyncEventBridge" Version="1.0.0-preview.1" />
+```
+
+The source generator is included in the same NuGet package; no separate analyzer package is required.
+
+For Unity 2023.1+, use the UPM distribution under `Packages/com.perry3d.async-event-bridge`. See the [Unity installation guide](Packages/com.perry3d.async-event-bridge/README.md).
+
+### Quick start
+
+```csharp
+using AsyncEventBridge;
+
+[GenerateAsyncEvents]
+public sealed class Sensor
+{
+    public event EventHandler<ReadingEventArgs>? ReadingChanged;
+
+    public void Raise(int value) =>
+        ReadingChanged?.Invoke(this, new ReadingEventArgs(value));
+}
+
+public sealed class ReadingEventArgs(int value) : EventArgs
+{
+    public int Value { get; } = value;
+}
+
+var sensor = new Sensor();
+
+Task<ReadingEventArgs> nextReading =
+    sensor.ReadingChangedAsync(cancellationToken);
+
+sensor.Raise(42);
+
+ReadingEventArgs reading = await nextReading;
+```
+
+The original event remains an ordinary .NET event, so existing subscribers continue to work unchanged:
+
+```csharp
+sensor.ReadingChanged += OnReadingChanged;
+```
 
 ## What it bridges
 
@@ -25,23 +78,7 @@ Event stream + wait  -> lifecycle-safe async workflow
 
 The modern line also includes sender-aware event occurrences, heterogeneous/N-way wait composition, bounded-stream telemetry, `System.Diagnostics.Metrics`, `TimeProvider`, and Native AOT/trimming verification. The 0.5 stream-workflow primitives, `EventStreamComposition.StartAfter`, `TakeUntil`, `RepeatBetween`, and `RepeatBetweenWithLifecycle`, are also available on the .NET Standard 2.0 and Unity portable runtimes.
 
-## Package
-
-Package ID:
-
-```text
-AsyncEventBridge
-```
-
-For a project consuming the current 1.0 stabilization preview:
-
-```xml
-<PackageReference Include="AsyncEventBridge" Version="1.0.0-preview.1" />
-```
-
-The source generator ships in the same NuGet package; there is no separate analyzer package to install.
-
-### Supported editions
+## Supported editions
 
 | Edition | Baseline | Notes |
 | --- | --- | --- |
