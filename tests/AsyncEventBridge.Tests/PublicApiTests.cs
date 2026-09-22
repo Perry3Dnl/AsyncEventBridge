@@ -147,6 +147,30 @@ public sealed class PublicApiTests
     }
 
     [Fact]
+    public void RuntimePublicConstructorsStayIntentional()
+    {
+        AssertConstructorSignatures(typeof(AsyncFaultedEventArgs));
+        AssertConstructorSignatures(typeof(AsyncValueEventArgs<int>));
+        AssertConstructorSignatures(typeof(EventBridge));
+        AssertConstructorSignatures(typeof(EventBridge<int>));
+        AssertConstructorSignatures(typeof(EventStreamBridge<int>));
+        AssertConstructorSignatures(typeof(EventStreamLifecycleEvent<int>));
+        AssertConstructorSignatures(typeof(EventWaitAllResult<int, string>));
+        AssertConstructorSignatures(typeof(EventWaitAnyResult<int>));
+        AssertConstructorSignatures(typeof(EventWaitAnyResult<int, string>));
+
+        AssertConstructorSignatures(typeof(EventBridgeOptions), "()");
+        AssertConstructorSignatures(typeof(EventStreamOptions), "()");
+        AssertConstructorSignatures(typeof(GenerateAsyncEventsAttribute), "()");
+        AssertConstructorSignatures(
+            typeof(GenerateAsyncEventsForAttribute),
+            "(System.Type targetType)");
+        AssertConstructorSignatures(
+            typeof(EventOccurrence<object, int>),
+            "(System.Object sender, System.Int32 payload)");
+    }
+
+    [Fact]
     public void RuntimePublicEventsAndPropertiesStayIntentional()
     {
         AssertEventNames(typeof(EventBridge), "Cancelled", "Completed", "Faulted");
@@ -301,6 +325,18 @@ public sealed class PublicApiTests
                 $"{DescribeType(parameter.ParameterType)} {parameter.Name}{(parameter.IsOptional ? " optional" : string.Empty)}"));
 
         return $"{DescribeType(method.ReturnType)} {method.Name}{genericSuffix}({parameters})";
+    }
+
+    private static void AssertConstructorSignatures(Type type, params string[] expected)
+    {
+        var actual = type
+            .GetConstructors(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+            .Select(constructor =>
+                $"({string.Join(", ", constructor.GetParameters().Select(parameter => $"{DescribeType(parameter.ParameterType)} {parameter.Name}"))})")
+            .OrderBy(signature => signature, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Equal(expected.OrderBy(signature => signature, StringComparer.Ordinal), actual);
     }
 
     private static void AssertEventNames(Type type, params string[] expected)
