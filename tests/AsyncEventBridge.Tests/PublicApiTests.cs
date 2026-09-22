@@ -192,7 +192,7 @@ public sealed class PublicApiTests
         AssertPropertyNames(typeof(GenerateAsyncEventsForAttribute), "TargetType");
 
         Assert.Equal(
-            new[] { "DropNewest", "DropOldest", "Unbounded" },
+            new[] { "DropWrite", "DropOldest", "Unbounded" },
             Enum.GetNames<EventStreamFullMode>().OrderBy(name => name, StringComparer.Ordinal));
         Assert.Equal(
             new[] { "IgnoreAndContinue", "ReportAndContinue", "TraceAndContinue" },
@@ -278,7 +278,7 @@ public sealed class PublicApiTests
         Assert.Null(options.DropObserver);
         Assert.Equal(0, (int)EventStreamFullMode.Unbounded);
         Assert.Equal(1, (int)EventStreamFullMode.DropOldest);
-        Assert.Equal(2, (int)EventStreamFullMode.DropNewest);
+        Assert.Equal(2, (int)EventStreamFullMode.DropWrite);
 
         var bridgeOptions = new EventBridgeOptions();
         Assert.Equal(
