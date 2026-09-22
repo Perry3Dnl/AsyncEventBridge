@@ -276,7 +276,7 @@ public static class EventStream
         var fullMode = settings.FullMode switch
         {
             EventStreamFullMode.DropOldest => BoundedChannelFullMode.DropOldest,
-            EventStreamFullMode.DropNewest => BoundedChannelFullMode.DropWrite,
+            EventStreamFullMode.DropWrite => BoundedChannelFullMode.DropWrite,
             _ => throw new InvalidOperationException($"Unsupported stream full mode: {settings.FullMode}."),
         };
 
