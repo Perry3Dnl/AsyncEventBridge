@@ -41,6 +41,210 @@ For a project consuming the `0.5.0` package:
 
 The source generator ships in the same NuGet package; there is no separate analyzer package to install.
 
+## Before and after
+
+AsyncEventBridge is designed so the **event API still looks like an event API** and the **async API still looks like normal async .NET**. The package owns the subscription, cancellation, race, cleanup, and lifecycle plumbing between them.
+
+The "without AsyncEventBridge" examples below are illustrative raw-.NET implementations of the same intent. Production code normally needs to handle additional failure and race cases as well.
+
+### Wait for one event
+
+Without AsyncEventBridge, turning an event into something awaitable usually means manually creating a completion source, managing the handler lifetime, wiring cancellation, and making sure cleanup happens on every path:
+
+```csharp
+static async Task<int> WaitForNextValueAsync(
+    Sensor sensor,
+    CancellationToken cancellationToken)
+{
+    var completion =
+        new TaskCompletionSource<int>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+    EventHandler<int>? handler = null;
+    CancellationTokenRegistration registration = default;
+
+    handler = (_, value) =>
+    {
+        if (completion.TrySetResult(value))
+        {
+            sensor.ValueChanged -= handler;
+            registration.Dispose();
+        }
+    };
+
+    sensor.ValueChanged += handler;
+
+    registration = cancellationToken.Register(() =>
+    {
+        if (completion.TrySetCanceled(cancellationToken))
+        {
+            sensor.ValueChanged -= handler;
+        }
+    });
+
+    try
+    {
+        return await completion.Task;
+    }
+    finally
+    {
+        sensor.ValueChanged -= handler;
+        registration.Dispose();
+    }
+}
+```
+
+With AsyncEventBridge, the event keeps its normal name and gains the async shape a .NET developer would expect:
+
+```csharp
+int value = await sensor.ValueChangedAsync(cancellationToken);
+```
+
+Existing event-first code is unchanged:
+
+```csharp
+sensor.ValueChanged += OnValueChanged;
+```
+
+Both styles can exist against the same source type.
+
+### Consume repeated events
+
+Without the package, an async stream over an event normally needs a queue/channel, subscription management, cancellation coordination, completion semantics, and disposal logic.
+
+With AsyncEventBridge:
+
+```csharp
+await foreach (int value in
+    sensor.ValueChangedStream(cancellationToken))
+{
+    Process(value);
+}
+```
+
+The calling code looks like any other `IAsyncEnumerable<T>`; the fact that values originate from a synchronous .NET event is an implementation detail.
+
+### Stay active while state is active
+
+A reconnecting event API often exposes both current state and a change event. Hand-written code has to deal with:
+
+```text
+check state
+subscribe
+state changes between those operations
+unsubscribe/re-subscribe the value event
+disconnect
+reconnect
+cancellation
+cleanup
+```
+
+With the state-driven lifecycle API:
+
+```csharp
+await foreach (Reading reading in sensor.ReadingChangedStream()
+    .RepeatWhile(
+        () => sensor.IsConnected,
+        token => sensor.ConnectionChangedAsync(token),
+        cancellationToken))
+{
+    Process(reading);
+}
+```
+
+For enum or richer state:
+
+```csharp
+await foreach (Reading reading in sensor.ReadingChangedStream()
+    .RepeatWhile(
+        () => sensor.State,
+        state => state == SensorState.Connected,
+        token => sensor.StateChangedAsync(token),
+        cancellationToken))
+{
+    Process(reading);
+}
+```
+
+Already-active state starts immediately. Inactive state keeps the value source unsubscribed. Disconnect/reconnect cycles are handled behind the stream API.
+
+### Safely await current-or-future state
+
+The classic unsafe pattern is:
+
+```csharp
+if (!client.IsConnected)
+{
+    // The state can change here, before the event is subscribed.
+    await WaitForConnectedEventSomehowAsync();
+}
+```
+
+With AsyncEventBridge:
+
+```csharp
+await EventCondition.WaitUntilAsync(
+    () => client.IsConnected,
+    token => client.ConnectionChangedAsync(token),
+    cancellationToken);
+```
+
+The change wait is armed before the state snapshot is checked, so already-satisfied state and transitions during setup are both handled safely.
+
+### Keep an event-first API over async work
+
+The bridge works in the other direction too. Event-oriented consumers do not need to be rewritten just because the implementation becomes asynchronous.
+
+Without a bridge, a class commonly grows custom continuation code and custom result/error events around every task.
+
+With AsyncEventBridge:
+
+```csharp
+using EventBridge<SensorConfiguration> bridge =
+    LoadSensorConfigurationAsync().ToEventBridge();
+
+bridge.Completed += (_, e) => Apply(e.Value);
+bridge.Faulted += (_, e) => Log(e.Exception);
+bridge.Cancelled += (_, _) => HandleCancellation();
+
+bridge.Connect();
+```
+
+For an async stream:
+
+```csharp
+await using EventStreamBridge<Reading> bridge =
+    ReadingsAsync().ToEventBridge();
+
+bridge.Value += (_, e) => Process(e.Value);
+bridge.Completed += (_, _) => OnCompleted();
+bridge.Faulted += (_, e) => Log(e.Exception);
+
+bridge.Connect(cancellationToken);
+```
+
+To an event-first developer, these are ordinary .NET events. To an async-first developer, the source remains an ordinary `Task`, `ValueTask`, or `IAsyncEnumerable<T>`.
+
+### One source, both programming styles
+
+A generated event source can serve old and new code at the same time:
+
+```csharp
+// Existing event-oriented code.
+sensor.ValueChanged += OnValueChanged;
+
+// Async code waiting for one occurrence.
+int next = await sensor.ValueChangedAsync(cancellationToken);
+
+// Async code consuming repeated occurrences.
+await foreach (int value in sensor.ValueChangedStream(cancellationToken))
+{
+    Process(value);
+}
+```
+
+That is the core goal of the package: **developers should be able to use the programming model they already know, while AsyncEventBridge handles the translation layer behind it.**
+
 ## Await a .NET event
 
 For a type you own, annotate it:
