@@ -115,6 +115,18 @@ public sealed class EventStreamStartAfterTests
         Assert.Equal(0, values.HandlerCount);
     }
 
+    [Fact]
+    public async Task StartAfterDisposesSourceWhenItCompletes()
+    {
+        var source = new EmptyAsyncEnumerable<TestArgs>();
+        var stream = source.StartAfter(_ => Task.CompletedTask);
+
+        await using var enumerator = stream.GetAsyncEnumerator();
+
+        Assert.False(await enumerator.MoveNextAsync());
+        Assert.Equal(1, source.DisposeCount);
+    }
+
     private sealed class EventSource
     {
         private readonly TaskCompletionSource<bool> _subscribed =
@@ -134,6 +146,36 @@ public sealed class EventStreamStartAfterTests
         internal int HandlerCount => _changed?.GetInvocationList().Length ?? 0;
         internal Task Subscribed => _subscribed.Task;
         internal void Raise(int value) => _changed?.Invoke(this, new TestArgs(value));
+    }
+
+    private sealed class EmptyAsyncEnumerable<T> : IAsyncEnumerable<T>
+    {
+        private int _disposeCount;
+
+        internal int DisposeCount => Volatile.Read(ref _disposeCount);
+
+        public IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellationToken = default) =>
+            new Enumerator(this);
+
+        private sealed class Enumerator : IAsyncEnumerator<T>
+        {
+            private readonly EmptyAsyncEnumerable<T> _owner;
+
+            internal Enumerator(EmptyAsyncEnumerable<T> owner)
+            {
+                _owner = owner;
+            }
+
+            public T Current => default!;
+
+            public ValueTask<bool> MoveNextAsync() => new ValueTask<bool>(false);
+
+            public ValueTask DisposeAsync()
+            {
+                Interlocked.Increment(ref _owner._disposeCount);
+                return default;
+            }
+        }
     }
 
     private sealed class TestArgs : EventArgs
