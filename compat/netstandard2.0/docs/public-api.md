@@ -139,6 +139,10 @@ var state = await EventCondition.WaitUntilAsync(
 
 The change wait is armed before the state snapshot is read on every attempt. Already-satisfied state cancels and observes that temporary wait before returning; spurious changes rearm and recheck. This avoids the usual check-then-subscribe missed-transition race.
 
+Boolean state also has the compact `WaitUntilAsync(Func<bool>, ...)` overload.
+
+Portable runtimes also expose `RepeatWhile(...)` and `RepeatWhileWithLifecycle(...)`. These combine state checks and repeated lifecycle management so an event-backed source is subscribed only while the state is active, while already-active state starts immediately and later reactivation creates a fresh source enumeration.
+
 ## Event-stream workflow composition
 
 Portable runtimes expose both lifecycle primitives with the same coordination contract as modern .NET.
