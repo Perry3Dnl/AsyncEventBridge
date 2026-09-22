@@ -66,6 +66,37 @@ public sealed class EventConditionTests
     }
 
     [Fact]
+    public async Task ChangeWaitFaultRemainsTheSinglePrimaryFailure()
+    {
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => EventCondition.WaitUntilAsync(
+                () => false,
+                state => state,
+                _ => Task.FromException(new InvalidOperationException("change failed"))));
+
+        Assert.Equal("change failed", exception.Message);
+    }
+
+    [Fact]
+    public async Task StateReadFailureCancelsAndObservesArmedChangeWait()
+    {
+        var source = new BoolStateSource(false);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => EventCondition.WaitUntilAsync<bool>(
+                () => throw new InvalidOperationException("state read failed"),
+                state => state,
+                token => EventAwaiter.WaitAsync<TestArgs>(
+                    handler => source.Changed += handler,
+                    handler => source.Changed -= handler,
+                    cancellationToken: token)));
+
+        Assert.Equal("state read failed", exception.Message);
+        Assert.Equal(1, source.AddCount);
+        Assert.Equal(0, source.HandlerCount);
+    }
+
+    [Fact]
     public async Task ExternalCancellationCleansPendingChangeWait()
     {
         var source = new BoolStateSource(false);
