@@ -409,7 +409,10 @@ public sealed class AsyncEventBridgeGenerator : IIncrementalGenerator
         bool includePredicate,
         bool includeOptions)
     {
-        source.Append("    ")
+        source.Append("    /// <summary>Creates an async stream for ")
+            .Append(eventName.TrimStart('@'))
+            .AppendLine(" event occurrences.</summary>")
+            .Append("    ")
             .Append(accessibility)
             .Append(" static global::System.Collections.Generic.IAsyncEnumerable<")
             .Append(eventArgsType)
