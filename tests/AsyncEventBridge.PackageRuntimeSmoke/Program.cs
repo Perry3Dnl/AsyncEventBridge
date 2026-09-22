@@ -200,6 +200,18 @@ if (!streamValues.SequenceEqual(new[] { 1, 2, 3 }))
     throw new InvalidOperationException("The packaged async-stream bridge returned values out of order.");
 }
 
+
+var startAfterValues = new List<int>();
+await foreach (var value in Values().StartAfter(_ => Task.CompletedTask))
+{
+    startAfterValues.Add(value);
+}
+
+if (!startAfterValues.SequenceEqual(new[] { 1, 2, 3 }))
+{
+    throw new InvalidOperationException("The packaged StartAfter workflow composition returned the wrong values.");
+}
+
 Console.WriteLine("AsyncEventBridge packaged runtime smoke test passed.");
 
 static async IAsyncEnumerable<int> Values()
