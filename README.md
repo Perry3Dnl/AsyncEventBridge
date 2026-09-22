@@ -33,10 +33,10 @@ Package ID:
 AsyncEventBridge
 ```
 
-For a project consuming the `0.5.0` package:
+For a project consuming the current 1.0 stabilization preview:
 
 ```xml
-<PackageReference Include="AsyncEventBridge" Version="0.5.0" />
+<PackageReference Include="AsyncEventBridge" Version="1.0.0-preview.1" />
 ```
 
 The source generator ships in the same NuGet package; there is no separate analyzer package to install.
