@@ -64,6 +64,63 @@ public sealed class EventStreamStressTests
         Assert.Null(changed);
     }
 
+    [Fact]
+    public async Task DropWriteAccountingStaysExactUnderConcurrentProducers()
+    {
+        const int producerCount = 8;
+        const int valuesPerProducer = 200;
+        const int capacity = 32;
+        const int producedCount = producerCount * valuesPerProducer;
+
+        EventHandler<StressEventArgs>? changed = null;
+        var observedDrops = 0L;
+        var options = new EventStreamOptions
+        {
+            Capacity = capacity,
+            FullMode = EventStreamFullMode.DropWrite,
+            DropObserver = dropped => Interlocked.Add(ref observedDrops, dropped),
+        };
+
+        var stream = EventStream.Create<StressEventArgs>(
+            handler => changed += handler,
+            handler => changed -= handler,
+            options: options);
+
+        await using var enumerator = stream.GetAsyncEnumerator();
+
+        var initialMove = enumerator.MoveNextAsync().AsTask();
+        Assert.NotNull(changed);
+
+        changed!(null, new StressEventArgs(-1));
+        Assert.True(await initialMove);
+        Assert.Equal(-1, enumerator.Current.Value);
+
+        var producers = Enumerable.Range(0, producerCount)
+            .Select(producer => Task.Run(() =>
+            {
+                for (var offset = 0; offset < valuesPerProducer; offset++)
+                {
+                    changed!(null, new StressEventArgs((producer * valuesPerProducer) + offset));
+                }
+            }))
+            .ToArray();
+
+        await Task.WhenAll(producers);
+
+        Assert.Equal(producedCount - capacity, options.DroppedCount);
+        Assert.Equal(options.DroppedCount, Volatile.Read(ref observedDrops));
+
+        var buffered = new HashSet<int>();
+
+        for (var index = 0; index < capacity; index++)
+        {
+            Assert.True(await enumerator.MoveNextAsync());
+            Assert.True(buffered.Add(enumerator.Current.Value));
+        }
+
+        Assert.Equal(capacity, buffered.Count);
+    }
+
     private sealed class StressEventArgs : EventArgs
     {
         internal StressEventArgs(int value)
