@@ -75,10 +75,15 @@ public sealed class AsyncEventBridgeOccurrenceGeneratorTests
         var result = RunGenerator(source);
         var generated = Assert.Single(Assert.Single(result.Results).GeneratedSources).SourceText.ToString();
 
-        Assert.Contains("ValueChangedOccurrenceAsync", generated, StringComparison.Ordinal);
-        Assert.Contains("ValueChangedOccurrenceStream", generated, StringComparison.Ordinal);
+        Assert.Equal(4, CountOccurrences(generated, " ValueChangedOccurrenceAsync("));
+        Assert.Equal(4, CountOccurrences(generated, " ValueChangedOccurrenceStream("));
         Assert.Contains("EventOccurrence<global::Demo.Sensor, global::System.Int32>", generated, StringComparison.Ordinal);
+        Assert.Contains(
+            "global::System.Predicate<global::AsyncEventBridge.EventOccurrence<global::Demo.Sensor, global::System.Int32>> predicate",
+            generated,
+            StringComparison.Ordinal);
         Assert.Contains("EventOccurrenceAwaiter.WaitAsync<global::Demo.Sensor, global::System.Int32>", generated, StringComparison.Ordinal);
+        Assert.Contains("            predicate,", generated, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -173,6 +178,20 @@ public sealed class AsyncEventBridgeOccurrenceGeneratorTests
         var result = RunGenerator(source);
 
         Assert.Empty(Assert.Single(result.Results).GeneratedSources);
+    }
+
+    private static int CountOccurrences(string value, string search)
+    {
+        var count = 0;
+        var index = 0;
+
+        while ((index = value.IndexOf(search, index, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            index += search.Length;
+        }
+
+        return count;
     }
 
     private static GeneratorDriverRunResult RunGenerator(string source)
