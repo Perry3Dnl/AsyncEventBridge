@@ -177,6 +177,21 @@ If a source move and the stop wait are both complete when the move boundary is o
 
 The operators compose directly: `source.StartAfter(startWait).TakeUntil(stopWait)` models an inactive/active/stopped lifecycle. Because `TakeUntil` is outermost, a stop that occurs before activation cancels and observes the pending start wait without subscribing the source.
 
+For repeated activation/deactivation cycles, use:
+
+```csharp
+await foreach (var value in sensor.ValueChangedStream()
+    .RepeatBetween(
+        token => sensor.ConnectedAsync(token),
+        token => sensor.DisconnectedAsync(token),
+        cancellationToken))
+{
+    Process(value);
+}
+```
+
+`RepeatBetween` creates a fresh source enumeration for each active cycle. Successful stop or natural source completion ends only that cycle and rearms activation. A successful stop observed while inactive rearms without starting the source. Source faults, lifecycle-wait faults, cleanup failures, and external cancellation terminate the repeating workflow.
+
 These APIs are intentionally event-workflow-specific. 0.5 does not introduce a parallel general-purpose async LINQ or Rx operator set.
 
 ## Task / ValueTask -> events
