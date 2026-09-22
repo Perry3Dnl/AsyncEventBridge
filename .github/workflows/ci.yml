@@ -50,6 +50,9 @@ jobs:
       - name: Run sensor sample
         run: timeout 15s dotnet run --project samples/SensorMonitoring/SensorMonitoring.csproj --configuration Release --no-build
 
+      - name: Run property-changed interop sample
+        run: timeout 15s dotnet run --project samples/PropertyChangedInterop/PropertyChangedInterop.csproj --configuration Release --no-build
+
       - name: Pack modern package
         run: dotnet pack src/AsyncEventBridge/AsyncEventBridge.csproj --configuration Release --no-build --no-restore -o artifacts/packages
 
