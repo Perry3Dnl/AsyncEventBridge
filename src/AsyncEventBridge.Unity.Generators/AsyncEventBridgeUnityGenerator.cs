@@ -487,6 +487,16 @@ public sealed class AsyncEventBridgeUnityGenerator : ISourceGenerator
         INamedTypeSymbol typeSymbol,
         ISet<INamedTypeSymbol> stopAtTargetTypes)
     {
+        if (typeSymbol.TypeKind == TypeKind.Interface)
+        {
+            foreach (var eventSymbol in typeSymbol.GetMembers().OfType<IEventSymbol>())
+            {
+                yield return eventSymbol;
+            }
+
+            yield break;
+        }
+
         var hiddenNames = new HashSet<string>(StringComparer.Ordinal);
         INamedTypeSymbol? current = typeSymbol;
         var isTargetType = true;
@@ -644,7 +654,8 @@ public sealed class AsyncEventBridgeUnityGenerator : ISourceGenerator
 
     private static bool CanGenerateForType(INamedTypeSymbol typeSymbol)
     {
-        if (typeSymbol.TypeKind != TypeKind.Class)
+        if (typeSymbol.TypeKind != TypeKind.Class &&
+            typeSymbol.TypeKind != TypeKind.Interface)
         {
             return false;
         }
