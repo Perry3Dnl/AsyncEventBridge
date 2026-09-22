@@ -212,6 +212,30 @@ if (!startAfterValues.SequenceEqual(new[] { 1, 2, 3 }))
     throw new InvalidOperationException("The packaged StartAfter workflow composition returned the wrong values.");
 }
 
+
+var repeatedValues = new List<int>();
+await using (var repeated = Values()
+    .RepeatBetween(
+        _ => Task.CompletedTask,
+        token => Task.Delay(Timeout.InfiniteTimeSpan, token))
+    .GetAsyncEnumerator())
+{
+    for (var index = 0; index < 4; index++)
+    {
+        if (!await repeated.MoveNextAsync())
+        {
+            throw new InvalidOperationException("The packaged repeating lifecycle ended unexpectedly.");
+        }
+
+        repeatedValues.Add(repeated.Current);
+    }
+}
+
+if (!repeatedValues.SequenceEqual(new[] { 1, 2, 3, 1 }))
+{
+    throw new InvalidOperationException("The packaged RepeatBetween workflow did not create a fresh source enumeration for the next lifecycle cycle.");
+}
+
 Console.WriteLine("AsyncEventBridge packaged runtime smoke test passed.");
 
 static async IAsyncEnumerable<int> Values()
