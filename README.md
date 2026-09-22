@@ -363,6 +363,17 @@ For a public type you cannot annotate:
 
 Generation happens in the consuming compilation without modifying the target type.
 
+Classes and interfaces are both valid generation targets. That matters when application code intentionally depends on an event-bearing abstraction such as `INotifyPropertyChanged`:
+
+```csharp
+[assembly: GenerateAsyncEventsFor(typeof(INotifyPropertyChanged))]
+
+PropertyChangedEventArgs change =
+    await model.PropertyChangedAsync(cancellationToken);
+```
+
+For interfaces, 1.0 generates events declared directly on the targeted interface. Target a base interface independently when its declared events also need a façade.
+
 Generator diagnostics make unsupported requests visible instead of silently omitting APIs:
 
 ```text
