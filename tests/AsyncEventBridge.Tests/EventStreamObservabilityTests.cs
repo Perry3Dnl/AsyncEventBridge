@@ -73,6 +73,45 @@ public sealed class EventStreamObservabilityTests
     }
 
     [Fact]
+    public async Task OptionsAreSnapshottedAtStreamCreationWhileDropCountRemainsLive()
+    {
+        var source = new TestEventSource<TestEventArgs>();
+        var originalObserverCounts = new List<long>();
+        var replacementObserverCalls = 0;
+        var options = new EventStreamOptions
+        {
+            Capacity = 1,
+            FullMode = EventStreamFullMode.DropOldest,
+            DropObserver = originalObserverCounts.Add,
+        };
+        var stream = EventStream.Create<TestEventArgs>(
+            handler => source.Changed += handler,
+            handler => source.Changed -= handler,
+            options: options);
+
+        options.Capacity = 100;
+        options.FullMode = EventStreamFullMode.Unbounded;
+        options.DropObserver = _ => replacementObserverCalls++;
+
+        await using var enumerator = stream.GetAsyncEnumerator();
+
+        var firstMove = enumerator.MoveNextAsync().AsTask();
+        source.Raise(new TestEventArgs(0));
+        Assert.True(await firstMove);
+        Assert.Equal(0, enumerator.Current.Value);
+
+        source.Raise(new TestEventArgs(1));
+        source.Raise(new TestEventArgs(2));
+
+        Assert.Equal(1, options.DroppedCount);
+        Assert.Equal(new long[] { 1 }, originalObserverCounts);
+        Assert.Equal(0, replacementObserverCalls);
+
+        Assert.True(await enumerator.MoveNextAsync());
+        Assert.Equal(2, enumerator.Current.Value);
+    }
+
+    [Fact]
     public async Task DropObserverExceptionDoesNotFaultStream()
     {
         var source = new TestEventSource<TestEventArgs>();
