@@ -49,12 +49,12 @@ public class MetricsBenchmarks
     }
 
     [Benchmark]
-    public async Task<long> BoundedDropNewestBurst()
+    public async Task<long> BoundedDropWriteBurst()
     {
         var options = new EventStreamOptions
         {
             Capacity = 8,
-            FullMode = EventStreamFullMode.DropNewest,
+            FullMode = EventStreamFullMode.DropWrite,
         };
         var stream = EventStream.Create<int>(
             handler => _source.Changed += handler,
