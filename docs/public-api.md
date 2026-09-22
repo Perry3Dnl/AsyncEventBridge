@@ -314,6 +314,8 @@ Bridges do not replay values or terminal outcomes. Handlers should be attached b
 
 See `docs/0.4-bridge-lifecycle.md`.
 
+The stable 1.0 cancellation, timeout, lifecycle, and cleanup contract is consolidated in `docs/1.0-cancellation-lifecycle-cleanup.md`.
+
 ## Metrics
 
 The runtime exposes the `AsyncEventBridge` meter with stable low-cardinality counters:
