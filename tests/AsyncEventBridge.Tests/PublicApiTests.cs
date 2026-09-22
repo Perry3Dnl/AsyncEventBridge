@@ -32,6 +32,7 @@ public sealed class PublicApiTests
             "AsyncEventBridge.EventBridgeSubscriberExceptionPolicy",
             "AsyncEventBridge.EventStream",
             "AsyncEventBridge.EventStreamBridge`1",
+            "AsyncEventBridge.EventStreamComposition",
             "AsyncEventBridge.EventStreamFullMode",
             "AsyncEventBridge.EventStreamOptions",
             "AsyncEventBridge.GenerateAsyncEventsAttribute",
@@ -61,6 +62,7 @@ public sealed class PublicApiTests
         AssertMethodNames(typeof(EventOccurrenceStream), "Create");
         AssertMethodNames(typeof(EventComposition), "WaitAllAsync", "WaitAllAsync", "WaitAnyAsync", "WaitAnyAsync");
         AssertMethodNames(typeof(EventStream), "Create", "Create");
+        AssertMethodNames(typeof(EventStreamComposition), "TakeUntil");
         AssertMethodNames(typeof(EventBridge), "Connect", "Dispose");
         AssertMethodNames(typeof(EventBridge<int>), "Connect", "Dispose");
         AssertMethodNames(typeof(EventStreamBridge<int>), "Connect", "Dispose", "DisposeAsync");
@@ -78,6 +80,10 @@ public sealed class PublicApiTests
             typeof(EventStream),
             "System.Collections.Generic.IAsyncEnumerable<System.EventArgs> Create(System.Action<System.EventHandler> subscribe, System.Action<System.EventHandler> unsubscribe, System.Predicate<System.EventArgs> predicate optional, AsyncEventBridge.EventStreamOptions options optional, System.Threading.CancellationToken cancellationToken optional)",
             "System.Collections.Generic.IAsyncEnumerable<TEventArgs> Create<TEventArgs>(System.Action<System.EventHandler<TEventArgs>> subscribe, System.Action<System.EventHandler<TEventArgs>> unsubscribe, System.Predicate<TEventArgs> predicate optional, AsyncEventBridge.EventStreamOptions options optional, System.Threading.CancellationToken cancellationToken optional)");
+
+        AssertMethodSignatures(
+            typeof(EventStreamComposition),
+            "System.Collections.Generic.IAsyncEnumerable<T> TakeUntil<T>(System.Collections.Generic.IAsyncEnumerable<T> source, System.Func<System.Threading.CancellationToken,System.Threading.Tasks.Task> stopWait, System.Threading.CancellationToken cancellationToken optional)");
 
         AssertMethodSignatures(
             typeof(EventOccurrenceAwaiter),
