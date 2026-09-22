@@ -17,6 +17,10 @@ All notable changes across the supported AsyncEventBridge release tracks are doc
 - Distinguish `Deactivated` from `SourceCompleted`; keep stop-before-start silent and keep faults/cancellation as terminal outcomes rather than marker values.
 - Add `EventCondition.WaitUntilAsync(...)` for APIs that expose both current state and state-change events, using subscribe-before-check ordering to avoid missed transitions and to handle already-satisfied state safely.
 - Re-arm state-change waits after spurious notifications and deterministically cancel/observe the temporary wait when the predicate is already satisfied or state evaluation fails.
+- Add boolean `EventCondition.WaitUntilAsync(...)` convenience overloads for `IsConnected`/`IsReady`-style state.
+- Add `EventStreamComposition.RepeatWhile(...)` and `RepeatWhileWithLifecycle(...)` to combine current state, state-change events, repeated activation/deactivation, and fresh per-cycle source subscriptions behind one natural call shape.
+- Keep inactive state genuinely unsubscribed by avoiding source-enumerator creation when `TakeUntil` observes an already-completed stop wait.
+- Arm state-driven lifecycle source/stop coordination before exposing `Activated`, preventing event loss while lifecycle markers are handled.
 - Create the stop wait per enumeration and share a coordination token with the source enumerator.
 - Cancel, observe, and dispose the losing side before the composed sequence reports completion.
 - Preserve the 0.4 primary-outcome-first cleanup policy when the source, stop wait, cancellation callbacks, or enumerator disposal fail.
