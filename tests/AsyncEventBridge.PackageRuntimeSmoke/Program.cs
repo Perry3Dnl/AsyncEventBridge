@@ -274,6 +274,23 @@ if (!lifecycleEvents.SequenceEqual(expectedLifecycle))
     throw new InvalidOperationException("The packaged observable lifecycle returned the wrong transition/value sequence.");
 }
 
+
+var conditionState = true;
+var conditionWaitArmed = 0;
+var observedConditionState = await EventCondition.WaitUntilAsync(
+    () => conditionState,
+    state => state,
+    token =>
+    {
+        Interlocked.Increment(ref conditionWaitArmed);
+        return Task.Delay(Timeout.InfiniteTimeSpan, token);
+    });
+
+if (!observedConditionState || conditionWaitArmed != 1)
+{
+    throw new InvalidOperationException("The packaged EventCondition wait did not arm-before-check or return the satisfied state.");
+}
+
 Console.WriteLine("AsyncEventBridge packaged runtime smoke test passed.");
 
 static async IAsyncEnumerable<int> Values()
