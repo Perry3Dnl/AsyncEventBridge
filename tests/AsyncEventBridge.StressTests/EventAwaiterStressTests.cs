@@ -48,6 +48,52 @@ public sealed class EventAwaiterStressTests
     }
 
     [Fact]
+    public async Task EventTimeoutRaceRemainsSingleWinnerAcrossManyIterations()
+    {
+        const int iterations = 250;
+
+        for (var iteration = 0; iteration < iterations; iteration++)
+        {
+            var source = new StressEventSource();
+            var timeProvider = new ManualRaceTimeProvider();
+            using var barrier = new Barrier(3);
+            var wait = EventAwaiter.WaitAsync<StressEventArgs>(
+                handler => source.Changed += handler,
+                handler => source.Changed -= handler,
+                timeout: TimeSpan.FromMinutes(1),
+                timeProvider: timeProvider);
+
+            var raiseTask = Task.Run(() =>
+            {
+                barrier.SignalAndWait();
+                source.Raise(new StressEventArgs(iteration));
+            });
+
+            var timeoutTask = Task.Run(() =>
+            {
+                barrier.SignalAndWait();
+                timeProvider.Fire();
+            });
+
+            barrier.SignalAndWait();
+            await Task.WhenAll(raiseTask, timeoutTask);
+
+            try
+            {
+                Assert.Equal(iteration, (await wait).Value);
+                Assert.True(wait.IsCompletedSuccessfully);
+            }
+            catch (TimeoutException)
+            {
+                Assert.True(wait.IsFaulted);
+            }
+
+            Assert.Equal(0, source.HandlerCount);
+            Assert.Equal(1, source.RemoveCount);
+        }
+    }
+
+    [Fact]
     public async Task HundredsOfParallelWaitsLeaveNoHandlersBehind()
     {
         const int count = 256;
@@ -66,6 +112,56 @@ public sealed class EventAwaiterStressTests
         Assert.Equal(count, results.Length);
         Assert.Equal(0, source.HandlerCount);
         Assert.Equal(count, source.RemoveCount);
+    }
+
+    private sealed class ManualRaceTimeProvider : TimeProvider
+    {
+        private RaceTimer? _timer;
+
+        public override ITimer CreateTimer(
+            TimerCallback callback,
+            object? state,
+            TimeSpan dueTime,
+            TimeSpan period)
+        {
+            var timer = new RaceTimer(callback, state);
+
+            if (Interlocked.CompareExchange(ref _timer, timer, null) is not null)
+            {
+                throw new InvalidOperationException("Only one timer is expected per stress iteration.");
+            }
+
+            return timer;
+        }
+
+        internal void Fire() => Volatile.Read(ref _timer)?.Fire();
+
+        private sealed class RaceTimer(TimerCallback callback, object? state) : ITimer
+        {
+            private TimerCallback? _callback = callback;
+            private object? _state = state;
+
+            public bool Change(TimeSpan dueTime, TimeSpan period) =>
+                Volatile.Read(ref _callback) is not null;
+
+            internal void Fire()
+            {
+                var callback = Interlocked.Exchange(ref _callback, null);
+                callback?.Invoke(_state);
+            }
+
+            public void Dispose()
+            {
+                Interlocked.Exchange(ref _callback, null);
+                _state = null;
+            }
+
+            public ValueTask DisposeAsync()
+            {
+                Dispose();
+                return ValueTask.CompletedTask;
+            }
+        }
     }
 
     private sealed class StressEventSource
