@@ -288,7 +288,10 @@ public sealed class AsyncEventBridgeAdapterGenerator : IIncrementalGenerator
         var eventName = EscapeIdentifier(item.EventSymbol.Name);
         var methodName = item.EventSymbol.Name + "Async";
 
-        source.Append("    ")
+        source.Append("    /// <summary>Asynchronously waits for the next ")
+            .Append(item.EventSymbol.Name)
+            .AppendLine(" event occurrence.</summary>")
+            .Append("    ")
             .Append(item.Accessibility)
             .Append(" static global::System.Threading.Tasks.Task");
 
