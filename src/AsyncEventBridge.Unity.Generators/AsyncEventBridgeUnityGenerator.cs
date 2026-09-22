@@ -293,7 +293,10 @@ public sealed class AsyncEventBridgeUnityGenerator : ISourceGenerator
         var eventName = EscapeIdentifier(item.EventSymbol.Name);
         var methodName = item.EventSymbol.Name + "Async";
 
-        source.Append("    ")
+        source.Append("    /// <summary>Asynchronously waits for the next ")
+            .Append(item.EventSymbol.Name)
+            .AppendLine(" event occurrence using Unity Awaitable.</summary>")
+            .Append("    ")
             .Append(item.Accessibility)
             .Append(" static global::UnityEngine.Awaitable<")
             .Append(item.EventArgsType)
