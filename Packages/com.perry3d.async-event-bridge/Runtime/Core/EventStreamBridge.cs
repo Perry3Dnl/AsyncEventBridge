@@ -18,6 +18,8 @@ namespace AsyncEventBridge
 /// While connected and not owner-disposed, the bridge publishes values sequentially and publishes at most one
 /// terminal outcome. If cancellation races with natural completion or a fault, no outcome is given artificial
 /// priority; the outcome that reaches terminal publication first wins.
+/// A source-thrown <see cref="OperationCanceledException"/> is published as <see cref="Cancelled"/> only when the
+/// bridge lifetime token is actually cancelled; otherwise it is published as <see cref="Faulted"/>.
 /// </remarks>
 /// <typeparam name="T">The stream value type.</typeparam>
 public sealed class EventStreamBridge<T> : IDisposable, IAsyncDisposable
