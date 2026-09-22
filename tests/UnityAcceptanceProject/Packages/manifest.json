@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "com.perry3d.async-event-bridge": "file:../../../Packages/com.perry3d.async-event-bridge"
+  }
+}
