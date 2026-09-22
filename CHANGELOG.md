@@ -10,6 +10,9 @@ All notable changes across the supported AsyncEventBridge release tracks are doc
 - Add `EventStreamComposition.TakeUntil(...)` for lifecycle-safe coordination between an async event stream and a cancellable asynchronous stop wait.
 - Add `EventStreamComposition.StartAfter(...)` to defer source enumeration/subscription until a cancellable activation wait completes successfully.
 - Make `StartAfter(...).TakeUntil(...)` a composable inactive/active/stopped lifecycle: a stop that wins before activation cancels the pending start and never subscribes the source.
+- Add `EventStreamComposition.RepeatBetween(...)` for reconnecting/re-entering lifecycles that continuously rearm activation after each deactivation or natural source completion.
+- Create a fresh source enumeration for every repeated active cycle; treat successful stop-before-start as an inactive-cycle boundary rather than terminal completion.
+- Keep repeated lifecycle faults and external cancellation terminal while preserving deterministic per-cycle cleanup.
 - Create the stop wait per enumeration and share a coordination token with the source enumerator.
 - Cancel, observe, and dispose the losing side before the composed sequence reports completion.
 - Preserve the 0.4 primary-outcome-first cleanup policy when the source, stop wait, cancellation callbacks, or enumerator disposal fail.
