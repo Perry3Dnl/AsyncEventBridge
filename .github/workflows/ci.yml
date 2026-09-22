@@ -327,7 +327,9 @@ jobs:
         run: |
           set -euo pipefail
           PACKAGE="artifacts/unified/AsyncEventBridge.${VERSION}.nupkg"
+          SYMBOL_PACKAGE="artifacts/unified/AsyncEventBridge.${VERSION}.snupkg"
           test -f "$PACKAGE"
+          test -f "$SYMBOL_PACKAGE"
           unzip -l "$PACKAGE" | tee artifacts/unified-package-contents.txt
           unzip -l "$PACKAGE" | grep -q "lib/net10.0/AsyncEventBridge.dll"
           unzip -l "$PACKAGE" | grep -q "lib/net10.0/AsyncEventBridge.xml"
@@ -338,6 +340,8 @@ jobs:
           unzip -l "$PACKAGE" | grep -q "buildTransitive/AsyncEventBridge.targets"
           unzip -l "$PACKAGE" | grep -q "README.md"
           unzip -l "$PACKAGE" | grep -q "assets/AsyncEventBridge.png"
+          unzip -l "$SYMBOL_PACKAGE" | grep -q "lib/net10.0/AsyncEventBridge.pdb"
+          unzip -l "$SYMBOL_PACKAGE" | grep -q "lib/netstandard2.0/AsyncEventBridge.pdb"
 
           python3 - <<'PY'
           import os
@@ -444,7 +448,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: AsyncEventBridge-unified-${{ env.VERSION }}
-          path: artifacts/unified/AsyncEventBridge.${{ env.VERSION }}.nupkg
+          path: |
+            artifacts/unified/AsyncEventBridge.${{ env.VERSION }}.nupkg
+            artifacts/unified/AsyncEventBridge.${{ env.VERSION }}.snupkg
           if-no-files-found: error
 
   cross-platform:
