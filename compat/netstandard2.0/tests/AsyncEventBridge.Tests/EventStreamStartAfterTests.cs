@@ -52,6 +52,36 @@ public sealed class EventStreamStartAfterTests
     }
 
     [Fact]
+    public async Task ExternalCancellationBeforeStartCleansWaitWithoutStartingSource()
+    {
+        var values = new EventSource();
+        var start = new EventSource();
+        using var cancellation = new CancellationTokenSource();
+
+        var stream = EventStream.Create<TestArgs>(
+                handler => values.Changed += handler,
+                handler => values.Changed -= handler)
+            .StartAfter(
+                token => EventAwaiter.WaitAsync<TestArgs>(
+                    handler => start.Changed += handler,
+                    handler => start.Changed -= handler,
+                    cancellationToken: token),
+                cancellation.Token);
+
+        await using var enumerator = stream.GetAsyncEnumerator();
+        var move = enumerator.MoveNextAsync().AsTask();
+
+        Assert.Equal(1, start.HandlerCount);
+        Assert.Equal(0, values.HandlerCount);
+
+        cancellation.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => move);
+        Assert.Equal(0, start.HandlerCount);
+        Assert.Equal(0, values.HandlerCount);
+    }
+
+    [Fact]
     public async Task StartAfterAndTakeUntilStopBeforeStartWithoutSourceSubscription()
     {
         var values = new EventSource();
