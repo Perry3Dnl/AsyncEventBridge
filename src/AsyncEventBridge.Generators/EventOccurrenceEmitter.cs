@@ -12,10 +12,15 @@ internal static class EventOccurrenceEmitter
         EventGenerationModel item,
         TypeParameterContext typeParameters)
     {
-        AppendWait(source, typeSymbol, item, typeParameters, includeTimeout: false);
-        AppendWait(source, typeSymbol, item, typeParameters, includeTimeout: true);
-        AppendStream(source, typeSymbol, item, typeParameters, includeOptions: false);
-        AppendStream(source, typeSymbol, item, typeParameters, includeOptions: true);
+        AppendWait(source, typeSymbol, item, typeParameters, includePredicate: false, includeTimeout: false);
+        AppendWait(source, typeSymbol, item, typeParameters, includePredicate: true, includeTimeout: false);
+        AppendWait(source, typeSymbol, item, typeParameters, includePredicate: false, includeTimeout: true);
+        AppendWait(source, typeSymbol, item, typeParameters, includePredicate: true, includeTimeout: true);
+
+        AppendStream(source, typeSymbol, item, typeParameters, includePredicate: false, includeOptions: false);
+        AppendStream(source, typeSymbol, item, typeParameters, includePredicate: true, includeOptions: false);
+        AppendStream(source, typeSymbol, item, typeParameters, includePredicate: false, includeOptions: true);
+        AppendStream(source, typeSymbol, item, typeParameters, includePredicate: true, includeOptions: true);
     }
 
     private static void AppendWait(
@@ -23,6 +28,7 @@ internal static class EventOccurrenceEmitter
         INamedTypeSymbol typeSymbol,
         EventGenerationModel item,
         TypeParameterContext typeParameters,
+        bool includePredicate,
         bool includeTimeout)
     {
         var sourceType = RenderType(typeSymbol, typeParameters, preserveNullableAnnotations: true);
@@ -40,6 +46,13 @@ internal static class EventOccurrenceEmitter
         source.Append("(this ")
             .Append(sourceType)
             .Append(" source, ");
+
+        if (includePredicate)
+        {
+            source.Append("global::System.Predicate<")
+                .Append(occurrenceType)
+                .Append("> predicate, ");
+        }
 
         if (includeTimeout)
         {
@@ -61,8 +74,18 @@ internal static class EventOccurrenceEmitter
             .AppendLine("        {")
             .AppendLine("            throw new global::System.ArgumentNullException(nameof(source));")
             .AppendLine("        }")
-            .AppendLine()
-            .Append("        ")
+            .AppendLine();
+
+        if (includePredicate)
+        {
+            source.AppendLine("        if (predicate is null)")
+                .AppendLine("        {")
+                .AppendLine("            throw new global::System.ArgumentNullException(nameof(predicate));")
+                .AppendLine("        }")
+                .AppendLine();
+        }
+
+        source.Append("        ")
             .Append(item.HandlerType)
             .AppendLine("? adaptedHandler = null;")
             .AppendLine()
@@ -97,7 +120,8 @@ internal static class EventOccurrenceEmitter
             .AppendLine(" -= adaptedHandler;")
             .AppendLine("                }")
             .AppendLine("            },")
-            .AppendLine("            null,")
+            .Append("            ")
+            .AppendLine(includePredicate ? "predicate," : "null,")
             .Append("            cancellationToken");
 
         if (includeTimeout)
@@ -120,6 +144,7 @@ internal static class EventOccurrenceEmitter
         INamedTypeSymbol typeSymbol,
         EventGenerationModel item,
         TypeParameterContext typeParameters,
+        bool includePredicate,
         bool includeOptions)
     {
         var sourceType = RenderType(typeSymbol, typeParameters, preserveNullableAnnotations: true);
@@ -138,6 +163,13 @@ internal static class EventOccurrenceEmitter
             .Append(sourceType)
             .Append(" source, ");
 
+        if (includePredicate)
+        {
+            source.Append("global::System.Predicate<")
+                .Append(occurrenceType)
+                .Append("> predicate, ");
+        }
+
         if (includeOptions)
         {
             source.Append("global::AsyncEventBridge.EventStreamOptions options, ");
@@ -152,6 +184,15 @@ internal static class EventOccurrenceEmitter
             .AppendLine("            throw new global::System.ArgumentNullException(nameof(source));")
             .AppendLine("        }")
             .AppendLine();
+
+        if (includePredicate)
+        {
+            source.AppendLine("        if (predicate is null)")
+                .AppendLine("        {")
+                .AppendLine("            throw new global::System.ArgumentNullException(nameof(predicate));")
+                .AppendLine("        }")
+                .AppendLine();
+        }
 
         if (includeOptions)
         {
@@ -197,7 +238,8 @@ internal static class EventOccurrenceEmitter
             .AppendLine(" -= adaptedHandler;")
             .AppendLine("                }")
             .AppendLine("            },")
-            .AppendLine("            null,")
+            .Append("            ")
+            .AppendLine(includePredicate ? "predicate," : "null,")
             .Append("            ")
             .AppendLine(includeOptions ? "options," : "null,")
             .AppendLine("            cancellationToken);")
