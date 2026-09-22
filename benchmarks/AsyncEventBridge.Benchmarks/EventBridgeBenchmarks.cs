@@ -70,10 +70,10 @@ public class EventBridgeBenchmarks
     }
 
     [Benchmark]
-    public Task<long> BoundedDropNewestCountOnly() => RunDropNewestBurst(observeDrops: false);
+    public Task<long> BoundedDropWriteCountOnly() => RunDropWriteBurst(observeDrops: false);
 
     [Benchmark]
-    public Task<long> BoundedDropNewestWithObserver() => RunDropNewestBurst(observeDrops: true);
+    public Task<long> BoundedDropWriteWithObserver() => RunDropWriteBurst(observeDrops: true);
 
     private int RunCompletedBridge(EventBridge<int> bridge)
     {
@@ -91,13 +91,13 @@ public class EventBridgeBenchmarks
     private void CaptureBridgeResult(object? sender, AsyncValueEventArgs<int> eventArgs) =>
         _bridgeResult = eventArgs.Value;
 
-    private async Task<long> RunDropNewestBurst(bool observeDrops)
+    private async Task<long> RunDropWriteBurst(bool observeDrops)
     {
         long observedCount = 0;
         var options = new EventStreamOptions
         {
             Capacity = 8,
-            FullMode = EventStreamFullMode.DropNewest,
+            FullMode = EventStreamFullMode.DropWrite,
             DropObserver = observeDrops ? count => observedCount = count : null,
         };
         var stream = EventStream.Create<BenchmarkEventArgs>(
