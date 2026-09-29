@@ -170,6 +170,20 @@ Important pre-1.0 cleanups include:
 - lifecycle marker numeric values reserve zero for `Unspecified`;
 - bounded-drop metric tag `drop_newest` → `drop_write`.
 
+## Migration and adoption guides
+
+The 1.0 documentation includes task-oriented guides for adopting the package and for removing it later if a codebase completes its migration:
+
+- `docs/getting-started.md` for the shortest installation-to-first-use path;
+- `docs/migrating-event-driven-to-async.md` for gradual event-to-async migration, coexistence, architecture boundaries, and an explicit exit strategy;
+- `docs/migrating-async-to-events.md` for compatibility event facades over async implementations and a later bridge-removal strategy;
+- `docs/third-party-events.md` for legacy or external event sources;
+- `docs/lifecycle-recipes.md` for connected/disconnected and repeated lifecycle workflows;
+- `docs/buffering.md` for unbounded versus bounded stream behavior;
+- `docs/troubleshooting.md` for generator, lifecycle, cancellation, and cleanup issues.
+
+AsyncEventBridge is intended to be removable infrastructure: applications can isolate it behind their own async or event-facing boundaries and later replace the adapter without redesigning the rest of the application.
+
 ## Deliberate non-goals
 
 AsyncEventBridge 1.0 is not:
