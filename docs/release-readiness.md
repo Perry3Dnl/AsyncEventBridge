@@ -44,6 +44,12 @@ If RC validation is clean, the stable release should differ only in release/vers
 
 The stable `1.0.0` commit must still rerun the complete automated release gate on `main` before tagging/publication.
 
+### Current RC status
+
+The current `1.0.0-rc.1` repository state has passed the complete automated CI gate on both `main` and `release/1.0.0-stabilization`, including modern .NET, .NET Standard 2.0 compatibility, Windows/macOS/Linux convergence, Unity package validation, packed-package consumers, Unified NuGet, and Native AOT.
+
+The only remaining technical acceptance gate before the stable metadata commit is the manual real-Unity workflow covering EditMode, PlayMode, and IL2CPP.
+
 ## Branch policy
 
 `release/1.0.0-stabilization` is the 1.0 integration line.
@@ -172,6 +178,7 @@ Before 1.0 final:
 - common one-shot, stream, lifecycle, reverse-bridge, third-party, and Unity scenarios have compiling examples;
 - framework and Unity support are obvious;
 - migration notes from pre-1.0 are available;
+- dedicated event-driven-to-async and async-to-events migration guides document gradual adoption and package-removal strategies;
 - release notes summarize behavioral contracts and any breaking pre-1.0 cleanup;
 - the default branch reflects the stable product;
 - a GitHub release/tag exists for the final version;
