@@ -2,6 +2,8 @@
 
 Use this guide when the source API exposes .NET events and your consuming code wants `await`, cancellation, timeout, filtering, or `await foreach`.
 
+For a step-by-step architectural migration, including how to remove AsyncEventBridge later, see [Migrate an event-driven codebase to async](migrating-event-driven-to-async.md).
+
 ## Generated APIs are the normal path
 
 For a type you own:
