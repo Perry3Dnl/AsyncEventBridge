@@ -26,6 +26,8 @@ Or add it directly to the project's `Packages/manifest.json`:
 
 The Unity package and NuGet package share the same release version. During 1.0 stabilization, the manifest remains on the current pre-1.0 development version until the final release gate closes.
 
+For the portable event/async concepts shared with the .NET editions, see the [documentation index](../../../docs/README.md). Unity-specific APIs remain documented here.
+
 ## Baseline
 
 - Unity 2023.1.0f1 or newer.
