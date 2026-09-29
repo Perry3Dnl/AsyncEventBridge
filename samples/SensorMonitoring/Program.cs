@@ -23,19 +23,31 @@ foreach (var value in await nextTwoValues)
 Console.WriteLine();
 Console.WriteLine("State-driven event lifecycle");
 var firstActivation = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+var firstValueObserved = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+var firstDeactivation = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 var secondActivation = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-var connectedValues = ObserveConnectedValuesAsync(sensor, firstActivation, secondActivation);
+var secondValueObserved = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+var connectedValues = ObserveConnectedValuesAsync(
+    sensor,
+    firstActivation,
+    firstValueObserved,
+    firstDeactivation,
+    secondActivation,
+    secondValueObserved);
 
 sensor.SetConnected(true);
 await firstActivation.Task;
 sensor.RaiseValue(30);
+await firstValueObserved.Task;
 
 sensor.SetConnected(false);
+await firstDeactivation.Task;
 sensor.RaiseValue(999); // Not observed while disconnected.
 
 sensor.SetConnected(true);
 await secondActivation.Task;
 sensor.RaiseValue(40);
+await secondValueObserved.Task;
 
 foreach (var value in await connectedValues)
 {
@@ -90,7 +102,10 @@ static async Task<IReadOnlyList<int>> ReadTwoValuesAsync(Sensor sensor)
 static async Task<IReadOnlyList<int>> ObserveConnectedValuesAsync(
     Sensor sensor,
     TaskCompletionSource<bool> firstActivation,
-    TaskCompletionSource<bool> secondActivation)
+    TaskCompletionSource<bool> firstValueObserved,
+    TaskCompletionSource<bool> firstDeactivation,
+    TaskCompletionSource<bool> secondActivation,
+    TaskCompletionSource<bool> secondValueObserved)
 {
     var values = new List<int>();
     var activationCount = 0;
@@ -119,9 +134,22 @@ static async Task<IReadOnlyList<int>> ObserveConnectedValuesAsync(
             case EventStreamLifecycleEventKind.Value:
                 values.Add(item.Value.Value);
 
-                if (values.Count == 2)
+                if (values.Count == 1)
                 {
+                    firstValueObserved.TrySetResult(true);
+                }
+                else if (values.Count == 2)
+                {
+                    secondValueObserved.TrySetResult(true);
                     return values;
+                }
+
+                break;
+
+            case EventStreamLifecycleEventKind.Deactivated:
+                if (item.Cycle == 1)
+                {
+                    firstDeactivation.TrySetResult(true);
                 }
 
                 break;
