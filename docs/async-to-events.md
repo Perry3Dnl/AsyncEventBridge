@@ -2,6 +2,8 @@
 
 Use this guide when the implementation is asynchronous but existing consumers expect ordinary .NET events.
 
+For a gradual compatibility migration and an explicit package-removal strategy, see [Expose async code to event consumers](migrating-async-to-events.md).
+
 AsyncEventBridge supports one-shot tasks and repeated async streams without requiring event-first callers to adopt `Task` or `IAsyncEnumerable<T>`.
 
 ## Task to events
