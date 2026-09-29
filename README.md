@@ -92,6 +92,18 @@ For the stable termination/ownership rules, see the [1.0 cancellation, lifecycle
 
 Upgrading from a pre-1.0 build? See [Migrating to AsyncEventBridge 1.0](docs/migrating-to-1.0.md) for the intentional source and behavioral cleanups made before the stable API freeze.
 
+## Guides and recipes
+
+If you want task-oriented documentation rather than API/reference detail, start with the [documentation index](docs/README.md):
+
+- [Getting started](docs/getting-started.md)
+- [Events to async](docs/events-to-async.md)
+- [Async to events](docs/async-to-events.md)
+- [Third-party and legacy event sources](docs/third-party-events.md)
+- [Lifecycle recipes](docs/lifecycle-recipes.md)
+- [Buffering and slow consumers](docs/buffering.md)
+- [Troubleshooting and FAQ](docs/troubleshooting.md)
+
 ## Before and after
 
 AsyncEventBridge is designed so the **event API still looks like an event API** and the **async API still looks like normal async .NET**. The package owns the subscription, cancellation, race, cleanup, and lifecycle plumbing between them.
