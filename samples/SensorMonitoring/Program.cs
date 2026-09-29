@@ -10,6 +10,39 @@ var highValue = await nextHighValue;
 Console.WriteLine($"Observed {highValue.Value}");
 
 Console.WriteLine();
+Console.WriteLine("Event -> IAsyncEnumerable<T>");
+var nextTwoValues = ReadTwoValuesAsync(sensor);
+sensor.RaiseValue(10);
+sensor.RaiseValue(20);
+
+foreach (var value in await nextTwoValues)
+{
+    Console.WriteLine($"Stream value: {value}");
+}
+
+Console.WriteLine();
+Console.WriteLine("State-driven event lifecycle");
+var firstActivation = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+var secondActivation = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+var connectedValues = ObserveConnectedValuesAsync(sensor, firstActivation, secondActivation);
+
+sensor.SetConnected(true);
+await firstActivation.Task;
+sensor.RaiseValue(30);
+
+sensor.SetConnected(false);
+sensor.RaiseValue(999); // Not observed while disconnected.
+
+sensor.SetConnected(true);
+await secondActivation.Task;
+sensor.RaiseValue(40);
+
+foreach (var value in await connectedValues)
+{
+    Console.WriteLine($"Connected value: {value}");
+}
+
+Console.WriteLine();
 Console.WriteLine("Task<T> -> Events");
 using EventBridge<SensorConfiguration> configurationBridge =
     Task.FromResult(new SensorConfiguration("Production")).ToEventBridge();
@@ -37,6 +70,67 @@ streamBridge.Cancelled += (_, _) => streamCompleted.TrySetCanceled();
 streamBridge.Connect();
 await streamCompleted.Task;
 
+static async Task<IReadOnlyList<int>> ReadTwoValuesAsync(Sensor sensor)
+{
+    var values = new List<int>();
+
+    await foreach (var value in sensor.ValueChangedStream())
+    {
+        values.Add(value.Value);
+
+        if (values.Count == 2)
+        {
+            break;
+        }
+    }
+
+    return values;
+}
+
+static async Task<IReadOnlyList<int>> ObserveConnectedValuesAsync(
+    Sensor sensor,
+    TaskCompletionSource<bool> firstActivation,
+    TaskCompletionSource<bool> secondActivation)
+{
+    var values = new List<int>();
+    var activationCount = 0;
+
+    await foreach (var item in sensor.ValueChangedStream()
+        .RepeatWhileWithLifecycle(
+            () => sensor.IsConnected,
+            token => sensor.ConnectionChangedAsync(token)))
+    {
+        switch (item.Kind)
+        {
+            case EventStreamLifecycleEventKind.Activated:
+                activationCount++;
+
+                if (activationCount == 1)
+                {
+                    firstActivation.TrySetResult(true);
+                }
+                else if (activationCount == 2)
+                {
+                    secondActivation.TrySetResult(true);
+                }
+
+                break;
+
+            case EventStreamLifecycleEventKind.Value:
+                values.Add(item.Value.Value);
+
+                if (values.Count == 2)
+                {
+                    return values;
+                }
+
+                break;
+        }
+    }
+
+    return values;
+}
+
 static async IAsyncEnumerable<SensorValue> ReadSensorValuesAsync()
 {
     yield return new SensorValue(10);
@@ -47,12 +141,20 @@ static async IAsyncEnumerable<SensorValue> ReadSensorValuesAsync()
 [GenerateAsyncEvents]
 public sealed class Sensor
 {
-    public event EventHandler? Connected;
+    public event EventHandler? ConnectionChanged;
     public event EventHandler<SensorEventArgs>? ValueChanged;
 
-    public void RaiseConnected()
+    public bool IsConnected { get; private set; }
+
+    public void SetConnected(bool isConnected)
     {
-        Connected?.Invoke(this, EventArgs.Empty);
+        if (IsConnected == isConnected)
+        {
+            return;
+        }
+
+        IsConnected = isConnected;
+        ConnectionChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public void RaiseValue(int value)
