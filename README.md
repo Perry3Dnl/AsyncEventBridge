@@ -99,6 +99,8 @@ If you want task-oriented documentation rather than API/reference detail, start 
 - [Getting started](docs/getting-started.md)
 - [Events to async](docs/events-to-async.md)
 - [Async to events](docs/async-to-events.md)
+- [Migrate an event-driven codebase to async](docs/migrating-event-driven-to-async.md)
+- [Expose async code to event consumers](docs/migrating-async-to-events.md)
 - [Third-party and legacy event sources](docs/third-party-events.md)
 - [Lifecycle recipes](docs/lifecycle-recipes.md)
 - [Buffering and slow consumers](docs/buffering.md)
