@@ -20,7 +20,7 @@ All notable changes across the supported AsyncEventBridge release tracks are doc
 - Align Unity generator diagnostics with AEB001/AEB002/AEB003 and stable help links.
 - Add IntelliSense summaries to generated extension classes and methods across modern, compatibility, and Unity generators.
 - Align validation packages with NuGet symbol-package conventions and produce compatibility `.snupkg` artifacts.
-- Move the stabilization line to `1.0.0-preview.1` so CI/package artifacts are unambiguously part of the 1.0 series.
+- Move the stabilization line through `1.0.0-preview.1` and now to `1.0.0-rc.1` after the public API freeze, package gates, documentation contracts, and repository-side release checks converged.
 
 ### 0.5 async interoperability
 
