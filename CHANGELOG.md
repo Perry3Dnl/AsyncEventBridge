@@ -21,6 +21,9 @@ All notable changes across the supported AsyncEventBridge release tracks are doc
 - Add IntelliSense summaries to generated extension classes and methods across modern, compatibility, and Unity generators.
 - Align validation packages with NuGet symbol-package conventions and produce compatibility `.snupkg` artifacts.
 - Move the stabilization line through `1.0.0-preview.1` and now to `1.0.0-rc.1` after the public API freeze, package gates, documentation contracts, and repository-side release checks converged.
+- Add a user-focused documentation index plus getting-started, event-to-async, async-to-events, third-party integration, lifecycle, buffering, and troubleshooting guides.
+- Add dedicated event-driven-to-async and async-to-events migration guides that show coexistence during migration and how to remove or replace AsyncEventBridge later without spreading package-specific types through the application architecture.
+- Revalidate the complete `1.0.0-rc.1` automated release gate on both `main` and `release/1.0.0-stabilization` after the final documentation/migration-guide pass.
 
 ### 0.5 async interoperability
 
