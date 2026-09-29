@@ -9,6 +9,13 @@ If you are new to the package, start with [Getting started](getting-started.md).
 - [Getting started](getting-started.md) — install the package, generate your first async event facade, await one event, and consume a stream.
 - [Events to async](events-to-async.md) — one-shot waits, filtering, cancellation, timeout, streams, and sender-aware occurrences.
 - [Async to events](async-to-events.md) — expose `Task`, `Task<T>`, `ValueTask`, and `IAsyncEnumerable<T>` to event-first consumers.
+
+## Migration guides
+
+These guides are for teams changing architecture gradually while keeping a clear path to remove AsyncEventBridge later:
+
+- [Migrate an event-driven codebase to async](migrating-event-driven-to-async.md) — coexistence, one-shot waits, streams, state/lifecycle migration, dependency boundaries, and an explicit exit strategy.
+- [Expose async code to event consumers](migrating-async-to-events.md) — event compatibility facades over async code, gradual consumer migration, and how to remove or replace the bridge later.
 - [Third-party and legacy event sources](third-party-events.md) — generate async APIs for public types and interfaces you do not own.
 - [Lifecycle recipes](lifecycle-recipes.md) — connected/disconnected, ready/not-ready, start/stop, reconnecting, and explicit lifecycle markers.
 - [Buffering and slow consumers](buffering.md) — choose between lossless unbounded buffering and bounded drop policies.
