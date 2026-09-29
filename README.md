@@ -12,16 +12,16 @@ The package stays deliberately focused on event/async interoperability rather th
 
 ## Install
 
-Current 1.0 stabilization preview:
+Current 1.0 release candidate:
 
 ```bash
-dotnet add package AsyncEventBridge --version 1.0.0-preview.1
+dotnet add package AsyncEventBridge --version 1.0.0-rc.1
 ```
 
 or:
 
 ```xml
-<PackageReference Include="AsyncEventBridge" Version="1.0.0-preview.1" />
+<PackageReference Include="AsyncEventBridge" Version="1.0.0-rc.1" />
 ```
 
 The source generator is included in the same NuGet package; no separate analyzer package is required.
