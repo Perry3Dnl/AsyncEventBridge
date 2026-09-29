@@ -16,7 +16,7 @@ The sample demonstrates:
 - `Task<T>` exposed back to event-oriented consumers;
 - `IAsyncEnumerable<T>` exposed back through `EventStreamBridge<T>`.
 
-The lifecycle section deliberately raises a value while the sensor is disconnected to demonstrate that the value source is not observed outside an active session. It waits for the emitted `Activated` lifecycle marker before publishing values, so the example does not rely on scheduler timing to know when the event stream is subscribed.
+The lifecycle section deliberately raises a value while the sensor is disconnected to demonstrate that the value source is not observed outside an active session. It coordinates through emitted `Activated`, `Value`, and `Deactivated` markers, so the example does not rely on scheduler timing and also respects the documented stop-wins boundary semantics.
 
 The repository-level README and focused docs cover additional modern features:
 
