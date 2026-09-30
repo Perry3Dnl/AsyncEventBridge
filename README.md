@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/AsyncEventBridge.png" alt="AsyncEventBridge icon" width="128" height="128">
+  <img src="assets/AsyncEventBridge-logo.png" alt="AsyncEventBridge logo" width="512">
 </p>
 
 <h1 align="center">AsyncEventBridge</h1>
