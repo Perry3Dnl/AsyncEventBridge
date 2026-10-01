@@ -8,3 +8,6 @@ Rule ID | Category | Severity | Notes
 AEB001 | AsyncEventBridge | Warning | Reports event delegates that cannot be bridged by generated Unity APIs.
 AEB002 | AsyncEventBridge | Warning | Reports invalid `GenerateAsyncEventsFor` target types.
 AEB003 | AsyncEventBridge | Warning | Reports duplicate or redundant async-event generation requests.
+AEB004 | AsyncEventBridge | Warning | Reports invalid `GenerateInspectorEvents` target types.
+AEB005 | AsyncEventBridge | Warning | Reports event delegates that cannot be projected to Inspector UnityEvents.
+AEB006 | AsyncEventBridge | Warning | Reports collisions with the reserved generated Inspector event container member.
