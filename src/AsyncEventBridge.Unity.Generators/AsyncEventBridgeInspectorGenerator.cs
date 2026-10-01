@@ -320,10 +320,20 @@ public sealed class AsyncEventBridgeInspectorGenerator : ISourceGenerator
             return true;
         }
 
-        return eventSymbol.DeclaredAccessibility == Accessibility.Public ||
-               eventSymbol.DeclaredAccessibility == Accessibility.Protected ||
-               eventSymbol.DeclaredAccessibility == Accessibility.ProtectedOrInternal ||
-               eventSymbol.DeclaredAccessibility == Accessibility.Internal;
+        if (eventSymbol.DeclaredAccessibility == Accessibility.Public ||
+            eventSymbol.DeclaredAccessibility == Accessibility.Protected ||
+            eventSymbol.DeclaredAccessibility == Accessibility.ProtectedOrInternal)
+        {
+            return true;
+        }
+
+        var sameAssembly = SymbolEqualityComparer.Default.Equals(
+            eventSymbol.ContainingAssembly,
+            targetType.ContainingAssembly);
+
+        return sameAssembly &&
+               (eventSymbol.DeclaredAccessibility == Accessibility.Internal ||
+                eventSymbol.DeclaredAccessibility == Accessibility.ProtectedAndInternal);
     }
 
     private static IEnumerable<IEventSymbol> GetEvents(INamedTypeSymbol typeSymbol)
