@@ -50,27 +50,27 @@ public sealed class InspectorEventForwardingTests
             UnityEngine.Object.Destroy(gameObject);
         }
     }
+}
 
-    [GenerateInspectorEvents]
-    public sealed partial class InspectorForwardingSource : MonoBehaviour
+[GenerateInspectorEvents]
+public sealed partial class InspectorForwardingSource : MonoBehaviour
+{
+    public event EventHandler<InspectorForwardingEventArgs>? Reading;
+
+    public void RaiseReading(int value)
     {
-        public event EventHandler<InspectorForwardingEventArgs>? Reading;
+        Reading?.Invoke(this, new InspectorForwardingEventArgs(value));
+    }
+}
 
-        public void RaiseReading(int value)
-        {
-            Reading?.Invoke(this, new InspectorForwardingEventArgs(value));
-        }
+[Serializable]
+public sealed class InspectorForwardingEventArgs : EventArgs
+{
+    public InspectorForwardingEventArgs(int value)
+    {
+        Value = value;
     }
 
-    [Serializable]
-    public sealed class InspectorForwardingEventArgs : EventArgs
-    {
-        public InspectorForwardingEventArgs(int value)
-        {
-            Value = value;
-        }
-
-        public int Value;
-    }
+    public int Value;
 }
 }
