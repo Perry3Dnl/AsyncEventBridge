@@ -141,8 +141,9 @@ Before 1.0 final, repository validation must cover:
 3. Unity asset metadata;
 4. Unity generator build and packaging;
 5. compile-smoke validation against Unity API stubs;
-6. Runtime and Editor Unity Test Framework tests in a supported Unity Editor;
-7. IL2CPP acceptance;
+6. generated CLR-event Inspector serialization and forwarding coverage;
+7. Runtime and Editor Unity Test Framework tests in a supported Unity Editor;
+8. IL2CPP acceptance;
 8. import and execution of the shipped sample;
 9. documented installation and supported-editor baseline.
 
