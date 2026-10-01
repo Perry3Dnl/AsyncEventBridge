@@ -30,18 +30,18 @@ public sealed class InspectorEventGenerationTests
             UnityEngine.Object.DestroyImmediate(gameObject);
         }
     }
+}
 
-    [GenerateInspectorEvents]
-    public sealed partial class InspectorEventSource : MonoBehaviour
-    {
-        public event EventHandler<InspectorReadingEventArgs>? Reading;
-        public event EventHandler? Tick;
-    }
+[GenerateInspectorEvents]
+public sealed partial class InspectorEventSource : MonoBehaviour
+{
+    public event EventHandler<InspectorReadingEventArgs>? Reading;
+    public event EventHandler? Tick;
+}
 
-    [Serializable]
-    public sealed class InspectorReadingEventArgs : EventArgs
-    {
-        public int Value;
-    }
+[Serializable]
+public sealed class InspectorReadingEventArgs : EventArgs
+{
+    public int Value;
 }
 }
