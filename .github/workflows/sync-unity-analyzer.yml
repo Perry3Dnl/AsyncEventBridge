@@ -1,0 +1,45 @@
+name: One-shot Unity analyzer sync
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/sync-unity-analyzer.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Build Unity generator
+        run: dotnet build src/AsyncEventBridge.Unity.Generators/AsyncEventBridge.Unity.Generators.csproj --configuration Release
+
+      - name: Sync packaged analyzer
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_dll="src/AsyncEventBridge.Unity.Generators/bin/Release/netstandard2.0/AsyncEventBridge.Unity.Generators.dll"
+          package_dll="Packages/com.perry3d.async-event-bridge/Analyzers/AsyncEventBridge.Unity.Generators.dll"
+          cp "$source_dll" "$package_dll"
+
+          if git diff --quiet -- "$package_dll"; then
+            echo "Packaged analyzer is already current."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$package_dll"
+          git commit -m "Update packaged Unity Inspector generator"
+          git push
