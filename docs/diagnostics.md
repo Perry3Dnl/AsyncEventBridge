@@ -65,8 +65,47 @@ Keep one generation request:
 
 Removing the duplicate keeps generated ownership and inheritance boundaries unambiguous.
 
+## AEB004 — Invalid Inspector event generation target
+
+`[GenerateInspectorEvents]` was applied to a type that cannot safely receive generated serialized Inspector members.
+
+Inspector event generation requires a top-level, non-generic, non-abstract `MonoBehaviour` declared with the `partial` modifier.
+
+### Resolution
+
+Make the component partial and keep the Inspector-enabled component itself non-generic:
+
+```csharp
+[GenerateInspectorEvents]
+public sealed partial class Sensor : MonoBehaviour
+{
+}
+```
+
+The partial requirement is intentional: the Unity generator adds the serialized event container to the same component type so Unity can persist scene and prefab listener wiring without runtime reflection.
+
+## AEB005 — Unsupported Inspector event delegate
+
+A CLR event on a `[GenerateInspectorEvents]` component cannot be projected to a serialized UnityEvent.
+
+Inspector projection supports the same Unity-safe EventHandler-style shape used by the Unity async generator: a `void` delegate with two non-ref parameters whose second parameter derives from `EventArgs`.
+
+### Resolution
+
+Keep unsupported events code-only, change the delegate to a supported EventHandler-style shape, or expose a separate UnityEvent manually when the event cannot safely map to the Inspector.
+
+## AEB006 — Reserved Inspector event member collision
+
+A `[GenerateInspectorEvents]` component already declares a member named `AsyncEventBridgeEvents`.
+
+That name is reserved for the generated serialized event group.
+
+### Resolution
+
+Rename the user-defined member before enabling generated Inspector events. Keeping this generated field name stable is important because Unity stores scene and prefab serialization against field identity.
+
 ## Severity
 
-AEB001, AEB002, and AEB003 are warnings in 1.0. They do not indicate a runtime failure; they indicate that requested generated API is missing, invalid, or redundant.
+AEB001 through AEB006 are warnings in 1.0. They do not indicate a runtime failure; they indicate that requested generated API is missing, invalid, redundant, or cannot be represented safely in the Unity Inspector.
 
 Projects may promote warnings to errors through their normal compiler/analyzer configuration.
