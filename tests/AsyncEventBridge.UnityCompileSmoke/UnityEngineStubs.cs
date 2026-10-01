@@ -5,6 +5,28 @@ using System.Threading.Tasks;
 
 namespace UnityEngine
 {
+    [AttributeUsage(AttributeTargets.Class, AllowMultiple = true, Inherited = true)]
+    public sealed class RequireComponent : Attribute
+    {
+        public RequireComponent(Type requiredComponent) { }
+    }
+
+    [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = true)]
+    public sealed class DisallowMultipleComponent : Attribute
+    {
+    }
+
+    [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
+    public sealed class AddComponentMenu : Attribute
+    {
+        public AddComponentMenu(string menuName) { }
+    }
+
+    [AttributeUsage(AttributeTargets.Field, AllowMultiple = false, Inherited = true)]
+    public sealed class SerializeField : Attribute
+    {
+    }
+
     [AsyncMethodBuilder(typeof(AwaitableMethodBuilder))]
     public readonly struct Awaitable
     {
@@ -118,6 +140,8 @@ namespace UnityEngine
     public class MonoBehaviour
     {
         public CancellationToken destroyCancellationToken => default;
+
+        public T[] GetComponents<T>() => Array.Empty<T>();
 
         public static bool operator ==(MonoBehaviour? left, MonoBehaviour? right) =>
             ReferenceEquals(left, right);
