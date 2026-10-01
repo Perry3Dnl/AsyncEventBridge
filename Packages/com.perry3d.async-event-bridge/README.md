@@ -78,6 +78,37 @@ The generator also supports event-handler-shaped custom delegates and reports `A
 
 ## Inspector / UnityEvent integration
 
+### Expose CLR events in the Inspector
+
+For a Unity component that owns CLR events, add `[GenerateInspectorEvents]` and make the component `partial`:
+
+```csharp
+using System;
+using AsyncEventBridge;
+using AsyncEventBridge.Unity;
+using UnityEngine;
+
+[GenerateAsyncEvents]
+[GenerateInspectorEvents]
+public sealed partial class Sensor : MonoBehaviour
+{
+    public event EventHandler<ReadingEventArgs>? Reading;
+    public event EventHandler? Disconnected;
+}
+```
+
+The Unity generator adds one serialized **Async Event Bridge Events** group to the same component. Supported CLR events appear inside that group as UnityEvents, so designers can wire scene and prefab listeners without replacing the original C# event.
+
+The same occurrence can therefore be consumed three ways at once:
+
+- ordinary C# subscribers with `+=`;
+- generated `Awaitable` APIs such as `ReadingAsync(this)`;
+- persistent Unity Inspector listeners.
+
+Inspector projection is reflection-free. A generated strongly typed binding forwards each CLR event to its serialized UnityEvent, and a small automatically-required `AsyncEventBridgeInspectorHost` owns connect/disconnect lifetime for the GameObject. Existing user-authored `UnityEvent` fields are never replaced or modified.
+
+Inspector generation intentionally requires a top-level, non-generic, non-abstract partial `MonoBehaviour`. That constraint lets the generator place stable serialized fields on the actual component type, which keeps Unity scene/prefab serialization deterministic and IL2CPP-friendly. `AEB004` through `AEB006` explain invalid targets, unsupported delegate shapes, and the reserved generated field name.
+
 Unity already lets a `UnityEvent` be awaited directly. AsyncEventBridge builds on that instead of replacing it: `WaitAsync` adds timeout, predicate, caller cancellation, owner-destruction cancellation, and application-exit cancellation while preserving Inspector-configured persistent listeners.
 
 ```csharp
@@ -159,6 +190,7 @@ The package contains both `Tests/Runtime` and `Tests/Editor` Unity Test Framewor
 - main-thread completion/publication;
 - buffered UnityEvent streaming;
 - preserving Inspector persistent listeners;
+- generated CLR-event Inspector serialization and forwarding;
 - Task-to-UnityEvent publication.
 
 For a Git/registry dependency, add `com.perry3d.async-event-bridge` to the consuming project's `testables` list when you want Unity Test Runner to expose the package tests. Embedded packages are testable automatically.
