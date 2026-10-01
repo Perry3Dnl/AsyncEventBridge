@@ -2,11 +2,6 @@ name: Unity 1.0 Acceptance
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - ".github/workflows/unity-acceptance.yml"
 
 permissions:
   contents: read
