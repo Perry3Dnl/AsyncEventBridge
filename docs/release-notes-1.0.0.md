@@ -37,7 +37,7 @@ The Unity distribution supports Unity `2023.1.0f1+` through the UPM package:
 com.perry3d.async-event-bridge
 ```
 
-The Unity release includes Unity-native `Awaitable`, `UnityEvent`, lifecycle cancellation, generated CLR-event facades, and async-to-Inspector publication.
+The Unity release includes Unity-native `Awaitable`, `UnityEvent`, lifecycle cancellation, generated CLR-event facades, opt-in serialized Inspector projections for CLR events, and async-to-Inspector publication.
 
 ## Event to async
 
@@ -152,6 +152,7 @@ The 1.0 release gate includes:
 - Windows, Linux, and macOS convergence;
 - NuGet symbol/source metadata verification;
 - Unity package metadata and compile validation;
+- generated Inspector-event serialization/forwarding tests;
 - real Unity Editor tests and IL2CPP acceptance before final publication.
 
 ## Intentional pre-1.0 cleanup
